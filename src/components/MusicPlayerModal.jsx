@@ -72,96 +72,108 @@ export const MusicPlayerModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 select-none animate-in fade-in">
-      <div className="bg-discord-dark w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden border border-discord-darker flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-xl flex items-center justify-center z-50 p-4 select-none">
+      <div className="glass-modal w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/15 flex flex-col max-h-[85vh] animate-modal">
         {/* Modal Header */}
-        <div className="p-5 flex items-center justify-between border-b border-discord-darker bg-discord-darkest">
-          <div className="flex items-center space-x-2">
-            <Disc3 className="w-6 h-6 text-discord-yellow animate-spin" style={{ animationDuration: '8s' }} />
+        <div className="p-5 flex items-center justify-between border-b border-white/[0.06] bg-black/30">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center">
+              <Disc3 className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '8s' }} />
+            </div>
             <div>
-              <h2 className="text-xl font-bold text-discord-header">Bot de Música & Rádio 24/7</h2>
-              <p className="text-xs text-discord-muted">
+              <h2 className="text-lg font-bold text-white tracking-tight">Player de Áudio & Rádio 24/7</h2>
+              <p className="text-xs text-slate-400">
                 {activeVoiceChannel
-                  ? 'Conectado ao seu canal de voz atual'
-                  : '⚠️ Entre em um canal de voz para ouvir com seus amigos'}
+                  ? 'Conectado ao seu canal de voz ativo'
+                  : 'Entre em um canal de voz para ouvir em sincronia'}
               </p>
             </div>
           </div>
           <button
             onClick={() => setIsMusicModalOpen(false)}
-            className="text-discord-muted hover:text-white p-1 rounded transition"
+            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition btn-interactive"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-5 flex-1 overflow-y-auto space-y-6">
+        <div className="p-6 flex-1 overflow-y-auto space-y-6 thin-scrollbar">
           {/* Search / URL Input */}
-          <form onSubmit={handleSearchSubmit} className="flex space-x-2">
-            <div className="flex-1 bg-discord-darkest rounded-lg flex items-center px-3 border border-discord-dark focus-within:border-discord-yellow">
-              <Search className="w-4 h-4 text-discord-muted mr-2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar música, gênero (ex: lofi, synthwave) ou colar URL de áudio..."
-                className="w-full bg-transparent py-2.5 text-discord-text text-sm focus:outline-none placeholder-discord-muted/60"
-              />
+          <div className="space-y-2">
+            <form onSubmit={handleSearchSubmit} className="flex space-x-2.5">
+              <div className="flex-1 glass-input rounded-2xl flex items-center px-4">
+                <Search className="w-4 h-4 text-slate-400 mr-2.5" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cole links do YouTube, Spotify, SoundCloud ou busque qualquer música..."
+                  className="w-full bg-transparent py-3 text-white text-xs focus:outline-none placeholder-slate-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!searchQuery.trim()}
+                className="px-6 py-3 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-bold rounded-2xl text-xs transition shadow-lg btn-interactive"
+              >
+                Tocar
+              </button>
+            </form>
+
+            <div className="flex items-center space-x-2 px-1 text-[11px] text-slate-400">
+              <span className="text-slate-500">Suporte integrado:</span>
+              <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-semibold">YouTube</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold">Spotify</span>
+              <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30 text-[10px] font-semibold">SoundCloud</span>
+              <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold">Web Audio</span>
             </div>
-            <button
-              type="submit"
-              disabled={!searchQuery.trim()}
-              className="px-5 py-2.5 bg-discord-yellow hover:bg-yellow-500 disabled:opacity-50 text-black font-bold rounded-lg text-sm transition"
-            >
-              Tocar
-            </button>
-          </form>
+          </div>
 
           {/* Now Playing Card */}
           {musicPlayer.currentTrack ? (
-            <div className="bg-discord-darkest rounded-xl p-4 border border-discord-yellow/30 shadow-lg flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+            <div className="glass-panel rounded-3xl p-5 border border-amber-400/30 shadow-2xl flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-5">
               <div className="relative group">
                 <img
                   src={musicPlayer.currentTrack.cover}
                   alt="Cover"
-                  className="w-24 h-24 rounded-lg object-cover shadow-md"
+                  className="w-24 h-24 rounded-2xl object-cover shadow-md border border-white/10"
                 />
-                <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                  <Radio className="w-6 h-6 text-discord-yellow animate-pulse" />
+                <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                  <Radio className="w-6 h-6 text-amber-300 animate-pulse" />
                 </div>
               </div>
 
               <div className="flex-1 text-center md:text-left truncate">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-discord-yellow">
-                  Tocando Agora
+                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                  Reproduzindo Agora
                 </div>
-                <h3 className="text-base font-bold text-discord-header truncate mt-0.5">
+                <h3 className="text-base font-bold text-white truncate mt-0.5">
                   {musicPlayer.currentTrack.title}
                 </h3>
-                <p className="text-xs text-discord-muted truncate">
-                  {musicPlayer.currentTrack.artist} • Pedido por: {musicPlayer.currentTrack.requestedBy || 'Você'}
+                <p className="text-xs text-slate-400 truncate">
+                  {musicPlayer.currentTrack.artist}
                 </p>
 
                 {/* Controls */}
-                <div className="flex items-center justify-center md:justify-start space-x-3 mt-3">
+                <div className="flex items-center justify-center md:justify-start space-x-2.5 mt-3.5">
                   <button
                     onClick={() => sendMusicControl(musicPlayer.isPlaying ? 'pause' : 'resume')}
-                    className="p-2 rounded-full bg-discord-yellow hover:bg-yellow-500 text-black font-bold transition shadow"
+                    className="p-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-bold transition shadow-lg btn-interactive"
                   >
-                    {musicPlayer.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                    {musicPlayer.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
                   </button>
                   <button
                     onClick={() => sendMusicControl('skip')}
-                    className="p-2 rounded-full bg-discord-darker hover:bg-discord-hover text-white transition"
-                    title="Pular Música"
+                    className="p-2.5 rounded-2xl glass-pill text-slate-300 hover:text-white transition btn-interactive"
+                    title="Pular"
                   >
                     <SkipForward className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => sendMusicControl('stop')}
-                    className="p-2 rounded-full bg-discord-darker hover:bg-discord-red text-white transition"
-                    title="Parar e Limpar Fila"
+                    className="p-2.5 rounded-2xl glass-pill hover:bg-rose-500/30 text-slate-300 hover:text-rose-400 transition btn-interactive"
+                    title="Parar"
                   >
                     <Square className="w-4 h-4" />
                   </button>
@@ -169,41 +181,41 @@ export const MusicPlayerModal = () => {
               </div>
             </div>
           ) : (
-            <div className="p-6 bg-discord-darkest rounded-xl text-center text-discord-muted border border-discord-dark">
-              <Disc3 className="w-10 h-10 mx-auto mb-2 text-discord-muted/50" />
-              <p className="text-sm font-semibold text-discord-header">Nenhuma música tocando</p>
-              <p className="text-xs mt-1">Escolha uma das estações abaixo ou pesquise uma música.</p>
+            <div className="p-6 glass-panel rounded-3xl text-center text-slate-400">
+              <Disc3 className="w-10 h-10 mx-auto mb-2 text-slate-600" />
+              <p className="text-sm font-semibold text-slate-300">Nenhuma faixa em reprodução</p>
+              <p className="text-xs mt-1 text-slate-500">Selecione uma estação abaixo ou pesquise uma faixa.</p>
             </div>
           )}
 
           {/* Curated Radio Stations */}
           <div>
-            <h4 className="text-xs font-bold uppercase text-discord-muted tracking-wider mb-3">
-              Estações de Rádio e Playlists Populares
+            <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-3 px-1">
+              Estações e Playlists em Destaque
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {presets.map((preset) => (
                 <div
                   key={preset.id}
                   onClick={() => handlePlayPreset(preset.id)}
-                  className="flex items-center space-x-3 p-2.5 bg-discord-darkest hover:bg-discord-hover/60 rounded-lg cursor-pointer border border-discord-dark transition group"
+                  className="flex items-center space-x-3 p-3 glass-panel rounded-2xl cursor-pointer hover:border-white/20 transition group"
                 >
                   <img
                     src={preset.cover}
                     alt={preset.title}
-                    className="w-12 h-12 rounded object-cover flex-shrink-0"
+                    className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-discord-header truncate group-hover:text-discord-yellow transition">
+                    <div className="text-xs font-semibold text-white truncate group-hover:text-amber-300 transition">
                       {preset.title}
                     </div>
-                    <div className="text-[11px] text-discord-muted truncate">{preset.genre}</div>
+                    <div className="text-[10px] text-slate-400 truncate">{preset.genre}</div>
                   </div>
                   <button
                     type="button"
-                    className="w-8 h-8 rounded-full bg-discord-yellow/20 group-hover:bg-discord-yellow text-discord-yellow group-hover:text-black flex items-center justify-center transition flex-shrink-0"
+                    className="w-8 h-8 rounded-xl bg-white/10 group-hover:bg-amber-400 text-slate-300 group-hover:text-black flex items-center justify-center transition flex-shrink-0"
                   >
-                    <Play className="w-4 h-4 fill-current ml-0.5" />
+                    <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
                   </button>
                 </div>
               ))}
@@ -213,21 +225,21 @@ export const MusicPlayerModal = () => {
           {/* Queue List */}
           {musicPlayer.queue && musicPlayer.queue.length > 0 && (
             <div>
-              <div className="flex items-center space-x-2 text-xs font-bold uppercase text-discord-muted tracking-wider mb-2">
+              <div className="flex items-center space-x-2 text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2 px-1">
                 <ListMusic className="w-4 h-4" />
-                <span>Próximas na Fila ({musicPlayer.queue.length})</span>
+                <span>Fila de Reprodução ({musicPlayer.queue.length})</span>
               </div>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              <div className="space-y-1.5 max-h-40 overflow-y-auto thin-scrollbar">
                 {musicPlayer.queue.map((track, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between p-2 rounded bg-discord-darkest text-xs"
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-black/30 text-xs border border-white/[0.04]"
                   >
                     <div className="flex items-center space-x-2 truncate">
-                      <span className="text-discord-muted font-bold w-4">{i + 1}.</span>
-                      <span className="text-discord-text font-medium truncate">{track.title}</span>
+                      <span className="text-slate-500 font-bold w-4">{i + 1}.</span>
+                      <span className="text-slate-200 font-medium truncate">{track.title}</span>
                     </div>
-                    <span className="text-[10px] text-discord-muted flex-shrink-0">
+                    <span className="text-[10px] text-slate-500 flex-shrink-0">
                       {track.requestedBy}
                     </span>
                   </div>

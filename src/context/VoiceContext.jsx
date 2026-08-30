@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useSocket } from './SocketContext';
 import { WebRTCManager } from '../services/webrtc';
-import { VoiceDetector } from '../services/audioUtils';
+import { KrispAudioProcessor } from '../services/audioUtils';
 
 const VoiceContext = createContext(null);
 
@@ -15,6 +15,32 @@ export const VoiceProvider = ({ children }) => {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingUsers, setSpeakingUsers] = useState(new Set());
+
+  // Krisp Noise Suppression & Sensitivity settings
+  const [krispEnabled, setKrispEnabledState] = useState(() => {
+    const saved = localStorage.getItem('pulsecord_krisp_enabled');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [micSensitivity, setMicSensitivityState] = useState(() => {
+    const saved = localStorage.getItem('pulsecord_mic_sensitivity');
+    return saved !== null ? Number(saved) : 35;
+  });
+  const [micGain, setMicGainState] = useState(() => {
+    const saved = localStorage.getItem('pulsecord_mic_gain');
+    return saved !== null ? Number(saved) : 100;
+  });
+  const [micLiveLevel, setMicLiveLevel] = useState(0);
+  const [isGateOpen, setIsGateOpen] = useState(false);
+
+  // Per-User Friend Volume Sliders (0% to 200%)
+  const [userVolumes, setUserVolumes] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pulsecord_user_volumes');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   // Streams
   const [localAudioStream, setLocalAudioStream] = useState(null);
@@ -31,8 +57,41 @@ export const VoiceProvider = ({ children }) => {
   });
 
   const webrtcManagerRef = useRef(null);
-  const voiceDetectorRef = useRef(null);
+  const krispProcessorRef = useRef(null);
   const musicAudioRef = useRef(null);
+
+  // Helper setters that persist to localStorage
+  const setKrispEnabled = (val) => {
+    setKrispEnabledState(val);
+    localStorage.setItem('pulsecord_krisp_enabled', String(val));
+    if (krispProcessorRef.current) {
+      krispProcessorRef.current.setKrispEnabled(val);
+    }
+  };
+
+  const setMicSensitivity = (val) => {
+    setMicSensitivityState(val);
+    localStorage.setItem('pulsecord_mic_sensitivity', String(val));
+    if (krispProcessorRef.current) {
+      krispProcessorRef.current.setSensitivity(val);
+    }
+  };
+
+  const setMicGain = (val) => {
+    setMicGainState(val);
+    localStorage.setItem('pulsecord_mic_gain', String(val));
+    if (krispProcessorRef.current) {
+      krispProcessorRef.current.setInputGain(val / 100);
+    }
+  };
+
+  const setUserVolume = (userId, volume) => {
+    setUserVolumes((prev) => {
+      const updated = { ...prev, [userId]: volume };
+      localStorage.setItem('pulsecord_user_volumes', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   // Initialize WebRTC Manager
   useEffect(() => {
@@ -40,7 +99,7 @@ export const VoiceProvider = ({ children }) => {
 
     const manager = new WebRTCManager(socket, {
       onRemoteStream: (peerSocketId, stream, kind) => {
-        setRemoteStreams(prev => {
+        setRemoteStreams((prev) => {
           const current = prev[peerSocketId] || {};
           if (kind === 'video') {
             return { ...prev, [peerSocketId]: { ...current, videoStream: stream } };
@@ -50,14 +109,14 @@ export const VoiceProvider = ({ children }) => {
         });
       },
       onRemoteStreamRemoved: (peerSocketId) => {
-        setRemoteStreams(prev => {
+        setRemoteStreams((prev) => {
           const updated = { ...prev };
           delete updated[peerSocketId];
           return updated;
         });
       },
       onPeerDisconnected: (peerSocketId) => {
-        setRemoteStreams(prev => {
+        setRemoteStreams((prev) => {
           const updated = { ...prev };
           delete updated[peerSocketId];
           return updated;
@@ -70,13 +129,12 @@ export const VoiceProvider = ({ children }) => {
     // WebRTC Signaling events
     socket.on('user-joined-voice', async ({ user, channelId }) => {
       if (channelId === activeVoiceChannel) {
-        setUsersInVoice(prev => {
-          if (!prev.some(u => u.id === user.id)) {
+        setUsersInVoice((prev) => {
+          if (!prev.some((u) => u.id === user.id)) {
             return [...prev, user];
           }
           return prev;
         });
-        // Initiate peer connection to new joiner
         if (manager) {
           manager.createPeerConnection(user.socketId, true);
         }
@@ -84,8 +142,8 @@ export const VoiceProvider = ({ children }) => {
     });
 
     socket.on('user-left-voice', ({ socketId, userId, channelId }) => {
-      setUsersInVoice(prev => prev.filter(u => u.id !== userId));
-      setSpeakingUsers(prev => {
+      setUsersInVoice((prev) => prev.filter((u) => u.id !== userId));
+      setSpeakingUsers((prev) => {
         const next = new Set(prev);
         next.delete(socketId);
         return next;
@@ -114,7 +172,7 @@ export const VoiceProvider = ({ children }) => {
     });
 
     socket.on('user-speaking', ({ socketId, isSpeaking }) => {
-      setSpeakingUsers(prev => {
+      setSpeakingUsers((prev) => {
         const next = new Set(prev);
         if (isSpeaking) next.add(socketId);
         else next.delete(socketId);
@@ -123,7 +181,7 @@ export const VoiceProvider = ({ children }) => {
     });
 
     socket.on('user-voice-status-updated', ({ user }) => {
-      setUsersInVoice(prev => prev.map(u => u.id === user.id ? { ...u, ...user } : u));
+      setUsersInVoice((prev) => prev.map((u) => (u.id === user.id ? { ...u, ...user } : u)));
     });
 
     socket.on('music-state-update', ({ channelId, player }) => {
@@ -156,41 +214,57 @@ export const VoiceProvider = ({ children }) => {
         audio.src = musicPlayer.currentTrack.url;
       }
       audio.volume = (musicPlayer.volume || 70) / 100;
-      audio.play().catch(e => console.warn('Music play autoplay restriction:', e));
+      audio.play().catch((e) => console.warn('Music play restriction:', e));
     } else {
       audio.pause();
     }
   }, [musicPlayer, activeVoiceChannel, isDeafened]);
 
-  // Handle Join Voice Channel
+  // Handle Join Voice Channel with Krisp Audio Filter
   const joinVoiceChannel = async (channelId, serverId) => {
     if (!socket) return;
     if (activeVoiceChannel === channelId) return;
 
     try {
-      // 1. Acquire Local Audio
-      const micStream = await navigator.mediaDevices.getUserMedia({
+      // 1. Acquire Local Audio with WebRTC hardware processing
+      const rawMicStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: false // KrispProcessor handles smooth dynamic gain
         },
         video: false
       });
 
-      setLocalAudioStream(micStream);
-      if (webrtcManagerRef.current) {
-        webrtcManagerRef.current.setLocalAudioStream(micStream);
+      setLocalAudioStream(rawMicStream);
+
+      // 2. Initialize Krisp Audio Processor (Noise Gate + HighPass/LowPass filters)
+      if (krispProcessorRef.current) {
+        krispProcessorRef.current.stop();
       }
 
-      // Voice Activity Detection
-      if (voiceDetectorRef.current) voiceDetectorRef.current.stop();
-      voiceDetectorRef.current = new VoiceDetector(micStream, (speaking) => {
-        setIsSpeaking(speaking);
-        socket.emit('speaking-state', { isSpeaking: speaking });
+      const processor = new KrispAudioProcessor(rawMicStream, {
+        sensitivity: micSensitivity,
+        inputGain: micGain / 100,
+        krispEnabled,
+        onLevelChange: (level, gateOpen) => {
+          setMicLiveLevel(level);
+          setIsGateOpen(gateOpen);
+        },
+        onSpeakingChange: (speaking) => {
+          setIsSpeaking(speaking);
+          socket.emit('speaking-state', { isSpeaking: speaking });
+        }
       });
+      krispProcessorRef.current = processor;
 
-      // 2. Notify Socket Server
+      // 3. Feed processed stream to WebRTC
+      const processedStream = processor.getProcessedStream();
+      if (webrtcManagerRef.current) {
+        webrtcManagerRef.current.setLocalAudioStream(processedStream);
+      }
+
+      // 4. Notify Socket Server
       socket.emit('join-voice', { channelId, serverId }, (response) => {
         if (response && response.success) {
           setActiveVoiceChannel(channelId);
@@ -199,9 +273,8 @@ export const VoiceProvider = ({ children }) => {
             setMusicPlayer(response.musicPlayer);
           }
 
-          // Create WebRTC connections for existing room members
           if (response.usersInRoom && webrtcManagerRef.current) {
-            response.usersInRoom.forEach(peerUser => {
+            response.usersInRoom.forEach((peerUser) => {
               webrtcManagerRef.current.createPeerConnection(peerUser.socketId, true);
             });
           }
@@ -209,7 +282,6 @@ export const VoiceProvider = ({ children }) => {
       });
     } catch (err) {
       console.error('Failed to access microphone:', err);
-      // Still connect without mic if denied
       socket.emit('join-voice', { channelId, serverId }, (response) => {
         if (response && response.success) {
           setActiveVoiceChannel(channelId);
@@ -229,19 +301,18 @@ export const VoiceProvider = ({ children }) => {
     setSpeakingUsers(new Set());
     setRemoteStreams({});
 
-    // Stop and clean up streams
     if (localAudioStream) {
-      localAudioStream.getTracks().forEach(t => t.stop());
+      localAudioStream.getTracks().forEach((t) => t.stop());
       setLocalAudioStream(null);
     }
     if (localScreenStream) {
-      localScreenStream.getTracks().forEach(t => t.stop());
+      localScreenStream.getTracks().forEach((t) => t.stop());
       setLocalScreenStream(null);
       setIsScreenSharing(false);
     }
-    if (voiceDetectorRef.current) {
-      voiceDetectorRef.current.stop();
-      voiceDetectorRef.current = null;
+    if (krispProcessorRef.current) {
+      krispProcessorRef.current.stop();
+      krispProcessorRef.current = null;
     }
     if (webrtcManagerRef.current) {
       webrtcManagerRef.current.closeAll();
@@ -256,7 +327,7 @@ export const VoiceProvider = ({ children }) => {
     const newMuted = !isMuted;
     setIsMuted(newMuted);
     if (localAudioStream) {
-      localAudioStream.getAudioTracks().forEach(t => {
+      localAudioStream.getAudioTracks().forEach((t) => {
         t.enabled = !newMuted;
       });
     }
@@ -274,12 +345,11 @@ export const VoiceProvider = ({ children }) => {
     }
   };
 
-  // Start Screen Share with Source (from Electron desktopCapturer or Browser getDisplayMedia)
+  // Screen Share
   const startScreenShare = async (sourceId = null) => {
     try {
       let stream;
       if (window.electronAPI?.isElectron && sourceId) {
-        // Native Electron screen capture with specific source ID
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
@@ -296,7 +366,6 @@ export const VoiceProvider = ({ children }) => {
           }
         });
       } else {
-        // Standard Web display media capture
         stream = await navigator.mediaDevices.getDisplayMedia({
           video: { frameRate: { ideal: 60, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 } },
           audio: true
@@ -314,18 +383,17 @@ export const VoiceProvider = ({ children }) => {
         socket.emit('update-voice-status', { isScreenSharing: true });
       }
 
-      // Handle user stopping screen share via browser / OS bar
       stream.getVideoTracks()[0].onended = () => {
         stopScreenShare();
       };
     } catch (err) {
-      console.warn('Screen share canceled or failed:', err);
+      console.warn('Screen share error:', err);
     }
   };
 
   const stopScreenShare = () => {
     if (localScreenStream) {
-      localScreenStream.getTracks().forEach(t => t.stop());
+      localScreenStream.getTracks().forEach((t) => t.stop());
       setLocalScreenStream(null);
     }
     setIsScreenSharing(false);
@@ -364,6 +432,16 @@ export const VoiceProvider = ({ children }) => {
         localScreenStream,
         remoteStreams,
         musicPlayer,
+        krispEnabled,
+        setKrispEnabled,
+        micSensitivity,
+        setMicSensitivity,
+        micGain,
+        setMicGain,
+        micLiveLevel,
+        isGateOpen,
+        userVolumes,
+        setUserVolume,
         joinVoiceChannel,
         leaveVoiceChannel,
         toggleMute,

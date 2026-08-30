@@ -3,64 +3,251 @@
 @tailwind utilities;
 
 @layer base {
+  * {
+    box-sizing: border-box;
+  }
+
   body {
-    @apply bg-discord-dark text-discord-text antialiased;
+    background-color: #0b0c10;
+    color: #e5e7eb;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     user-select: none;
+    overflow: hidden;
+  }
+
+  ::selection {
+    background-color: rgba(99, 102, 241, 0.45);
+    color: #ffffff;
+  }
+
+  /* Sleek iOS Liquid Glass Scrollbars */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+    backdrop-filter: blur(8px);
+    transition: background 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  .thin-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
 
-/* Speaking pulse ring animation */
-@keyframes speaking-pulse {
+/* ==========================================================================
+   iPhone 26 / VisionOS Liquid Glass Design Utilities
+   ========================================================================== */
+
+/* Ambient mesh background glow */
+.liquid-ambient-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.liquid-orb-1 {
+  position: absolute;
+  top: -15%;
+  left: 10%;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, rgba(99, 102, 241, 0) 70%);
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: float-ambient 18s ease-in-out infinite alternate;
+}
+
+.liquid-orb-2 {
+  position: absolute;
+  bottom: -10%;
+  right: 15%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.14) 0%, rgba(168, 85, 247, 0.12) 40%, rgba(0, 0, 0, 0) 70%);
+  border-radius: 50%;
+  filter: blur(90px);
+  animation: float-ambient 22s ease-in-out infinite alternate-reverse;
+}
+
+.liquid-orb-3 {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+  border-radius: 50%;
+  filter: blur(100px);
+}
+
+@keyframes float-ambient {
   0% {
-    box-shadow: 0 0 0 0 rgba(35, 165, 90, 0.7);
+    transform: translate(0, 0) scale(1);
   }
-  70% {
-    box-shadow: 0 0 0 8px rgba(35, 165, 90, 0);
+  50% {
+    transform: translate(40px, 30px) scale(1.08);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(35, 165, 90, 0);
+    transform: translate(-30px, -20px) scale(0.95);
+  }
+}
+
+/* Glass Panels with Specular Highlights */
+.glass-panel {
+  background: rgba(18, 20, 29, 0.65);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.1), 0 12px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-panel-subtle {
+  background: rgba(25, 28, 40, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.glass-pill:active {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.glass-input {
+  background: rgba(14, 16, 24, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.glass-input:focus-within {
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 16px rgba(99, 102, 241, 0.25);
+}
+
+.glass-dock {
+  background: rgba(15, 17, 26, 0.75);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.glass-modal {
+  background: rgba(16, 18, 27, 0.85);
+  backdrop-filter: blur(40px) saturate(190%);
+  -webkit-backdrop-filter: blur(40px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 24px 64px rgba(0, 0, 0, 0.7);
+}
+
+/* Animations */
+@keyframes speaking-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
   }
 }
 
 .speaking-ring {
-  border-color: #23a55a !important;
-  animation: speaking-pulse 1.5s infinite;
+  border-color: #22c55e !important;
+  animation: speaking-glow 1.4s infinite cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Custom Tooltip */
-.tooltip-custom {
-  position: relative;
+@keyframes modal-scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
-.tooltip-custom:hover::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  margin-left: 14px;
-  padding: 6px 10px;
-  background-color: #111214;
-  color: #f2f3f5;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 6px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 50;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+@keyframes dropdown-slide {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.tooltip-custom:hover::before {
-  content: '';
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  margin-left: 6px;
-  border-width: 5px;
-  border-style: solid;
-  border-color: transparent #111214 transparent transparent;
-  pointer-events: none;
-  z-index: 50;
+.animate-modal {
+  animation: modal-scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+.animate-dropdown {
+  animation: dropdown-slide 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.btn-interactive {
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-interactive:hover {
+  transform: translateY(-1px);
+}
+.btn-interactive:active {
+  transform: scale(0.95) translateY(0);
+}
+
+/* Apple Squircle */
+.apple-squircle {
+  border-radius: 18px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.apple-squircle:hover {
+  border-radius: 14px;
+}
+

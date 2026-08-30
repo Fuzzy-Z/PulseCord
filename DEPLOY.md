@@ -70,7 +70,7 @@ Após subir o servidor no Render (ou outro serviço):
 3. Acesse a aba **Servidor / Nuvem**.
 4. No campo **URL do Servidor de Sinalização**, substitua `http://localhost:4000` pela URL do seu servidor na nuvem:
    ```
-   https://pulsecord-server.onrender.com
+   https://pulsecord-1-w3xw.onrender.com
    ```
 5. Clique em **Conectar ao Servidor**.
-6. Pronto! Agora qualquer pessoa que abrir o executável configurado com essa URL estará conectada na mesma rede para conversar por voz, transmitir tela e ouvir música juntos!
+6. Pronto! O PulseCord já vem pré-configurado por padrão com a URL oficial: `https://pulsecord-1-w3xw.onrender.com`. Agora qualquer pessoa que abrir o executável estará conectada na mesma rede para conversar por voz, transmitir tela e ouvir música juntos!

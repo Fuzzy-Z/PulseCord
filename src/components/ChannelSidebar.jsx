@@ -64,33 +64,33 @@ export const ChannelSidebar = () => {
   const activeChannelObj = currentServer.channels.find(c => c.id === activeVoiceChannel);
 
   return (
-    <div className="w-60 bg-discord-darker flex flex-col flex-shrink-0 select-none relative z-10">
+    <div className="w-60 bg-black/25 backdrop-blur-2xl flex flex-col flex-shrink-0 select-none relative z-10 border-r border-white/[0.06]">
       {/* Server Header Dropdown */}
       <div className="relative">
         <button
           onClick={() => setIsServerMenuOpen(!isServerMenuOpen)}
-          className="w-full h-12 px-4 border-b border-discord-darkest flex items-center justify-between font-semibold text-discord-header hover:bg-discord-hover/50 transition"
+          className="w-full h-12 px-4 border-b border-white/[0.06] flex items-center justify-between font-semibold text-white hover:bg-white/[0.04] transition shadow-sm"
         >
-          <span className="truncate">{currentServer.name}</span>
+          <span className="truncate tracking-tight font-bold text-[13px]">{currentServer.name}</span>
           <ChevronDown
-            className={`w-5 h-5 text-discord-muted transition-transform duration-200 ${
-              isServerMenuOpen ? 'rotate-180' : ''
+            className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+              isServerMenuOpen ? 'rotate-180 text-white' : ''
             }`}
           />
         </button>
 
         {/* Server Dropdown Menu */}
         {isServerMenuOpen && (
-          <div className="absolute top-14 left-2 right-2 bg-discord-darkest rounded-md p-1.5 shadow-xl border border-discord-darker z-30 space-y-1 text-sm">
+          <div className="absolute top-13 left-2 right-2 glass-modal rounded-2xl p-1.5 shadow-2xl border border-white/10 z-30 space-y-1 text-sm animate-dropdown">
             <button
               onClick={() => {
                 setIsServerMenuOpen(false);
                 setIsServerSettingsOpen(true);
               }}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded text-discord-text hover:bg-discord-brand hover:text-white transition"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition font-medium text-xs"
             >
-              <span>Configurações do Servidor</span>
-              <Shield className="w-4 h-4" />
+              <span>Ajustes do Servidor</span>
+              <Shield className="w-3.5 h-3.5 text-indigo-400" />
             </button>
             <button
               onClick={() => {
@@ -98,40 +98,40 @@ export const ChannelSidebar = () => {
                 setCreateChannelType('text');
                 setIsCreateChannelOpen(true);
               }}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded text-discord-text hover:bg-discord-brand hover:text-white transition"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition font-medium text-xs"
             >
-              <span>Criar Canal</span>
-              <Plus className="w-4 h-4" />
+              <span>Novo Canal</span>
+              <Plus className="w-3.5 h-3.5 text-slate-400" />
             </button>
             <button
               onClick={() => {
                 setIsServerMenuOpen(false);
                 setIsMusicModalOpen(true);
               }}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded text-discord-yellow hover:bg-discord-hover transition"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-amber-300 hover:bg-white/10 transition font-medium text-xs"
             >
-              <span>Bot de Música & Rádio</span>
-              <Disc3 className="w-4 h-4" />
+              <span>Player de Música</span>
+              <Disc3 className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
       </div>
 
       {/* Channels Scrollable List */}
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 thin-scrollbar">
         {/* Text Channels Header */}
         <div>
-          <div className="flex items-center justify-between px-2 text-xs font-bold text-discord-channel uppercase tracking-wider mb-1">
-            <span>Canais de Texto</span>
+          <div className="flex items-center justify-between px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+            <span className="cursor-default">Canais de Texto</span>
             <button
               onClick={() => {
                 setCreateChannelType('text');
                 setIsCreateChannelOpen(true);
               }}
-              className="hover:text-discord-header transition"
+              className="hover:text-white transition p-0.5 rounded hover:bg-white/10"
               title="Criar Canal de Texto"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -142,13 +142,15 @@ export const ChannelSidebar = () => {
                 <button
                   key={channel.id}
                   onClick={() => selectChannel(channel.id)}
-                  className={`w-full flex items-center px-2 py-1.5 rounded-md text-sm transition group ${
+                  className={`w-full flex items-center px-2.5 py-1.5 rounded-xl text-xs transition-all group ${
                     isSelected
-                      ? 'bg-discord-active text-white'
-                      : 'text-discord-channel hover:bg-discord-hover hover:text-discord-text'
+                      ? 'bg-white/[0.12] text-white font-medium shadow-sm border border-white/10 backdrop-blur-md'
+                      : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
                   }`}
                 >
-                  <Hash className="w-4 h-4 mr-1.5 text-discord-muted group-hover:text-discord-text flex-shrink-0" />
+                  <Hash className={`w-3.5 h-3.5 mr-2 flex-shrink-0 transition-colors ${
+                    isSelected ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'
+                  }`} />
                   <span className="truncate">{channel.name}</span>
                 </button>
               );
@@ -158,17 +160,17 @@ export const ChannelSidebar = () => {
 
         {/* Voice Channels Header */}
         <div>
-          <div className="flex items-center justify-between px-2 text-xs font-bold text-discord-channel uppercase tracking-wider mb-1">
-            <span>Canais de Voz</span>
+          <div className="flex items-center justify-between px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+            <span className="cursor-default">Canais de Voz</span>
             <button
               onClick={() => {
                 setCreateChannelType('voice');
                 setIsCreateChannelOpen(true);
               }}
-              className="hover:text-discord-header transition"
+              className="hover:text-white transition p-0.5 rounded hover:bg-white/10"
               title="Criar Canal de Voz"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -186,62 +188,66 @@ export const ChannelSidebar = () => {
                       }
                       selectChannel(channel.id);
                     }}
-                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition group ${
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-all group ${
                       isConnectedHere
-                        ? 'bg-discord-hover/80 text-discord-green font-medium'
-                        : 'text-discord-channel hover:bg-discord-hover hover:text-discord-text'
+                        ? 'bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/25 shadow-sm'
+                        : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
                     }`}
                   >
                     <div className="flex items-center truncate">
                       <Volume2
-                        className={`w-4 h-4 mr-1.5 flex-shrink-0 ${
-                          isConnectedHere ? 'text-discord-green' : 'text-discord-muted group-hover:text-discord-text'
+                        className={`w-3.5 h-3.5 mr-2 flex-shrink-0 transition-colors ${
+                          isConnectedHere ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'
                         }`}
                       />
                       <span className="truncate">{channel.name}</span>
                     </div>
 
                     {isConnectedHere && (
-                      <span className="text-[10px] bg-discord-green/20 text-discord-green px-1.5 py-0.5 rounded font-bold uppercase">
-                        Conectado
-                      </span>
+                      <div className="flex items-center space-x-1">
+                        <span className="flex h-1.5 w-1.5 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                        </span>
+                      </div>
                     )}
                   </button>
 
                   {/* Users inside this voice channel */}
                   {usersInThisChannel.length > 0 && (
-                    <div className="pl-6 pr-2 py-1 space-y-1">
+                    <div className="pl-5 pr-2 py-1 space-y-1">
                       {usersInThisChannel.map((u) => {
                         const isSpeakingUser =
                           u.id === currentUser?.id ? isSpeaking : speakingUsers.has(u.socketId);
+                        const initials = (u.username || 'User').substring(0, 2).toUpperCase();
 
                         return (
                           <div
                             key={u.id}
-                            className="flex items-center justify-between py-1 px-1.5 rounded hover:bg-discord-dark/50 text-xs text-discord-text"
+                            className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-white/[0.04] text-xs text-slate-300 transition"
                           >
                             <div className="flex items-center space-x-2 truncate">
                               <div
-                                className={`w-5 h-5 rounded-full bg-discord-darkest flex items-center justify-center text-xs border-2 transition-all ${
+                                className={`w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[9px] font-bold border transition-all ${
                                   isSpeakingUser
-                                    ? 'border-discord-green shadow-[0_0_8px_rgba(35,165,90,0.8)]'
+                                    ? 'border-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] scale-105'
                                     : 'border-transparent'
                                 }`}
                               >
-                                {u.avatar || '👤'}
+                                {initials}
                               </div>
-                              <span className="truncate font-medium">{u.username}</span>
+                              <span className="truncate font-medium text-[11px]">{u.username}</span>
                             </div>
 
                             {/* User status badges */}
                             <div className="flex items-center space-x-1 flex-shrink-0">
                               {u.isScreenSharing && (
-                                <span className="px-1 py-0.2 bg-discord-brand text-[9px] font-bold text-white rounded">
-                                  AO VIVO
+                                <span className="px-1.5 py-0.2 bg-indigo-500/80 text-[8px] font-bold text-white rounded-full">
+                                  LIVE
                                 </span>
                               )}
-                              {u.isMuted && <MicOff className="w-3 h-3 text-discord-red" />}
-                              {u.isDeafened && <Headphones className="w-3 h-3 text-discord-red" />}
+                              {u.isMuted && <MicOff className="w-3 h-3 text-rose-400" />}
+                              {u.isDeafened && <Headphones className="w-3 h-3 text-rose-400" />}
                             </div>
                           </div>
                         );
@@ -257,15 +263,15 @@ export const ChannelSidebar = () => {
 
       {/* Voice Connected Status Box */}
       {activeVoiceChannel && (
-        <div className="p-2.5 bg-discord-darkest/90 border-t border-discord-dark flex flex-col space-y-2">
+        <div className="p-3 bg-black/40 backdrop-blur-xl border-t border-white/[0.06] flex flex-col space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="relative flex items-center justify-center">
-                <Radio className="w-4 h-4 text-discord-green animate-pulse" />
+                <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-discord-green leading-tight">Voz Conectada</span>
-                <span className="text-[11px] text-discord-muted truncate max-w-[120px]">
+                <span className="text-[11px] font-bold text-emerald-400 leading-tight">Voz Conectada</span>
+                <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
                   {activeChannelObj?.name || 'Canal de Voz'}
                 </span>
               </div>
@@ -273,7 +279,7 @@ export const ChannelSidebar = () => {
 
             <button
               onClick={leaveVoiceChannel}
-              className="p-1.5 rounded hover:bg-discord-hover text-discord-muted hover:text-discord-red transition"
+              className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition btn-interactive"
               title="Desconectar da Voz"
             >
               <PhoneOff className="w-4 h-4" />
@@ -281,24 +287,24 @@ export const ChannelSidebar = () => {
           </div>
 
           {/* In-Call Quick Controls */}
-          <div className="flex items-center justify-around pt-1 border-t border-discord-dark/50">
+          <div className="flex items-center justify-around pt-2 border-t border-white/[0.06] gap-1.5">
             <button
               onClick={() => setIsScreenModalOpen(true)}
-              className={`flex-1 flex items-center justify-center py-1 rounded text-xs transition ${
+              className={`flex-1 flex items-center justify-center py-1.5 rounded-lg text-xs transition font-medium btn-interactive ${
                 isScreenSharing
-                  ? 'bg-discord-green/20 text-discord-green font-semibold'
-                  : 'hover:bg-discord-hover text-discord-muted hover:text-white'
+                  ? 'bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30'
+                  : 'glass-pill text-slate-300 hover:text-white'
               }`}
             >
               <Tv className="w-3.5 h-3.5 mr-1" />
-              <span>{isScreenSharing ? 'Compartilhando' : 'Tela'}</span>
+              <span>{isScreenSharing ? 'Ao Vivo' : 'Tela'}</span>
             </button>
 
             <button
               onClick={() => setIsMusicModalOpen(true)}
-              className="flex-1 flex items-center justify-center py-1 rounded text-xs hover:bg-discord-hover text-discord-yellow transition"
+              className="flex-1 flex items-center justify-center py-1.5 rounded-lg text-xs glass-pill text-amber-300 transition font-medium btn-interactive"
             >
-              <Disc3 className="w-3.5 h-3.5 mr-1" />
+              <Disc3 className="w-3.5 h-3.5 mr-1 animate-spin" style={{ animationDuration: '8s' }} />
               <span>Música</span>
             </button>
           </div>
@@ -306,23 +312,23 @@ export const ChannelSidebar = () => {
       )}
 
       {/* Bottom User Bar */}
-      <div className="h-[52px] bg-discord-darkest px-2 flex items-center justify-between border-t border-discord-darker">
+      <div className="h-[54px] bg-black/40 backdrop-blur-xl px-3 flex items-center justify-between border-t border-white/[0.06]">
         {/* User Info */}
         <div
           onClick={() => setIsUserSettingsOpen(true)}
-          className="flex items-center space-x-2 p-1 rounded-md hover:bg-discord-hover cursor-pointer truncate mr-1"
+          className="flex items-center space-x-2.5 p-1 rounded-xl hover:bg-white/[0.06] cursor-pointer truncate mr-1 transition group"
         >
           <div className="relative">
-            <div className="w-8 h-8 rounded-full bg-discord-brand flex items-center justify-center text-sm shadow">
-              {currentUser?.avatar || '👑'}
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
+              {(currentUser?.username || 'User').substring(0, 2).toUpperCase()}
             </div>
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-discord-green border-2 border-discord-darkest" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-black" />
           </div>
           <div className="flex flex-col truncate">
-            <span className="text-xs font-semibold text-discord-header truncate">
+            <span className="text-xs font-semibold text-slate-200 truncate group-hover:text-white">
               {currentUser?.username || 'Usuário'}
             </span>
-            <span className="text-[10px] text-discord-muted leading-none">Online</span>
+            <span className="text-[10px] text-slate-500 leading-none">Online</span>
           </div>
         </div>
 
@@ -330,30 +336,30 @@ export const ChannelSidebar = () => {
         <div className="flex items-center space-x-0.5">
           <button
             onClick={toggleMute}
-            className={`p-1.5 rounded hover:bg-discord-hover transition ${
-              isMuted ? 'text-discord-red' : 'text-discord-muted hover:text-white'
+            className={`p-1.5 rounded-lg transition btn-interactive ${
+              isMuted ? 'text-rose-400 bg-rose-500/15' : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
             }`}
             title={isMuted ? 'Desmutar Microfone' : 'Mutar Microfone'}
           >
-            {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
           </button>
 
           <button
             onClick={toggleDeafen}
-            className={`p-1.5 rounded hover:bg-discord-hover transition ${
-              isDeafened ? 'text-discord-red' : 'text-discord-muted hover:text-white'
+            className={`p-1.5 rounded-lg transition btn-interactive ${
+              isDeafened ? 'text-rose-400 bg-rose-500/15' : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
             }`}
-            title={isDeafened ? 'Desativar Áudio' : 'Ensurdecer'}
+            title={isDeafened ? 'Ativar Som' : 'Ensurdecer'}
           >
-            {isDeafened ? <Headphones className="w-4 h-4 text-discord-red" /> : <Headphones className="w-4 h-4" />}
+            {isDeafened ? <Headphones className="w-3.5 h-3.5 text-rose-400" /> : <Headphones className="w-3.5 h-3.5" />}
           </button>
 
           <button
             onClick={() => setIsUserSettingsOpen(true)}
-            className="p-1.5 rounded hover:bg-discord-hover text-discord-muted hover:text-white transition"
-            title="Configurações do Usuário"
+            className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition btn-interactive group"
+            title="Ajustes"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-3.5 h-3.5 transition-transform group-hover:rotate-45" />
           </button>
         </div>
       </div>

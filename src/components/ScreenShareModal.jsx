@@ -46,68 +46,73 @@ export const ScreenShareModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4 select-none animate-in fade-in duration-150">
-      <div className="bg-discord-dark w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden border border-discord-darker flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-xl flex items-center justify-center z-50 p-4 select-none">
+      <div className="glass-modal w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/15 flex flex-col max-h-[85vh] animate-modal">
         {/* Modal Header */}
-        <div className="p-5 flex items-center justify-between border-b border-discord-darker">
-          <div className="flex items-center space-x-2">
-            <Tv className="w-6 h-6 text-discord-brand" />
-            <h2 className="text-xl font-bold text-discord-header">Compartilhar Tela</h2>
+        <div className="p-5 flex items-center justify-between border-b border-white/[0.06] bg-black/30">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
+              <Tv className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight">Compartilhar Tela</h2>
+              <p className="text-xs text-slate-400">Transmita seu jogo ou aplicativos em alta definição</p>
+            </div>
           </div>
           <button
             onClick={() => setIsScreenModalOpen(false)}
-            className="text-discord-muted hover:text-white p-1 rounded transition"
+            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition btn-interactive"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Content */}
-        <div className="p-5 flex-1 overflow-y-auto space-y-4">
+        <div className="p-6 flex-1 overflow-y-auto space-y-5 thin-scrollbar">
           {/* Tabs: Screens vs Windows (if Electron sources available) */}
           {sources.length > 0 ? (
             <>
-              <div className="flex border-b border-discord-darker pb-2 space-x-4">
+              <div className="flex border-b border-white/[0.06] pb-2 space-x-4">
                 <button
                   onClick={() => setActiveTab('screens')}
-                  className={`flex items-center space-x-2 pb-2 font-semibold text-sm transition border-b-2 -mb-2.5 ${
+                  className={`flex items-center space-x-2 pb-2 font-semibold text-xs transition border-b-2 -mb-2.5 ${
                     activeTab === 'screens'
-                      ? 'border-discord-brand text-discord-header'
-                      : 'border-transparent text-discord-muted hover:text-discord-text'
+                      ? 'border-indigo-400 text-white'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <Monitor className="w-4 h-4" />
-                  <span>Telas Inteiras ({screens.length})</span>
+                  <span>Telas ({screens.length})</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('windows')}
-                  className={`flex items-center space-x-2 pb-2 font-semibold text-sm transition border-b-2 -mb-2.5 ${
+                  className={`flex items-center space-x-2 pb-2 font-semibold text-xs transition border-b-2 -mb-2.5 ${
                     activeTab === 'windows'
-                      ? 'border-discord-brand text-discord-header'
-                      : 'border-transparent text-discord-muted hover:text-discord-text'
+                      ? 'border-indigo-400 text-white'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <AppWindow className="w-4 h-4" />
-                  <span>Janelas de Aplicativos ({windows.length})</span>
+                  <span>Janelas ({windows.length})</span>
                 </button>
               </div>
 
               {/* Source Thumbnails Grid */}
-              <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-1 thin-scrollbar">
                 {displayedSources.map((src) => {
                   const isSelected = selectedSourceId === src.id;
                   return (
                     <div
                       key={src.id}
                       onClick={() => setSelectedSourceId(src.id)}
-                      className={`group cursor-pointer rounded-lg p-2 bg-discord-darkest border-2 transition-all flex flex-col ${
+                      className={`group cursor-pointer rounded-2xl p-2.5 bg-black/40 border transition-all flex flex-col ${
                         isSelected
-                          ? 'border-discord-brand shadow-[0_0_12px_rgba(88,101,242,0.4)]'
-                          : 'border-transparent hover:border-discord-hover'
+                          ? 'border-indigo-400 bg-white/10 shadow-[0_0_16px_rgba(99,102,241,0.4)]'
+                          : 'border-white/[0.06] hover:border-white/20'
                       }`}
                     >
-                      <div className="relative aspect-video rounded overflow-hidden bg-black/50 mb-2 flex items-center justify-center">
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-black/60 mb-2 flex items-center justify-center border border-white/[0.04]">
                         {src.thumbnail ? (
                           <img
                             src={src.thumbnail}
@@ -115,15 +120,15 @@ export const ScreenShareModal = () => {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <Monitor className="w-8 h-8 text-discord-muted" />
+                          <Monitor className="w-8 h-8 text-slate-500" />
                         )}
                         {isSelected && (
-                          <div className="absolute top-2 right-2 w-5 h-5 bg-discord-brand text-white rounded-full flex items-center justify-center shadow">
+                          <div className="absolute top-2 right-2 w-5 h-5 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg">
                             <Check className="w-3.5 h-3.5" />
                           </div>
                         )}
                       </div>
-                      <span className="text-xs font-semibold text-discord-header truncate">
+                      <span className="text-xs font-medium text-slate-200 truncate">
                         {src.name}
                       </span>
                     </div>
@@ -133,12 +138,11 @@ export const ScreenShareModal = () => {
             </>
           ) : (
             /* Fallback prompt for browser display media */
-            <div className="p-6 bg-discord-darkest rounded-lg text-center space-y-2">
-              <Tv className="w-12 h-12 text-discord-brand mx-auto mb-2" />
-              <h3 className="font-bold text-discord-header text-base">Transmissão de Tela Rápida</h3>
-              <p className="text-discord-muted text-xs">
-                O navegador ou sistema operacional abrirá a caixa de seleção nativa para você escolher
-                a tela, janela de jogo ou aba que deseja transmitir em tempo real.
+            <div className="p-6 glass-panel rounded-3xl text-center space-y-2">
+              <Tv className="w-10 h-10 text-indigo-400 mx-auto mb-2" />
+              <h3 className="font-bold text-white text-base">Transmissão Direta</h3>
+              <p className="text-slate-400 text-xs">
+                O sistema abrirá a caixa nativa para você selecionar a tela ou aplicativo que deseja transmitir.
               </p>
             </div>
           )}
@@ -146,8 +150,8 @@ export const ScreenShareModal = () => {
           {/* Stream Quality Settings */}
           <div className="grid grid-cols-2 gap-4 pt-2">
             <div>
-              <label className="block text-xs font-bold uppercase text-discord-muted mb-1.5">
-                Resolução da Transmissão
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                Resolução
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {['720p', '1080p'].map((res) => (
@@ -155,21 +159,21 @@ export const ScreenShareModal = () => {
                     key={res}
                     type="button"
                     onClick={() => setResolution(res)}
-                    className={`py-2 rounded text-xs font-semibold transition ${
+                    className={`py-2.5 rounded-xl text-xs font-semibold transition ${
                       resolution === res
-                        ? 'bg-discord-brand text-white'
-                        : 'bg-discord-darker hover:bg-discord-hover text-discord-text'
+                        ? 'bg-gradient-to-tr from-indigo-500 to-purple-600 text-white shadow-md'
+                        : 'glass-pill text-slate-400 hover:text-white'
                     }`}
                   >
-                    {res} {res === '1080p' && '✨ HD'}
+                    {res} {res === '1080p' && 'HD'}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-discord-muted mb-1.5">
-                Taxa de Quadros (FPS)
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                Taxa de Quadros
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {[30, 60].map((fps) => (
@@ -177,13 +181,13 @@ export const ScreenShareModal = () => {
                     key={fps}
                     type="button"
                     onClick={() => setFrameRate(fps)}
-                    className={`py-2 rounded text-xs font-semibold transition ${
+                    className={`py-2.5 rounded-xl text-xs font-semibold transition ${
                       frameRate === fps
-                        ? 'bg-discord-brand text-white'
-                        : 'bg-discord-darker hover:bg-discord-hover text-discord-text'
+                        ? 'bg-gradient-to-tr from-indigo-500 to-purple-600 text-white shadow-md'
+                        : 'glass-pill text-slate-400 hover:text-white'
                     }`}
                   >
-                    {fps} FPS {fps === 60 && '🚀'}
+                    {fps} FPS
                   </button>
                 ))}
               </div>
@@ -192,22 +196,22 @@ export const ScreenShareModal = () => {
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 bg-discord-darkest flex items-center justify-between border-t border-discord-darker">
-          <span className="text-xs text-discord-muted">
-            Transmissão ponto a ponto criptografada com baixa latência
+        <div className="p-4 bg-black/30 flex items-center justify-between border-t border-white/[0.06]">
+          <span className="text-[11px] text-slate-500">
+            Transmissão WebRTC com baixa latência
           </span>
           <div className="flex space-x-3">
             <button
               onClick={() => setIsScreenModalOpen(false)}
-              className="px-4 py-2 text-sm text-discord-text hover:underline"
+              className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
             >
               Cancelar
             </button>
             <button
               onClick={handleConfirmShare}
-              className="px-6 py-2 bg-discord-brand hover:bg-discord-brandHover text-white rounded-md text-sm font-semibold transition shadow-md"
+              className="px-6 py-2.5 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl text-xs font-semibold transition shadow-lg btn-interactive"
             >
-              Entrar Ao Vivo
+              Iniciar Transmissão
             </button>
           </div>
         </div>

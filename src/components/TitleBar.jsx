@@ -30,68 +30,70 @@ export const TitleBar = () => {
   };
 
   return (
-    <div className="h-8 bg-discord-darkest flex items-center justify-between px-3 text-xs text-discord-muted border-b border-discord-darker select-none app-drag-region z-50">
+    <div className="h-9 bg-black/40 backdrop-blur-2xl flex items-center justify-between px-3.5 text-xs text-slate-400 border-b border-white/[0.06] select-none app-drag-region z-50">
       {/* Left: App Logo & Current Location */}
-      <div className="flex items-center space-x-2 app-no-drag">
-        <div className="flex items-center space-x-1.5 font-bold text-discord-header tracking-wide">
-          <span className="text-discord-brand text-sm">⚡</span>
-          <span>PulseCord</span>
+      <div className="flex items-center space-x-2.5 app-no-drag">
+        <div className="flex items-center space-x-2 font-semibold tracking-tight cursor-default">
+          <div className="w-5 h-5 rounded-lg bg-gradient-to-tr from-indigo-500 to-sky-400 flex items-center justify-center shadow-[0_0_12px_rgba(99,102,241,0.5)]">
+            <Radio className="w-3 h-3 text-white" />
+          </div>
+          <span className="font-bold text-white/90 text-[13px] tracking-wide">PulseCord</span>
         </div>
-        <span className="text-discord-muted/40">|</span>
-        <span className="text-discord-text/90 font-medium truncate max-w-[200px]">
+        <span className="text-white/15">/</span>
+        <span className="text-slate-300 font-medium truncate max-w-[200px] text-[11px]">
           {currentServer ? currentServer.name : 'Início'}
         </span>
         {currentChannel && (
           <>
-            <span className="text-discord-muted/40">/</span>
-            <span className="text-discord-muted truncate max-w-[150px]">
-              {currentChannel.type === 'voice' ? '🔊 ' : '# '}{currentChannel.name}
+            <span className="text-white/15">/</span>
+            <span className="text-slate-400 truncate max-w-[150px] text-[11px] font-medium">
+              {currentChannel.name}
             </span>
           </>
         )}
       </div>
 
       {/* Center: Server Connection Status Badge */}
-      <div className="flex items-center space-x-2 app-no-drag">
-        <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-discord-dark text-[11px]">
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-discord-green animate-pulse' : 'bg-discord-red'}`} />
-          <span className={isConnected ? 'text-discord-green font-medium' : 'text-discord-red'}>
-            {isConnected ? 'Servidor Conectado' : 'Desconectado'}
+      <div className="flex items-center space-x-2.5 app-no-drag">
+        <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full glass-pill text-[11px]">
+          <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'}`} />
+          <span className={isConnected ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}>
+            {isConnected ? 'Render Online' : 'Desconectado'}
           </span>
         </div>
 
         <button
           onClick={() => setIsMusicModalOpen(true)}
-          className="flex items-center space-x-1 px-2 py-0.5 rounded bg-discord-hover hover:bg-discord-active text-discord-header text-[11px] transition"
+          className="flex items-center space-x-1.5 px-3 py-1 rounded-full glass-pill text-amber-300 text-[11px] font-medium btn-interactive"
           title="Abrir Bot de Música"
         >
-          <Disc3 className="w-3.5 h-3.5 text-discord-yellow animate-spin" style={{ animationDuration: '6s' }} />
-          <span>Música</span>
+          <Disc3 className="w-3.5 h-3.5 animate-spin text-amber-300" style={{ animationDuration: '6s' }} />
+          <span>Player de Áudio</span>
         </button>
       </div>
 
       {/* Right: Window Controls */}
-      <div className="flex items-center app-no-drag">
+      <div className="flex items-center app-no-drag -mr-3.5 space-x-0.5">
         <button
           onClick={handleMinimize}
-          className="w-8 h-8 flex items-center justify-center hover:bg-discord-hover text-discord-muted hover:text-white transition"
+          className="w-10 h-9 flex items-center justify-center hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors"
           title="Minimizar"
         >
           <Minus className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={handleMaximize}
-          className="w-8 h-8 flex items-center justify-center hover:bg-discord-hover text-discord-muted hover:text-white transition"
+          className="w-10 h-9 flex items-center justify-center hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors"
           title={isMaximized ? 'Restaurar' : 'Maximizar'}
         >
           {isMaximized ? <Copy className="w-3 h-3" /> : <Square className="w-3 h-3" />}
         </button>
         <button
           onClick={handleClose}
-          className="w-8 h-8 flex items-center justify-center hover:bg-discord-red text-discord-muted hover:text-white transition"
+          className="w-10 h-9 flex items-center justify-center hover:bg-rose-500/80 text-slate-400 hover:text-white transition-colors"
           title="Fechar"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

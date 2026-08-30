@@ -4,7 +4,7 @@ import { useSocket } from './SocketContext';
 const ServerContext = createContext(null);
 
 export const ServerProvider = ({ children }) => {
-  const { socket, isConnected, currentUser } = useSocket();
+  const { socket, isConnected, currentUser, initialServersData, isAuthenticated } = useSocket();
 
   const [servers, setServers] = useState([]);
   const [currentServerId, setCurrentServerId] = useState(null);
@@ -20,53 +20,74 @@ export const ServerProvider = ({ children }) => {
   const [createChannelType, setCreateChannelType] = useState('text');
   const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
   const [isScreenModalOpen, setIsScreenModalOpen] = useState(false);
+  const [isAddServerOpen, setIsAddServerOpen] = useState(false);
 
-  const currentServer = servers.find(s => s.id === currentServerId) || servers[0] || null;
-  const currentChannel = currentServer?.channels.find(c => c.id === currentChannelId) || currentServer?.channels[0] || null;
+  // Sync servers when initialServersData updates (after login / register / session restore)
+  useEffect(() => {
+    if (initialServersData && initialServersData.length > 0) {
+      setServers(initialServersData);
+      if (!currentServerId || !initialServersData.some(s => s.id === currentServerId)) {
+        setCurrentServerId(initialServersData[0].id);
+        const firstText = initialServersData[0].channels?.find(c => c.type === 'text') || initialServersData[0].channels?.[0];
+        if (firstText) setCurrentChannelId(firstText.id);
+      }
+    } else if (!isAuthenticated) {
+      setServers([]);
+      setCurrentServerId(null);
+      setCurrentChannelId(null);
+    }
+  }, [initialServersData, isAuthenticated]);
+
+  const currentServer = servers.find((s) => s.id === currentServerId) || servers[0] || null;
+  const currentChannel =
+    currentServer?.channels?.find((c) => c.id === currentChannelId) ||
+    currentServer?.channels?.[0] ||
+    null;
 
   // Socket event listeners
   useEffect(() => {
     if (!socket) return;
 
-    // Initial sync
-    const handleInitResponse = (data) => {
-      if (data && data.servers) {
-        setServers(data.servers);
-        if (!currentServerId && data.servers.length > 0) {
-          setCurrentServerId(data.servers[0].id);
-          const firstText = data.servers[0].channels.find(c => c.type === 'text');
-          if (firstText) setCurrentChannelId(firstText.id);
-        }
-      }
-      if (data && data.voiceRooms) {
-        setVoiceRooms(data.voiceRooms);
-      }
-    };
-
     socket.on('server-created', (newServer) => {
-      setServers(prev => [...prev, newServer]);
+      setServers((prev) => {
+        if (prev.some((s) => s.id === newServer.id)) return prev;
+        return [...prev, newServer];
+      });
+      selectServer(newServer.id);
     });
 
     socket.on('channel-created', ({ serverId, channel }) => {
-      setServers(prev => prev.map(s => {
-        if (s.id === serverId) {
-          return { ...s, channels: [...s.channels, channel] };
-        }
-        return s;
-      }));
+      setServers((prev) =>
+        prev.map((s) => {
+          if (s.id === serverId) {
+            return { ...s, channels: [...s.channels, channel] };
+          }
+          return s;
+        })
+      );
     });
 
     socket.on('server-roles-updated', ({ serverId, roles }) => {
-      setServers(prev => prev.map(s => {
-        if (s.id === serverId) {
-          return { ...s, roles };
-        }
-        return s;
-      }));
+      setServers((prev) =>
+        prev.map((s) => {
+          if (s.id === serverId) {
+            return { ...s, roles };
+          }
+          return s;
+        })
+      );
     });
 
     socket.on('new-message', (message) => {
-      setMessages(prev => [...prev, message]);
+      setMessages((prev) => [...prev, message]);
+    });
+
+    socket.on('attachments-pruned', () => {
+      if (currentChannelId) {
+        socket.emit('fetch-messages', { channelId: currentChannelId }, (msgs) => {
+          setMessages(msgs || []);
+        });
+      }
     });
 
     socket.on('voice-rooms-updated', ({ voiceRooms }) => {
@@ -74,8 +95,8 @@ export const ServerProvider = ({ children }) => {
     });
 
     socket.on('user-status-changed', ({ user }) => {
-      setOnlineMembers(prev => {
-        const filtered = prev.filter(m => m.id !== user.id);
+      setOnlineMembers((prev) => {
+        const filtered = prev.filter((m) => m.id !== user.id);
         if (user.status !== 'offline') {
           return [...filtered, user];
         }
@@ -88,10 +109,11 @@ export const ServerProvider = ({ children }) => {
       socket.off('channel-created');
       socket.off('server-roles-updated');
       socket.off('new-message');
+      socket.off('attachments-pruned');
       socket.off('voice-rooms-updated');
       socket.off('user-status-changed');
     };
-  }, [socket, currentServerId]);
+  }, [socket, currentServerId, currentChannelId]);
 
   // Fetch messages when changing channel
   useEffect(() => {
@@ -104,9 +126,9 @@ export const ServerProvider = ({ children }) => {
 
   const selectServer = (serverId) => {
     setCurrentServerId(serverId);
-    const s = servers.find(srv => srv.id === serverId);
-    if (s && s.channels.length > 0) {
-      const firstText = s.channels.find(c => c.type === 'text') || s.channels[0];
+    const s = servers.find((srv) => srv.id === serverId);
+    if (s && s.channels?.length > 0) {
+      const firstText = s.channels.find((c) => c.type === 'text') || s.channels[0];
       setCurrentChannelId(firstText.id);
     }
   };
@@ -129,6 +151,15 @@ export const ServerProvider = ({ children }) => {
     socket.emit('create-server', { name, icon }, (newServer) => {
       if (newServer) {
         selectServer(newServer.id);
+      }
+    });
+  };
+
+  const joinServer = (serverId) => {
+    if (!socket) return;
+    socket.emit('join-server', { serverId }, (res) => {
+      if (res && res.success && res.server) {
+        selectServer(res.server.id);
       }
     });
   };
@@ -166,6 +197,7 @@ export const ServerProvider = ({ children }) => {
         voiceRooms,
         onlineMembers,
         createServer,
+        joinServer,
         createChannel,
         updateRoles,
         // Modals
@@ -180,7 +212,9 @@ export const ServerProvider = ({ children }) => {
         isMusicModalOpen,
         setIsMusicModalOpen,
         isScreenModalOpen,
-        setIsScreenModalOpen
+        setIsScreenModalOpen,
+        isAddServerOpen,
+        setIsAddServerOpen
       }}
     >
       {children}

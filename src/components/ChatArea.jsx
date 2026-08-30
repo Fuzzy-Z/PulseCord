@@ -3,15 +3,12 @@ import {
   Hash,
   Send,
   PlusCircle,
-  Smile,
   Disc3,
   Users,
   Image as ImageIcon,
   X,
-  Bot,
-  Play,
-  SkipForward,
-  Square
+  Sparkles,
+  Paperclip
 } from 'lucide-react';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
@@ -25,13 +22,10 @@ export const ChatArea = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [showSlashHints, setShowSlashHints] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMemberList, setShowMemberList] = useState(true);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
-
-  const emojis = ['😀', '🔥', '❤️', '🎮', '🚀', '⭐', '🎧', '⚡', '🤖', '👑', '😎', '🎉', '👏', '✨'];
 
   const slashCommands = [
     { cmd: '/play', desc: 'Toca uma música, rádio lofi/synthwave ou link de áudio' },
@@ -90,12 +84,11 @@ export const ChatArea = () => {
     setInputMessage('');
     setAttachments([]);
     setShowSlashHints(false);
-    setShowEmojiPicker(false);
   };
 
   if (!currentChannel) {
     return (
-      <div className="flex-1 bg-discord-dark flex items-center justify-center text-discord-muted">
+      <div className="flex-1 bg-black/30 backdrop-blur-2xl flex items-center justify-center text-slate-500 text-sm">
         Selecione um canal para conversar
       </div>
     );
@@ -107,41 +100,45 @@ export const ChatArea = () => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const getMonogram = (username) => {
+    return (username || 'User').substring(0, 2).toUpperCase();
+  };
+
   return (
-    <div className="flex-1 bg-discord-dark flex flex-col h-full overflow-hidden">
+    <div className="flex-1 bg-black/20 backdrop-blur-2xl flex flex-col h-full overflow-hidden select-none">
       {/* Channel Header */}
-      <div className="h-12 border-b border-discord-darkest px-4 flex items-center justify-between flex-shrink-0 shadow-sm">
-        <div className="flex items-center space-x-2 truncate">
-          <Hash className="w-6 h-6 text-discord-channel flex-shrink-0" />
-          <span className="font-bold text-discord-header text-base truncate">{currentChannel.name}</span>
+      <div className="h-12 border-b border-white/[0.06] px-4 flex items-center justify-between flex-shrink-0 bg-black/30 backdrop-blur-2xl">
+        <div className="flex items-center space-x-2.5 truncate">
+          <Hash className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+          <span className="font-bold text-white text-[13px] tracking-tight truncate">{currentChannel.name}</span>
           {currentChannel.topic && (
             <>
-              <span className="text-discord-muted/40">|</span>
-              <span className="text-xs text-discord-muted truncate max-w-[400px]">
+              <span className="text-white/15">/</span>
+              <span className="text-xs text-slate-400 truncate max-w-[350px]">
                 {currentChannel.topic}
               </span>
             </>
           )}
         </div>
 
-        <div className="flex items-center space-x-3 text-discord-muted">
+        <div className="flex items-center space-x-2 text-slate-400">
           <button
             onClick={() => setIsMusicModalOpen(true)}
-            className="flex items-center space-x-1 px-2.5 py-1 rounded bg-discord-darker hover:bg-discord-hover text-discord-yellow text-xs transition"
+            className="flex items-center space-x-1.5 px-3 py-1 rounded-full glass-pill text-amber-300 text-xs font-medium transition btn-interactive"
             title="Abrir Player de Música"
           >
-            <Disc3 className="w-4 h-4 animate-spin" style={{ animationDuration: '6s' }} />
-            <span className="hidden sm:inline font-medium">Bot de Música</span>
+            <Disc3 className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} />
+            <span className="hidden sm:inline">Player</span>
           </button>
 
           <button
             onClick={() => setShowMemberList(!showMemberList)}
-            className={`p-1.5 rounded hover:bg-discord-hover transition ${
-              showMemberList ? 'text-discord-header' : 'text-discord-muted'
+            className={`p-2 rounded-xl transition btn-interactive ${
+              showMemberList ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
             }`}
             title="Lista de Membros"
           >
-            <Users className="w-5 h-5" />
+            <Users className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -150,92 +147,100 @@ export const ChatArea = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Messages Feed */}
         <div className="flex-1 flex flex-col justify-between overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4 thin-scrollbar">
             {/* Channel Welcome Banner */}
-            <div className="mb-6 pt-4">
-              <div className="w-16 h-16 rounded-full bg-discord-darker flex items-center justify-center mb-2">
-                <Hash className="w-10 h-10 text-discord-header" />
+            <div className="mb-6 pt-4 px-3 glass-panel rounded-3xl p-5 border border-white/10">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center mb-3 shadow-lg shadow-indigo-500/20">
+                <Hash className="w-6 h-6 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-discord-header">
-                Bem-vindo ao #{currentChannel.name}!
+              <h2 className="text-xl font-bold text-white tracking-tight">
+                Canal #{currentChannel.name}
               </h2>
-              <p className="text-discord-muted text-sm mt-1">
-                {currentChannel.topic || `Este é o início do canal #${currentChannel.name}.`}
+              <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                {currentChannel.topic || `Este é o início do canal #${currentChannel.name}. Envie mensagens em tempo real ou digite / para comandos.`}
               </p>
             </div>
 
-            <div className="w-full h-[1px] bg-discord-hover/40 my-4" />
+            <div className="w-full h-[1px] bg-white/[0.06] my-4" />
 
             {/* Messages List */}
             {messages.map((msg) => {
               const isBot = msg.author.isBot;
+              const monogram = getMonogram(msg.author.username);
 
               return (
                 <div
                   key={msg.id}
-                  className="flex space-x-3.5 hover:bg-discord-darker/40 -mx-4 px-4 py-1.5 rounded transition group"
+                  className="flex space-x-3.5 hover:bg-white/[0.03] -mx-4 px-4 py-2 rounded-2xl transition-all group"
                 >
                   {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full bg-discord-darkest flex items-center justify-center text-lg flex-shrink-0 mt-0.5 shadow">
-                    {msg.author.avatar || '👤'}
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 shadow-md border border-white/10">
+                    {monogram}
                   </div>
 
                   {/* Message Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
                       <span
-                        className="font-semibold text-sm hover:underline cursor-pointer"
-                        style={{ color: msg.author.roleColor || '#f2f3f5' }}
+                        className="font-semibold text-xs hover:underline cursor-pointer tracking-tight"
+                        style={{ color: msg.author.roleColor || '#ffffff' }}
                       >
                         {msg.author.username}
                       </span>
 
                       {/* Bot / Role Tag */}
                       {isBot ? (
-                        <span className="bg-discord-brand text-white text-[10px] font-bold px-1.5 py-0.2 rounded uppercase">
+                        <span className="bg-indigo-500/80 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                           BOT
                         </span>
                       ) : (
                         msg.author.roleName && (
                           <span
-                            className="text-[10px] font-semibold px-1.5 py-0.2 rounded"
+                            className="text-[9px] font-semibold px-2 py-0.5 rounded-full border"
                             style={{
-                              backgroundColor: `${msg.author.roleColor || '#5865f2'}22`,
-                              color: msg.author.roleColor || '#5865f2'
+                              backgroundColor: `${msg.author.roleColor || '#6366f1'}15`,
+                              borderColor: `${msg.author.roleColor || '#6366f1'}33`,
+                              color: msg.author.roleColor || '#6366f1'
                             }}
                           >
-                            {msg.author.roleName}
+                            {msg.author.roleName.replace(/[\uD800-\uDFFF].*/g, '').trim()}
                           </span>
                         )
                       )}
 
-                      <span className="text-[11px] text-discord-muted">{formatTime(msg.timestamp)}</span>
+                      <span className="text-[10px] text-slate-500 font-medium">{formatTime(msg.timestamp)}</span>
                     </div>
 
                     {/* Text Message Body */}
-                    <div className="text-sm text-discord-text mt-1 leading-relaxed whitespace-pre-wrap select-text">
+                    <div className="text-xs text-slate-200 mt-1 leading-relaxed whitespace-pre-wrap select-text font-normal">
                       {msg.content}
                     </div>
 
                     {/* Image / File Attachments */}
                     {msg.attachments && msg.attachments.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="mt-2.5 flex flex-wrap gap-2.5">
                         {msg.attachments.map((att, i) => (
-                          <div key={i} className="max-w-md rounded-lg overflow-hidden border border-discord-darker">
+                          <div key={i} className="max-w-md rounded-2xl overflow-hidden border border-white/10 shadow-lg">
                             {att.type?.startsWith('image/') || att.dataUrl?.startsWith('data:image') ? (
                               <img
                                 src={att.dataUrl}
                                 alt={att.name}
-                                className="max-h-64 object-contain rounded bg-black/40"
+                                className="max-h-64 object-contain rounded-2xl bg-black/40 hover:opacity-95 transition"
                               />
                             ) : (
-                              <div className="p-3 bg-discord-darkest flex items-center space-x-2 text-xs">
-                                <ImageIcon className="w-4 h-4 text-discord-brand" />
-                                <span>{att.name}</span>
+                              <div className="p-3 bg-black/40 backdrop-blur-md flex items-center space-x-2 text-xs">
+                                <ImageIcon className="w-4 h-4 text-indigo-400" />
+                                <span className="font-medium text-slate-300">{att.name}</span>
                               </div>
                             )}
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {msg.attachmentExpired && (
+                      <div className="mt-1.5 text-[10px] text-slate-500 italic flex items-center space-x-1">
+                        <span>Imagem removida após 1h para economizar dados do servidor.</span>
                       </div>
                     )}
                   </div>
@@ -247,16 +252,16 @@ export const ChatArea = () => {
 
           {/* Attachment Preview Bar */}
           {attachments.length > 0 && (
-            <div className="px-4 py-2 bg-discord-darker/60 flex items-center space-x-3 border-t border-discord-darkest">
+            <div className="px-5 py-2 bg-black/40 backdrop-blur-md flex items-center space-x-3 border-t border-white/[0.06]">
               {attachments.map((att, i) => (
-                <div key={i} className="relative group rounded bg-discord-darkest p-1.5 border border-discord-dark">
+                <div key={i} className="relative group rounded-2xl bg-black/60 p-1.5 border border-white/10 shadow-md">
                   <button
                     onClick={() => handleRemoveAttachment(i)}
-                    className="absolute -top-2 -right-2 w-5 h-5 bg-discord-red rounded-full text-white flex items-center justify-center shadow"
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 hover:bg-rose-600 rounded-full text-white flex items-center justify-center shadow-lg transition"
                   >
                     <X className="w-3 h-3" />
                   </button>
-                  <img src={att.dataUrl} alt={att.name} className="w-16 h-16 object-cover rounded" />
+                  <img src={att.dataUrl} alt={att.name} className="w-16 h-16 object-cover rounded-xl" />
                 </div>
               ))}
             </div>
@@ -264,9 +269,9 @@ export const ChatArea = () => {
 
           {/* Slash Commands Autocomplete Popup */}
           {showSlashHints && (
-            <div className="mx-4 mb-2 bg-discord-darkest rounded-lg border border-discord-darker shadow-2xl p-2 z-20 space-y-1">
-              <div className="text-[11px] font-bold text-discord-muted uppercase px-2 py-1">
-                Comandos de Barra (PulseCord Bot)
+            <div className="mx-5 mb-2 glass-modal rounded-2xl border border-white/15 shadow-2xl p-2 z-20 space-y-1 animate-dropdown">
+              <div className="text-[10px] font-semibold text-slate-400 uppercase px-2.5 py-1 tracking-wider">
+                Comandos
               </div>
               {slashCommands
                 .filter((c) => c.cmd.startsWith(inputMessage))
@@ -275,20 +280,20 @@ export const ChatArea = () => {
                     key={c.cmd}
                     type="button"
                     onClick={() => handleSelectCommand(c.cmd)}
-                    className="w-full text-left flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-discord-brand text-discord-text hover:text-white transition"
+                    className="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10 text-slate-300 hover:text-white transition group text-xs"
                   >
-                    <span className="font-bold text-sm text-discord-brand group-hover:text-white">{c.cmd}</span>
-                    <span className="text-xs text-discord-muted truncate max-w-xs">{c.desc}</span>
+                    <span className="font-semibold text-indigo-400 group-hover:text-indigo-300">{c.cmd}</span>
+                    <span className="text-slate-500 group-hover:text-slate-300 truncate max-w-xs">{c.desc}</span>
                   </button>
                 ))}
             </div>
           )}
 
           {/* Message Input Box */}
-          <div className="px-4 pb-4 relative">
+          <div className="px-5 pb-5 relative">
             <form
               onSubmit={handleSend}
-              className="bg-discord-input rounded-lg flex items-center px-4 py-2.5 space-x-3 focus-within:ring-1 focus-within:ring-discord-brand"
+              className="glass-input rounded-2xl flex items-center px-4 py-3 space-x-3 transition-all"
             >
               {/* File Attachment Upload */}
               <input
@@ -302,10 +307,10 @@ export const ChatArea = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-discord-muted hover:text-white transition"
-                title="Adicionar Anexo ou Imagem"
+                className="text-slate-400 hover:text-white transition btn-interactive"
+                title="Adicionar Arquivo"
               >
-                <PlusCircle className="w-5 h-5" />
+                <PlusCircle className="w-4 h-4" />
               </button>
 
               {/* Text Input */}
@@ -313,47 +318,17 @@ export const ChatArea = () => {
                 type="text"
                 value={inputMessage}
                 onChange={handleInputChange}
-                placeholder={`Conversar em #${currentChannel.name} (use / para comandos de bot)`}
-                className="flex-1 bg-transparent text-discord-text text-sm focus:outline-none placeholder-discord-muted/60"
+                placeholder={`Mensagem em #${currentChannel.name} (use / para bot)`}
+                className="flex-1 bg-transparent text-white text-xs focus:outline-none placeholder-slate-500"
               />
-
-              {/* Emoji Picker Toggle */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="text-discord-muted hover:text-discord-yellow transition"
-                  title="Emojis"
-                >
-                  <Smile className="w-5 h-5" />
-                </button>
-
-                {showEmojiPicker && (
-                  <div className="absolute bottom-10 right-0 bg-discord-darkest p-2 rounded-lg shadow-xl border border-discord-darker grid grid-cols-7 gap-1 z-30">
-                    {emojis.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => {
-                          setInputMessage((prev) => prev + emoji);
-                          setShowEmojiPicker(false);
-                        }}
-                        className="w-8 h-8 flex items-center justify-center text-lg hover:bg-discord-hover rounded"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
 
               {/* Send Button */}
               <button
                 type="submit"
                 disabled={!inputMessage.trim() && attachments.length === 0}
-                className="text-discord-brand hover:text-discord-brandHover disabled:text-discord-muted/40 transition"
+                className="text-indigo-400 hover:text-indigo-300 disabled:text-slate-600 transition btn-interactive p-1"
               >
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4" />
               </button>
             </form>
           </div>
@@ -361,63 +336,67 @@ export const ChatArea = () => {
 
         {/* Server Members List Sidebar */}
         {showMemberList && (
-          <div className="w-60 bg-discord-darker p-3 overflow-y-auto hidden lg:block select-none border-l border-discord-darkest">
-            <div className="text-xs font-bold text-discord-channel uppercase tracking-wider mb-2">
-              Membros — {currentServer.roles?.length || 4} Cargos
+          <div className="w-56 bg-black/25 backdrop-blur-2xl p-3 overflow-y-auto hidden lg:block select-none border-l border-white/[0.06]">
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">
+              Membros
             </div>
 
-            {currentServer.roles?.map((role) => (
-              <div key={role.id} className="mb-3">
-                <div
-                  className="text-[11px] font-bold uppercase tracking-wider mb-1 px-1 flex items-center space-x-1"
-                  style={{ color: role.color }}
-                >
-                  <span>{role.name}</span>
-                </div>
+            {currentServer.roles?.map((role) => {
+              const cleanRoleName = (role.name || '').replace(/[\uD800-\uDFFF].*/g, '').trim();
 
-                <div className="space-y-1">
-                  {/* Sample members for this role + current user */}
-                  {currentUser?.roleId === role.id && (
-                    <div className="flex items-center space-x-2 p-1.5 rounded hover:bg-discord-hover cursor-pointer">
-                      <div className="relative">
-                        <div className="w-8 h-8 rounded-full bg-discord-darkest flex items-center justify-center text-sm">
-                          {currentUser.avatar || '👑'}
-                        </div>
-                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-discord-green border-2 border-discord-darker" />
-                      </div>
-                      <div className="flex flex-col truncate">
-                        <span className="text-xs font-medium" style={{ color: role.color }}>
-                          {currentUser.username}
-                        </span>
-                        <span className="text-[10px] text-discord-muted">Você</span>
-                      </div>
-                    </div>
-                  )}
+              return (
+                <div key={role.id} className="mb-3">
+                  <div
+                    className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1 flex items-center space-x-1"
+                    style={{ color: role.color }}
+                  >
+                    <span>{cleanRoleName || role.name}</span>
+                  </div>
 
-                  {role.id === 'role-vip' && (
-                    <div className="flex items-center space-x-2 p-1.5 rounded hover:bg-discord-hover cursor-pointer">
-                      <div className="relative">
-                        <div className="w-8 h-8 rounded-full bg-discord-yellow/20 flex items-center justify-center text-sm">
-                          🎵
+                  <div className="space-y-1">
+                    {/* Current User in this role */}
+                    {currentUser?.roleId === role.id && (
+                      <div className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-white/[0.04] cursor-pointer">
+                        <div className="relative">
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[10px] font-bold">
+                            {getMonogram(currentUser.username)}
+                          </div>
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border-2 border-black" />
                         </div>
-                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-discord-green border-2 border-discord-darker" />
-                      </div>
-                      <div className="flex flex-col truncate">
-                        <div className="flex items-center space-x-1">
-                          <span className="text-xs font-medium" style={{ color: role.color }}>
-                            RythmPulse
+                        <div className="flex flex-col truncate">
+                          <span className="text-xs font-semibold text-white truncate">
+                            {currentUser.username}
                           </span>
-                          <span className="bg-discord-brand text-white text-[8px] font-bold px-1 rounded">
-                            BOT
-                          </span>
+                          <span className="text-[9px] text-slate-500">Você</span>
                         </div>
-                        <span className="text-[10px] text-discord-muted">Tocando música</span>
                       </div>
-                    </div>
-                  )}
+                    )}
+
+                    {role.id === 'role-vip' && (
+                      <div className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-white/[0.04] cursor-pointer">
+                        <div className="relative">
+                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center text-xs">
+                            <Disc3 className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} />
+                          </div>
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border-2 border-black" />
+                        </div>
+                        <div className="flex flex-col truncate">
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs font-semibold text-slate-200">
+                              PulseRadio
+                            </span>
+                            <span className="bg-indigo-500/80 text-white text-[7px] font-bold px-1 rounded-full">
+                              BOT
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-slate-500">Áudio 24/7</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

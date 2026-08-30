@@ -12,6 +12,7 @@ import { ServerSettingsModal } from './components/ServerSettingsModal';
 import { MusicPlayerModal } from './components/MusicPlayerModal';
 import { UserSettingsModal } from './components/UserSettingsModal';
 import { CreateChannelModal } from './components/CreateChannelModal';
+import { CreateServerModal } from './components/CreateServerModal';
 
 const MainLayout = () => {
   const { currentChannel } = useServer();
@@ -32,6 +33,7 @@ const MainLayout = () => {
       <MusicPlayerModal />
       <UserSettingsModal />
       <CreateChannelModal />
+      <CreateServerModal />
     </div>
   );
 };
@@ -41,9 +43,19 @@ export function App() {
     <SocketProvider>
       <ServerProvider>
         <VoiceProvider>
-          <div className="flex flex-col h-screen w-screen bg-discord-darkest overflow-hidden">
-            <TitleBar />
-            <MainLayout />
+          <div className="flex flex-col h-screen w-screen bg-[#090a0f] text-slate-100 overflow-hidden relative font-sans">
+            {/* Liquid Glass Background Orbs */}
+            <div className="liquid-ambient-glow">
+              <div className="liquid-orb-1" />
+              <div className="liquid-orb-2" />
+              <div className="liquid-orb-3" />
+            </div>
+
+            {/* App Content */}
+            <div className="relative z-10 flex flex-col h-full w-full">
+              <TitleBar />
+              <MainLayout />
+            </div>
           </div>
         </VoiceProvider>
       </ServerProvider>

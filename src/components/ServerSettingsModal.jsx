@@ -128,53 +128,53 @@ export const ServerSettingsModal = () => {
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6 select-none animate-in fade-in">
-      <div className="bg-discord-dark w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl overflow-hidden border border-discord-darker flex">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-xl flex items-center justify-center z-50 p-6 select-none">
+      <div className="glass-modal w-full max-w-4xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden border border-white/15 flex animate-modal">
         {/* Left Sidebar of Modal */}
-        <div className="w-56 bg-discord-darker p-4 flex flex-col justify-between border-r border-discord-darkest">
+        <div className="w-56 bg-black/30 p-5 flex flex-col justify-between border-r border-white/[0.06]">
           <div>
-            <h3 className="text-xs font-bold text-discord-muted uppercase px-2 mb-2">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-3">
               {currentServer.name}
             </h3>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <button
                 onClick={() => setActiveTab('roles')}
-                className={`w-full flex items-center space-x-2 px-3 py-2 rounded text-sm font-medium transition ${
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
                   activeTab === 'roles'
-                    ? 'bg-discord-hover text-white'
-                    : 'text-discord-channel hover:bg-discord-hover/50 hover:text-discord-text'
+                    ? 'bg-white/15 text-white shadow-sm border border-white/10'
+                    : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
                 }`}
               >
-                <Shield className="w-4 h-4 text-discord-brand" />
-                <span>Cargos & Permissões</span>
+                <Shield className="w-4 h-4 text-indigo-400" />
+                <span>Cargos & Acesso</span>
               </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-discord-darkest">
+          <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
             <button
               onClick={() => setIsServerSettingsOpen(false)}
-              className="flex items-center space-x-2 text-discord-muted hover:text-white text-xs font-semibold"
+              className="flex items-center space-x-2 text-slate-400 hover:text-white text-xs font-semibold px-2 py-1 transition"
             >
               <X className="w-4 h-4" />
-              <span>ESC / Fechar</span>
+              <span>Fechar</span>
             </button>
           </div>
         </div>
 
         {/* Right Content Area */}
-        <div className="flex-1 flex flex-col bg-discord-dark overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="p-6 border-b border-discord-darker flex items-center justify-between flex-shrink-0">
+          <div className="p-6 border-b border-white/[0.06] bg-black/20 flex items-center justify-between flex-shrink-0">
             <div>
-              <h2 className="text-xl font-bold text-discord-header">Cargos do Servidor</h2>
-              <p className="text-xs text-discord-muted mt-1">
-                Use os cargos para organizar os membros do servidor e conceder permissões.
+              <h2 className="text-xl font-bold text-white tracking-tight">Cargos do Servidor</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Configure permissões e hierarquia de acesso dos membros.
               </p>
             </div>
             <button
               onClick={handleCreateRole}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-discord-brand hover:bg-discord-brandHover text-white rounded text-xs font-bold transition shadow"
+              className="flex items-center space-x-1.5 px-4 py-2 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl text-xs font-semibold transition shadow-lg btn-interactive"
             >
               <Plus className="w-4 h-4" />
               <span>Criar Cargo</span>
@@ -184,25 +184,27 @@ export const ServerSettingsModal = () => {
           {/* Body: Roles Column + Role Config Column */}
           <div className="flex-1 flex overflow-hidden">
             {/* Roles List */}
-            <div className="w-48 bg-discord-darkest/60 p-3 overflow-y-auto border-r border-discord-darker space-y-1">
+            <div className="w-52 bg-black/20 p-3 overflow-y-auto border-r border-white/[0.06] space-y-1 thin-scrollbar">
               {roles.map((r) => {
                 const isSelected = selectedRole?.id === r.id;
+                const cleanName = (r.name || '').replace(/[\uD800-\uDFFF].*/g, '').trim();
+
                 return (
                   <button
                     key={r.id}
                     onClick={() => setSelectedRoleId(r.id)}
-                    className={`w-full text-left flex items-center justify-between px-2.5 py-2 rounded text-xs font-semibold transition ${
+                    className={`w-full text-left flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition ${
                       isSelected
-                        ? 'bg-discord-active text-white'
-                        : 'text-discord-channel hover:bg-discord-hover hover:text-discord-text'
+                        ? 'bg-white/15 text-white shadow-sm border border-white/10'
+                        : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
                     }`}
                   >
-                    <div className="flex items-center space-x-2 truncate">
+                    <div className="flex items-center space-x-2.5 truncate">
                       <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm"
                         style={{ backgroundColor: r.color }}
                       />
-                      <span className="truncate">{r.name}</span>
+                      <span className="truncate">{cleanName || r.name}</span>
                     </div>
                   </button>
                 );
@@ -211,24 +213,24 @@ export const ServerSettingsModal = () => {
 
             {/* Selected Role Settings */}
             {selectedRole && (
-              <div className="flex-1 p-6 overflow-y-auto space-y-6">
+              <div className="flex-1 p-6 overflow-y-auto space-y-6 thin-scrollbar">
                 {/* Role Name */}
                 <div>
-                  <label className="block text-xs font-bold uppercase text-discord-muted mb-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
                     Nome do Cargo
                   </label>
                   <input
                     type="text"
-                    value={selectedRole.name}
+                    value={(selectedRole.name || '').replace(/[\uD800-\uDFFF].*/g, '').trim() || selectedRole.name}
                     onChange={(e) => handleRoleNameChange(e.target.value)}
-                    className="w-full max-w-md bg-discord-darkest text-discord-text px-3 py-2 rounded border border-discord-dark focus:border-discord-brand focus:outline-none text-sm"
+                    className="w-full max-w-md glass-input text-white px-4 py-3 rounded-2xl text-xs focus:outline-none placeholder-slate-500"
                   />
                 </div>
 
                 {/* Role Color */}
                 <div>
-                  <label className="block text-xs font-bold uppercase text-discord-muted mb-2">
-                    Cor do Cargo
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">
+                    Cor de Destaque
                   </label>
                   <div className="flex items-center space-x-2 flex-wrap gap-y-2">
                     {colorPresets.map((c) => (
@@ -237,8 +239,8 @@ export const ServerSettingsModal = () => {
                         type="button"
                         onClick={() => handleRoleColorChange(c)}
                         style={{ backgroundColor: c }}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
-                          selectedRole.color === c ? 'ring-2 ring-white scale-110' : 'hover:opacity-90'
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center transition shadow-md ${
+                          selectedRole.color === c ? 'ring-2 ring-white scale-110' : 'hover:opacity-90 hover:scale-105'
                         }`}
                       >
                         {selectedRole.color === c && <Check className="w-4 h-4 text-white drop-shadow" />}
@@ -248,7 +250,7 @@ export const ServerSettingsModal = () => {
                       type="color"
                       value={selectedRole.color}
                       onChange={(e) => handleRoleColorChange(e.target.value)}
-                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
+                      className="w-8 h-8 rounded-xl cursor-pointer bg-transparent border-0"
                       title="Cor personalizada"
                     />
                   </div>
@@ -256,28 +258,28 @@ export const ServerSettingsModal = () => {
 
                 {/* Permissions List */}
                 <div>
-                  <label className="block text-xs font-bold uppercase text-discord-muted mb-3">
-                    Permissões do Cargo
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+                    Permissões
                   </label>
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {permissionList.map((p) => {
                       const enabled = !!selectedRole.permissions?.[p.key];
                       return (
                         <div
                           key={p.key}
-                          className="flex items-center justify-between p-3 rounded-lg bg-discord-darkest border border-discord-darker"
+                          className="flex items-center justify-between p-3.5 rounded-2xl glass-panel-subtle border border-white/[0.04]"
                         >
                           <div className="pr-4">
-                            <div className="text-sm font-semibold text-discord-header">{p.name}</div>
-                            <div className="text-xs text-discord-muted mt-0.5">{p.desc}</div>
+                            <div className="text-xs font-semibold text-white">{p.name}</div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">{p.desc}</div>
                           </div>
 
                           {/* Toggle Switch */}
                           <button
                             type="button"
                             onClick={() => handlePermissionToggle(p.key)}
-                            className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                              enabled ? 'bg-discord-green justify-end' : 'bg-discord-hover justify-start'
+                            className={`w-11 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${
+                              enabled ? 'bg-emerald-500 justify-end shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-black/50 justify-start border border-white/10'
                             }`}
                           >
                             <div className="w-4 h-4 rounded-full bg-white shadow-md" />
@@ -290,10 +292,10 @@ export const ServerSettingsModal = () => {
 
                 {/* Delete Role */}
                 {roles.length > 1 && (
-                  <div className="pt-4 border-t border-discord-darker flex justify-end">
+                  <div className="pt-4 border-t border-white/[0.06] flex justify-end">
                     <button
                       onClick={() => handleDeleteRole(selectedRole.id)}
-                      className="flex items-center space-x-1.5 px-3 py-2 rounded text-xs font-bold text-discord-red hover:bg-discord-red/10 transition"
+                      className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/15 transition btn-interactive"
                     >
                       <Trash2 className="w-4 h-4" />
                       <span>Excluir Cargo</span>
