@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut } from 'lucide-react';
+import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
@@ -30,6 +30,14 @@ export const UserSettingsModal = () => {
   const [micTestActive, setMicTestActive] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
 
+  // Auto-Updater State
+  const [appVersion, setAppVersion] = useState('1.0.0');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateResult, setUpdateResult] = useState(null);
+  const [downloadingUpdate, setDownloadingUpdate] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [updateReady, setUpdateReady] = useState(false);
+
   const gradientOptions = [
     { name: 'Indigo / Roxo', gradient: 'from-indigo-500 to-purple-600' },
     { name: 'Ciano / Azul', gradient: 'from-cyan-500 to-blue-600' },
@@ -38,6 +46,53 @@ export const UserSettingsModal = () => {
     { name: 'Âmbar / Laranja', gradient: 'from-amber-500 to-orange-600' },
     { name: 'Escuro / Grafite', gradient: 'from-slate-700 to-zinc-900' }
   ];
+
+  useEffect(() => {
+    if (window.electronAPI?.getAppVersion) {
+      window.electronAPI.getAppVersion().then((v) => {
+        if (v) setAppVersion(v);
+      });
+    }
+
+    if (window.electronAPI?.onUpdateDownloadProgress) {
+      window.electronAPI.onUpdateDownloadProgress((prog) => {
+        setDownloadProgress(prog.percent || 0);
+      });
+    }
+  }, []);
+
+  const handleCheckUpdates = async () => {
+    if (!window.electronAPI) return;
+    setCheckingUpdate(true);
+    setUpdateResult(null);
+    try {
+      const res = await window.electronAPI.checkForUpdates(serverUrl);
+      setUpdateResult(res);
+    } catch (e) {
+      setUpdateResult({ hasUpdate: false, error: 'Erro ao verificar atualizações.' });
+    }
+    setCheckingUpdate(false);
+  };
+
+  const handleDownloadUpdate = async () => {
+    if (!window.electronAPI || !updateResult?.asarUrl || downloadingUpdate) return;
+    setDownloadingUpdate(true);
+    try {
+      const res = await window.electronAPI.downloadUpdate(updateResult.asarUrl);
+      if (res && res.success) {
+        setUpdateReady(true);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setDownloadingUpdate(false);
+  };
+
+  const handleApplyUpdate = () => {
+    if (window.electronAPI) {
+      window.electronAPI.applyUpdate();
+    }
+  };
 
   useEffect(() => {
     let audioContext;
@@ -415,6 +470,95 @@ export const UserSettingsModal = () => {
                 <p className="text-[11px] text-slate-400 mt-2">
                   Servidor padrão conectado: <code className="text-indigo-300">https://pulsecord-1-w3xw.onrender.com</code>.
                 </p>
+              </div>
+
+              {/* OTA In-App Auto-Updater Card */}
+              <div className="p-4 rounded-2xl bg-black/30 border border-white/[0.08] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white">Atualizações do PulseCord</h4>
+                      <p className="text-[11px] text-slate-400 font-mono">Versão Atual: v{appVersion}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCheckUpdates}
+                    disabled={checkingUpdate}
+                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition flex items-center gap-1.5 disabled:opacity-60 border border-white/10"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${checkingUpdate ? 'animate-spin' : ''}`} />
+                    <span>{checkingUpdate ? 'Verificando...' : 'Verificar Atualização'}</span>
+                  </button>
+                </div>
+
+                {updateResult && (
+                  <div className="pt-2 border-t border-white/[0.06] text-xs">
+                    {updateResult.hasUpdate ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                            <Check className="w-4 h-4" />
+                            Nova versão v{updateResult.remoteVersion} disponível!
+                          </p>
+                          <span className="text-[10px] text-slate-400 font-mono">~450 KB</span>
+                        </div>
+                        {updateResult.notes && (
+                          <p className="text-[11px] text-slate-300 bg-black/40 p-2 rounded-xl border border-white/[0.04]">
+                            {updateResult.notes}
+                          </p>
+                        )}
+                        {downloadingUpdate && (
+                          <div className="w-full space-y-1">
+                            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                              <span>Baixando pacote...</span>
+                              <span>{downloadProgress}%</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-black/50 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-200"
+                                style={{ width: `${downloadProgress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          {updateReady ? (
+                            <button
+                              type="button"
+                              onClick={handleApplyUpdate}
+                              className="w-full py-2 bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20"
+                            >
+                              <RotateCw className="w-3.5 h-3.5" />
+                              <span>Reiniciar e Aplicar Atualização</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleDownloadUpdate}
+                              disabled={downloadingUpdate}
+                              className="w-full py-2 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>{downloadingUpdate ? 'Baixando...' : 'Baixar Atualização (~450 KB)'}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : updateResult.error ? (
+                      <p className="text-rose-400 text-[11px]">{updateResult.error}</p>
+                    ) : (
+                      <p className="text-slate-400 text-[11px] flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        Você já está usando a versão mais recente do PulseCord (v{appVersion}).
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-white/[0.06] flex justify-end">

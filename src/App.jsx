@@ -14,6 +14,7 @@ import { UserSettingsModal } from './components/UserSettingsModal';
 import { CreateChannelModal } from './components/CreateChannelModal';
 import { CreateServerModal } from './components/CreateServerModal';
 import { AuthScreen } from './components/AuthScreen';
+import { UpdateToast } from './components/UpdateToast';
 import { Loader2 } from 'lucide-react';
 
 const MainLayout = () => {
@@ -65,6 +66,7 @@ const AppContent = () => {
         ) : (
           <MainLayout />
         )}
+        <UpdateToast />
       </div>
     </div>
   );

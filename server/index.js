@@ -2,7 +2,13 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { setupSignaling } from './signaling.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
@@ -20,6 +26,9 @@ const io = new Server(server, {
   maxHttpBufferSize: 1e8 // 100 MB for images & attachments
 });
 
+const VERSION_FILE = path.join(__dirname, 'version.json');
+const ASAR_FILE = path.join(__dirname, 'app.asar');
+
 // REST Health and info endpoint
 app.get('/api/health', (req, res) => {
   res.json({
@@ -28,6 +37,33 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
+});
+
+// OTA In-App Auto-Updater Endpoints
+app.get('/api/version', (req, res) => {
+  if (fs.existsSync(VERSION_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(VERSION_FILE, 'utf-8'));
+      data.hasAsar = fs.existsSync(ASAR_FILE);
+      return res.json(data);
+    } catch (e) {}
+  }
+  res.json({
+    version: '1.0.0',
+    releaseDate: new Date().toISOString(),
+    hasAsar: fs.existsSync(ASAR_FILE),
+    notes: 'Versão inicial do PulseCord com voz em tempo real e compartilhamento 60fps.'
+  });
+});
+
+app.get('/api/update/app.asar', (req, res) => {
+  if (fs.existsSync(ASAR_FILE)) {
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'attachment; filename="app.asar"');
+    res.sendFile(ASAR_FILE);
+  } else {
+    res.status(404).json({ error: 'Nenhum pacote app.asar disponível para download no servidor.' });
+  }
 });
 
 // Initialize Socket.io signaling & music bot
