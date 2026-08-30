@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PulseCord</title>
+    <style>
+      /* Custom Discord scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #2b2d31;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #1a1b1e;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #111214;
+      }
+      /* Prevent selection on UI buttons */
+      .no-select {
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      /* Custom electron drag region */
+      .app-drag-region {
+        -webkit-app-region: drag;
+      }
+      .app-no-drag {
+        -webkit-app-region: no-drag;
+      }
+    </style>
+  </head>
+  <body class="bg-discord-dark text-discord-text overflow-hidden font-gg select-none m-0 p-0 h-screen w-screen">
+    <div id="root" class="h-full w-full flex flex-col"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
