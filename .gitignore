@@ -4,3 +4,4 @@ dist-exe
 dist
 .env
 .DS_Store
+*.zip

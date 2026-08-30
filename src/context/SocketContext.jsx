@@ -153,6 +153,37 @@ export const SocketProvider = ({ children }) => {
     });
   };
 
+  // Quick Guest Login Method (1-click test with nickname)
+  const loginGuest = (username, avatarColor = 'from-indigo-500 to-purple-600') => {
+    return new Promise((resolve) => {
+      if (!socketRef.current) return resolve({ success: false, error: 'Servidor desconectado.' });
+      setAuthError(null);
+
+      const cleanUsername = (username || `User_${Math.floor(1000 + Math.random() * 9000)}`).trim();
+
+      socketRef.current.emit(
+        'auth-guest',
+        { username: cleanUsername, avatarColor },
+        (res) => {
+          if (res && res.success) {
+            setCurrentUser(res.user);
+            setIsAuthenticated(true);
+            if (res.servers) setInitialServersData(res.servers);
+            localStorage.setItem(
+              'pulsecord_session',
+              JSON.stringify({ token: res.user.token, userId: res.user.id, email: res.user.email })
+            );
+            resolve({ success: true, user: res.user });
+          } else {
+            const errMsg = res?.error || 'Erro ao entrar.';
+            setAuthError(errMsg);
+            resolve({ success: false, error: errMsg });
+          }
+        }
+      );
+    });
+  };
+
   // Logout Method
   const logout = () => {
     localStorage.removeItem('pulsecord_session');
@@ -183,6 +214,7 @@ export const SocketProvider = ({ children }) => {
         authError,
         setAuthError,
         login,
+        loginGuest,
         register,
         logout,
         initialServersData
