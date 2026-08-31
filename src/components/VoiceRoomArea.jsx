@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import ReactPlayer from 'react-player';
+import ReactPlayerModule from 'react-player';
+const ReactPlayer = ReactPlayerModule.default || ReactPlayerModule;
 import {
   Mic,
   MicOff,
