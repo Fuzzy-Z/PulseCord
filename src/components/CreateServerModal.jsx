@@ -28,21 +28,21 @@ export const CreateServerModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xl flex items-center justify-center z-50 p-4 select-none">
-      <div className="glass-modal w-full max-w-md rounded-3xl p-6 shadow-2xl border border-white/15 animate-modal">
+    <div className="fixed inset-0 bg-sys-s3 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-none">
+      <div className="bg-sys-base border border-sys-border w-full max-w-md rounded-3xl p-6 shadow-2xl border border-sys-border animate-modal">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+            <div className="w-10 h-10 rounded-2xl bg-sys-accent flex items-center justify-center text-sys-text shadow-lg">
               <Sparkles className="w-5 h-5" />
             </div>
             <div className="text-left">
-              <h2 className="text-lg font-bold text-white tracking-tight">Criar Espaço</h2>
-              <p className="text-slate-400 text-xs">Novo servidor de voz e texto</p>
+              <h2 className="text-lg font-bold text-sys-text tracking-tight">Criar Espaço</h2>
+              <p className="text-sys-muted text-xs">Novo servidor de voz e texto</p>
             </div>
           </div>
           <button
             onClick={() => setIsAddServerOpen(false)}
-            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition btn-interactive"
+            className="text-sys-muted hover:text-sys-text p-1.5 rounded-xl hover:bg-sys-s1 transition btn-interactive"
           >
             <X className="w-5 h-5" />
           </button>
@@ -50,10 +50,10 @@ export const CreateServerModal = () => {
 
         <form onSubmit={handleCreateSubmit} className="text-left space-y-4">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
               Estilo Visual
             </label>
-            <div className="flex justify-center gap-2 py-2.5 px-3 bg-black/40 rounded-2xl border border-white/[0.08]">
+            <div className="flex justify-center gap-2 py-2.5 px-3 bg-sys-s2 rounded-2xl border border-sys-border">
               {colorPresets.map((preset) => (
                 <button
                   key={preset.name}
@@ -71,7 +71,7 @@ export const CreateServerModal = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
               Nome do Servidor
             </label>
             <input
@@ -80,22 +80,22 @@ export const CreateServerModal = () => {
               value={newServerName}
               onChange={(e) => setNewServerName(e.target.value)}
               placeholder="Ex: Espaço de Criação"
-              className="w-full glass-input text-white px-4 py-3 rounded-2xl focus:outline-none text-xs placeholder-slate-500"
+              className="w-full bg-sys-s1 border border-sys-border text-sys-text text-sys-text px-4 py-3 rounded-2xl focus:outline-none text-xs placeholder-sys-muted/50"
               autoFocus
             />
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t border-white/[0.08]">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-sys-border">
             <button
               type="button"
               onClick={() => setIsAddServerOpen(false)}
-              className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition"
+              className="px-4 py-2 text-xs font-medium text-sys-muted hover:text-sys-text transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl text-xs font-semibold transition shadow-lg btn-interactive"
+              className="px-6 py-2.5 bg-sys-accent hover:bg-sys-accentHov text-sys-text rounded-xl text-xs font-semibold transition shadow-lg btn-interactive"
             >
               Criar Espaço
             </button>
@@ -105,3 +105,4 @@ export const CreateServerModal = () => {
     </div>
   );
 };
+

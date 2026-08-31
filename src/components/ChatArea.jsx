@@ -88,7 +88,7 @@ export const ChatArea = () => {
 
   if (!currentChannel) {
     return (
-      <div className="flex-1 bg-black/30 backdrop-blur-2xl flex items-center justify-center text-slate-500 text-sm">
+      <div className="flex-1 bg-sys-s2 flex items-center justify-center text-sys-muted text-sm">
         Selecione um canal para conversar
       </div>
     );
@@ -107,24 +107,24 @@ export const ChatArea = () => {
   return (
     <div className="flex-1 bg-black/20 backdrop-blur-2xl flex flex-col h-full overflow-hidden select-none">
       {/* Channel Header */}
-      <div className="h-12 border-b border-white/[0.06] px-4 flex items-center justify-between flex-shrink-0 bg-black/30 backdrop-blur-2xl">
+      <div className="h-12 border-b border-sys-border px-4 flex items-center justify-between flex-shrink-0 bg-sys-s3">
         <div className="flex items-center space-x-2.5 truncate">
-          <Hash className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-          <span className="font-bold text-white text-[13px] tracking-tight truncate">{currentChannel.name}</span>
+          <Hash className="w-4 h-4 text-sys-accent flex-shrink-0" />
+          <span className="font-bold text-sys-text text-[13px] tracking-tight truncate">{currentChannel.name}</span>
           {currentChannel.topic && (
             <>
-              <span className="text-white/15">/</span>
-              <span className="text-xs text-slate-400 truncate max-w-[350px]">
+              <span className="text-sys-muted">/</span>
+              <span className="text-xs text-sys-muted truncate max-w-[350px]">
                 {currentChannel.topic}
               </span>
             </>
           )}
         </div>
 
-        <div className="flex items-center space-x-2 text-slate-400">
+        <div className="flex items-center space-x-2 text-sys-muted">
           <button
             onClick={() => setIsMusicModalOpen(true)}
-            className="flex items-center space-x-1.5 px-3 py-1 rounded-full glass-pill text-amber-300 text-xs font-medium transition btn-interactive"
+            className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-sys-s1 border border-sys-border text-sys-text text-xs font-medium transition btn-interactive"
             title="Abrir Player de Música"
           >
             <Disc3 className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} />
@@ -134,7 +134,7 @@ export const ChatArea = () => {
           <button
             onClick={() => setShowMemberList(!showMemberList)}
             className={`p-2 rounded-xl transition btn-interactive ${
-              showMemberList ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+              showMemberList ? 'text-sys-text bg-sys-s1' : 'text-sys-muted hover:text-sys-text hover:bg-sys-s1'
             }`}
             title="Lista de Membros"
           >
@@ -149,19 +149,19 @@ export const ChatArea = () => {
         <div className="flex-1 flex flex-col justify-between overflow-hidden">
           <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4 thin-scrollbar">
             {/* Channel Welcome Banner */}
-            <div className="mb-6 pt-4 px-3 glass-panel rounded-3xl p-5 border border-white/10">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center mb-3 shadow-lg shadow-indigo-500/20">
+            <div className="mb-6 pt-4 px-3 bg-sys-s3 rounded-3xl p-5 border border-sys-border">
+              <div className="w-12 h-12 rounded-2xl bg-sys-accent flex items-center justify-center mb-3 shadow-sm">
                 <Hash className="w-6 h-6 text-white" />
               </div>
-              <h2 className="text-xl font-bold text-white tracking-tight">
+              <h2 className="text-xl font-bold text-sys-text tracking-tight">
                 Canal #{currentChannel.name}
               </h2>
-              <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+              <p className="text-sys-muted text-xs mt-1 leading-relaxed">
                 {currentChannel.topic || `Este é o início do canal #${currentChannel.name}. Envie mensagens em tempo real ou digite / para comandos.`}
               </p>
             </div>
 
-            <div className="w-full h-[1px] bg-white/[0.06] my-4" />
+            <div className="w-full h-[1px] bg-sys-border my-4" />
 
             {/* Messages List */}
             {messages.map((msg) => {
@@ -171,10 +171,10 @@ export const ChatArea = () => {
               return (
                 <div
                   key={msg.id}
-                  className="flex space-x-3.5 hover:bg-white/[0.03] -mx-4 px-4 py-2 rounded-2xl transition-all group"
+                  className="flex space-x-3.5 hover:bg-sys-s1 -mx-4 px-4 py-2 rounded-2xl transition-all group"
                 >
                   {/* Avatar */}
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 shadow-md border border-white/10">
+                  <div className="w-9 h-9 rounded-xl bg-sys-accent flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 border border-sys-border">
                     {monogram}
                   </div>
 
@@ -190,29 +190,24 @@ export const ChatArea = () => {
 
                       {/* Bot / Role Tag */}
                       {isBot ? (
-                        <span className="bg-indigo-500/80 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                        <span className="bg-sys-accent text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                           BOT
                         </span>
                       ) : (
                         msg.author.roleName && (
                           <span
-                            className="text-[9px] font-semibold px-2 py-0.5 rounded-full border"
-                            style={{
-                              backgroundColor: `${msg.author.roleColor || '#6366f1'}15`,
-                              borderColor: `${msg.author.roleColor || '#6366f1'}33`,
-                              color: msg.author.roleColor || '#6366f1'
-                            }}
+                            className="text-[9px] font-semibold px-2 py-0.5 rounded-full border border-sys-border text-sys-muted bg-sys-s1"
                           >
                             {msg.author.roleName.replace(/[\uD800-\uDFFF].*/g, '').trim()}
                           </span>
                         )
                       )}
 
-                      <span className="text-[10px] text-slate-500 font-medium">{formatTime(msg.timestamp)}</span>
+                      <span className="text-[10px] text-sys-muted font-medium">{formatTime(msg.timestamp)}</span>
                     </div>
 
                     {/* Text Message Body */}
-                    <div className="text-xs text-slate-200 mt-1 leading-relaxed whitespace-pre-wrap select-text font-normal">
+                    <div className="text-xs text-sys-text mt-1 leading-relaxed whitespace-pre-wrap select-text font-normal">
                       {msg.content}
                     </div>
 
@@ -220,17 +215,17 @@ export const ChatArea = () => {
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="mt-2.5 flex flex-wrap gap-2.5">
                         {msg.attachments.map((att, i) => (
-                          <div key={i} className="max-w-md rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+                          <div key={i} className="max-w-md rounded-2xl overflow-hidden border border-sys-border shadow-sm">
                             {att.type?.startsWith('image/') || att.dataUrl?.startsWith('data:image') ? (
                               <img
                                 src={att.dataUrl}
                                 alt={att.name}
-                                className="max-h-64 object-contain rounded-2xl bg-black/40 hover:opacity-95 transition"
+                                className="max-h-64 object-contain rounded-2xl bg-sys-s1 hover:opacity-95 transition"
                               />
                             ) : (
-                              <div className="p-3 bg-black/40 backdrop-blur-md flex items-center space-x-2 text-xs">
-                                <ImageIcon className="w-4 h-4 text-indigo-400" />
-                                <span className="font-medium text-slate-300">{att.name}</span>
+                              <div className="p-3 bg-sys-s1 flex items-center space-x-2 text-xs">
+                                <ImageIcon className="w-4 h-4 text-sys-accent" />
+                                <span className="font-medium text-sys-text">{att.name}</span>
                               </div>
                             )}
                           </div>
@@ -239,7 +234,7 @@ export const ChatArea = () => {
                     )}
 
                     {msg.attachmentExpired && (
-                      <div className="mt-1.5 text-[10px] text-slate-500 italic flex items-center space-x-1">
+                      <div className="mt-1.5 text-[10px] text-sys-muted italic flex items-center space-x-1">
                         <span>Imagem removida após 1h para economizar dados do servidor.</span>
                       </div>
                     )}
@@ -252,9 +247,9 @@ export const ChatArea = () => {
 
           {/* Attachment Preview Bar */}
           {attachments.length > 0 && (
-            <div className="px-5 py-2 bg-black/40 backdrop-blur-md flex items-center space-x-3 border-t border-white/[0.06]">
+            <div className="px-5 py-2 bg-sys-s2 flex items-center space-x-3 border-t border-sys-border">
               {attachments.map((att, i) => (
-                <div key={i} className="relative group rounded-2xl bg-black/60 p-1.5 border border-white/10 shadow-md">
+                <div key={i} className="relative group rounded-2xl bg-sys-s3 p-1.5 border border-sys-border shadow-md">
                   <button
                     onClick={() => handleRemoveAttachment(i)}
                     className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 hover:bg-rose-600 rounded-full text-white flex items-center justify-center shadow-lg transition"
@@ -269,8 +264,8 @@ export const ChatArea = () => {
 
           {/* Slash Commands Autocomplete Popup */}
           {showSlashHints && (
-            <div className="mx-5 mb-2 glass-modal rounded-2xl border border-white/15 shadow-2xl p-2 z-20 space-y-1 animate-dropdown">
-              <div className="text-[10px] font-semibold text-slate-400 uppercase px-2.5 py-1 tracking-wider">
+            <div className="mx-5 mb-2 bg-sys-s3 rounded-2xl border border-sys-border shadow-2xl p-2 z-20 space-y-1 animate-dropdown">
+              <div className="text-[10px] font-semibold text-sys-muted uppercase px-2.5 py-1 tracking-wider">
                 Comandos
               </div>
               {slashCommands
@@ -280,10 +275,10 @@ export const ChatArea = () => {
                     key={c.cmd}
                     type="button"
                     onClick={() => handleSelectCommand(c.cmd)}
-                    className="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10 text-slate-300 hover:text-white transition group text-xs"
+                    className="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl hover:bg-sys-s1 text-sys-text transition group text-xs"
                   >
-                    <span className="font-semibold text-indigo-400 group-hover:text-indigo-300">{c.cmd}</span>
-                    <span className="text-slate-500 group-hover:text-slate-300 truncate max-w-xs">{c.desc}</span>
+                    <span className="font-semibold text-sys-accent group-hover:text-sys-accentHov">{c.cmd}</span>
+                    <span className="text-sys-muted truncate max-w-xs">{c.desc}</span>
                   </button>
                 ))}
             </div>
@@ -293,7 +288,7 @@ export const ChatArea = () => {
           <div className="px-5 pb-5 relative">
             <form
               onSubmit={handleSend}
-              className="glass-input rounded-2xl flex items-center px-4 py-3 space-x-3 transition-all"
+              className="bg-sys-s3 border border-sys-border rounded-2xl flex items-center px-4 py-3 space-x-3 transition-all focus-within:border-sys-accent focus-within:shadow-[0_0_10px_var(--color-accent)] focus-within:shadow-sys-accent/20"
             >
               {/* File Attachment Upload */}
               <input
@@ -307,7 +302,7 @@ export const ChatArea = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-slate-400 hover:text-white transition btn-interactive"
+                className="text-sys-muted hover:text-sys-text transition btn-interactive"
                 title="Adicionar Arquivo"
               >
                 <PlusCircle className="w-4 h-4" />
@@ -319,14 +314,14 @@ export const ChatArea = () => {
                 value={inputMessage}
                 onChange={handleInputChange}
                 placeholder={`Mensagem em #${currentChannel.name} (use / para bot)`}
-                className="flex-1 bg-transparent text-white text-xs focus:outline-none placeholder-slate-500"
+                className="flex-1 bg-transparent text-sys-text text-xs focus:outline-none placeholder-sys-muted"
               />
 
               {/* Send Button */}
               <button
                 type="submit"
                 disabled={!inputMessage.trim() && attachments.length === 0}
-                className="text-indigo-400 hover:text-indigo-300 disabled:text-slate-600 transition btn-interactive p-1"
+                className="text-sys-accent hover:text-sys-accentHov disabled:text-sys-muted disabled:opacity-50 transition btn-interactive p-1"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -336,8 +331,8 @@ export const ChatArea = () => {
 
         {/* Server Members List Sidebar */}
         {showMemberList && (
-          <div className="w-56 bg-black/25 backdrop-blur-2xl p-3 overflow-y-auto hidden lg:block select-none border-l border-white/[0.06]">
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">
+          <div className="w-56 bg-sys-s1 p-3 overflow-y-auto hidden lg:block select-none border-l border-sys-border">
+            <div className="text-[10px] font-semibold text-sys-muted uppercase tracking-wider mb-2 px-1">
               Membros
             </div>
 
@@ -356,40 +351,41 @@ export const ChatArea = () => {
                   <div className="space-y-1">
                     {/* Current User in this role */}
                     {currentUser?.roleId === role.id && (
-                      <div className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-white/[0.04] cursor-pointer">
+                      <div className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-sys-s2 cursor-pointer">
                         <div className="relative">
-                          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-[10px] font-bold">
+                          <div className="w-7 h-7 rounded-lg bg-sys-accent text-white flex items-center justify-center text-[10px] font-bold">
                             {getMonogram(currentUser.username)}
                           </div>
-                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border-2 border-black" />
+                          {/* Keeping the active green dot just for presence, as discussed in the plan */}
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border-2 border-sys-s1" />
                         </div>
                         <div className="flex flex-col truncate">
-                          <span className="text-xs font-semibold text-white truncate">
+                          <span className="text-xs font-semibold text-sys-text truncate">
                             {currentUser.username}
                           </span>
-                          <span className="text-[9px] text-slate-500">Você</span>
+                          <span className="text-[9px] text-sys-muted">Você</span>
                         </div>
                       </div>
                     )}
 
                     {role.id === 'role-vip' && (
-                      <div className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-white/[0.04] cursor-pointer">
+                      <div className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-sys-s2 cursor-pointer">
                         <div className="relative">
-                          <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center text-xs">
+                          <div className="w-7 h-7 rounded-lg bg-sys-s3 text-sys-accent flex items-center justify-center text-xs">
                             <Disc3 className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} />
                           </div>
-                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border-2 border-black" />
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border-2 border-sys-s1" />
                         </div>
                         <div className="flex flex-col truncate">
                           <div className="flex items-center space-x-1">
-                            <span className="text-xs font-semibold text-slate-200">
+                            <span className="text-xs font-semibold text-sys-text">
                               PulseRadio
                             </span>
-                            <span className="bg-indigo-500/80 text-white text-[7px] font-bold px-1 rounded-full">
+                            <span className="bg-sys-accent text-white text-[7px] font-bold px-1 rounded-full">
                               BOT
                             </span>
                           </div>
-                          <span className="text-[9px] text-slate-500">Áudio 24/7</span>
+                          <span className="text-[9px] text-sys-muted">Áudio 24/7</span>
                         </div>
                       </div>
                     )}

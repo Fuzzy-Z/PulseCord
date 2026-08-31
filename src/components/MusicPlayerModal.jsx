@@ -72,17 +72,17 @@ export const MusicPlayerModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xl flex items-center justify-center z-50 p-4 select-none">
-      <div className="glass-modal w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/15 flex flex-col max-h-[85vh] animate-modal">
+    <div className="fixed inset-0 bg-sys-s3 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-none">
+      <div className="bg-sys-base border border-sys-border w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-sys-border flex flex-col max-h-[85vh] animate-modal">
         {/* Modal Header */}
-        <div className="p-5 flex items-center justify-between border-b border-white/[0.06] bg-black/30">
+        <div className="p-5 flex items-center justify-between border-b border-sys-border bg-sys-s2">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center">
               <Disc3 className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '8s' }} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Player de Áudio & Rádio 24/7</h2>
-              <p className="text-xs text-slate-400">
+              <h2 className="text-lg font-bold text-sys-text tracking-tight">Player de Áudio & Rádio 24/7</h2>
+              <p className="text-xs text-sys-muted">
                 {activeVoiceChannel
                   ? 'Conectado ao seu canal de voz ativo'
                   : 'Entre em um canal de voz para ouvir em sincronia'}
@@ -91,7 +91,7 @@ export const MusicPlayerModal = () => {
           </div>
           <button
             onClick={() => setIsMusicModalOpen(false)}
-            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition btn-interactive"
+            className="text-sys-muted hover:text-sys-text p-1.5 rounded-xl hover:bg-sys-s1 transition btn-interactive"
           >
             <X className="w-5 h-5" />
           </button>
@@ -102,14 +102,14 @@ export const MusicPlayerModal = () => {
           {/* Search / URL Input */}
           <div className="space-y-2">
             <form onSubmit={handleSearchSubmit} className="flex space-x-2.5">
-              <div className="flex-1 glass-input rounded-2xl flex items-center px-4">
-                <Search className="w-4 h-4 text-slate-400 mr-2.5" />
+              <div className="flex-1 bg-sys-s1 border border-sys-border text-sys-text rounded-2xl flex items-center px-4">
+                <Search className="w-4 h-4 text-sys-muted mr-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Cole links do YouTube, Spotify, SoundCloud ou busque qualquer música..."
-                  className="w-full bg-transparent py-3 text-white text-xs focus:outline-none placeholder-slate-500"
+                  className="w-full bg-transparent py-3 text-sys-text text-xs focus:outline-none placeholder-sys-muted/50"
                 />
               </div>
               <button
@@ -121,25 +121,25 @@ export const MusicPlayerModal = () => {
               </button>
             </form>
 
-            <div className="flex items-center space-x-2 px-1 text-[11px] text-slate-400">
-              <span className="text-slate-500">Suporte integrado:</span>
+            <div className="flex items-center space-x-2 px-1 text-[11px] text-sys-muted">
+              <span className="text-sys-muted/50">Suporte integrado:</span>
               <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-semibold">YouTube</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold">Spotify</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-green-500 border border-emerald-500/30 text-[10px] font-semibold">Spotify</span>
               <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30 text-[10px] font-semibold">SoundCloud</span>
-              <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold">Web Audio</span>
+              <span className="px-2 py-0.5 rounded-full bg-sys-accent/20 text-sys-accent border border-indigo-500/30 text-[10px] font-semibold">Web Audio</span>
             </div>
           </div>
 
           {/* Now Playing Card */}
           {musicPlayer.currentTrack ? (
-            <div className="glass-panel rounded-3xl p-5 border border-amber-400/30 shadow-2xl flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-5">
+            <div className="bg-sys-s3 border-sys-border rounded-3xl p-5 border border-amber-400/30 shadow-2xl flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-5">
               <div className="relative group">
                 <img
                   src={musicPlayer.currentTrack.cover}
                   alt="Cover"
-                  className="w-24 h-24 rounded-2xl object-cover shadow-md border border-white/10"
+                  className="w-24 h-24 rounded-2xl object-cover shadow-md border border-sys-border"
                 />
-                <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                <div className="absolute inset-0 bg-sys-s2 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                   <Radio className="w-6 h-6 text-amber-300 animate-pulse" />
                 </div>
               </div>
@@ -148,10 +148,10 @@ export const MusicPlayerModal = () => {
                 <div className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
                   Reproduzindo Agora
                 </div>
-                <h3 className="text-base font-bold text-white truncate mt-0.5">
+                <h3 className="text-base font-bold text-sys-text truncate mt-0.5">
                   {musicPlayer.currentTrack.title}
                 </h3>
-                <p className="text-xs text-slate-400 truncate">
+                <p className="text-xs text-sys-muted truncate">
                   {musicPlayer.currentTrack.artist}
                 </p>
 
@@ -165,14 +165,14 @@ export const MusicPlayerModal = () => {
                   </button>
                   <button
                     onClick={() => sendMusicControl('skip')}
-                    className="p-2.5 rounded-2xl glass-pill text-slate-300 hover:text-white transition btn-interactive"
+                    className="p-2.5 rounded-2xl glass-pill text-sys-muted hover:text-sys-text transition btn-interactive"
                     title="Pular"
                   >
                     <SkipForward className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => sendMusicControl('stop')}
-                    className="p-2.5 rounded-2xl glass-pill hover:bg-rose-500/30 text-slate-300 hover:text-rose-400 transition btn-interactive"
+                    className="p-2.5 rounded-2xl glass-pill hover:bg-rose-500/30 text-sys-muted hover:text-rose-400 transition btn-interactive"
                     title="Parar"
                   >
                     <Square className="w-4 h-4" />
@@ -181,16 +181,16 @@ export const MusicPlayerModal = () => {
               </div>
             </div>
           ) : (
-            <div className="p-6 glass-panel rounded-3xl text-center text-slate-400">
+            <div className="p-6 bg-sys-s3 border-sys-border rounded-3xl text-center text-sys-muted">
               <Disc3 className="w-10 h-10 mx-auto mb-2 text-slate-600" />
-              <p className="text-sm font-semibold text-slate-300">Nenhuma faixa em reprodução</p>
-              <p className="text-xs mt-1 text-slate-500">Selecione uma estação abaixo ou pesquise uma faixa.</p>
+              <p className="text-sm font-semibold text-sys-muted">Nenhuma faixa em reprodução</p>
+              <p className="text-xs mt-1 text-sys-muted/50">Selecione uma estação abaixo ou pesquise uma faixa.</p>
             </div>
           )}
 
           {/* Curated Radio Stations */}
           <div>
-            <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-3 px-1">
+            <h4 className="text-[10px] font-bold uppercase text-sys-muted tracking-wider mb-3 px-1">
               Estações e Playlists em Destaque
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -198,7 +198,7 @@ export const MusicPlayerModal = () => {
                 <div
                   key={preset.id}
                   onClick={() => handlePlayPreset(preset.id)}
-                  className="flex items-center space-x-3 p-3 glass-panel rounded-2xl cursor-pointer hover:border-white/20 transition group"
+                  className="flex items-center space-x-3 p-3 bg-sys-s3 border-sys-border rounded-2xl cursor-pointer hover:border-sys-border transition group"
                 >
                   <img
                     src={preset.cover}
@@ -206,14 +206,14 @@ export const MusicPlayerModal = () => {
                     className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-white truncate group-hover:text-amber-300 transition">
+                    <div className="text-xs font-semibold text-sys-text truncate group-hover:text-amber-300 transition">
                       {preset.title}
                     </div>
-                    <div className="text-[10px] text-slate-400 truncate">{preset.genre}</div>
+                    <div className="text-[10px] text-sys-muted truncate">{preset.genre}</div>
                   </div>
                   <button
                     type="button"
-                    className="w-8 h-8 rounded-xl bg-white/10 group-hover:bg-amber-400 text-slate-300 group-hover:text-black flex items-center justify-center transition flex-shrink-0"
+                    className="w-8 h-8 rounded-xl bg-white/10 group-hover:bg-amber-400 text-sys-muted group-hover:text-black flex items-center justify-center transition flex-shrink-0"
                   >
                     <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
                   </button>
@@ -225,7 +225,7 @@ export const MusicPlayerModal = () => {
           {/* Queue List */}
           {musicPlayer.queue && musicPlayer.queue.length > 0 && (
             <div>
-              <div className="flex items-center space-x-2 text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2 px-1">
+              <div className="flex items-center space-x-2 text-[10px] font-bold uppercase text-sys-muted tracking-wider mb-2 px-1">
                 <ListMusic className="w-4 h-4" />
                 <span>Fila de Reprodução ({musicPlayer.queue.length})</span>
               </div>
@@ -233,13 +233,13 @@ export const MusicPlayerModal = () => {
                 {musicPlayer.queue.map((track, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-black/30 text-xs border border-white/[0.04]"
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-sys-s2 text-xs border border-sys-border"
                   >
                     <div className="flex items-center space-x-2 truncate">
-                      <span className="text-slate-500 font-bold w-4">{i + 1}.</span>
+                      <span className="text-sys-muted/50 font-bold w-4">{i + 1}.</span>
                       <span className="text-slate-200 font-medium truncate">{track.title}</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 flex-shrink-0">
+                    <span className="text-[10px] text-sys-muted/50 flex-shrink-0">
                       {track.requestedBy}
                     </span>
                   </div>
@@ -252,3 +252,4 @@ export const MusicPlayerModal = () => {
     </div>
   );
 };
+

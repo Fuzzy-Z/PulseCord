@@ -11,6 +11,10 @@ const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice }) => {
 
     if (audio.srcObject !== stream) {
       audio.srcObject = stream;
+    } else if (stream) {
+      // Force update for dynamically added tracks
+      audio.srcObject = null;
+      audio.srcObject = stream;
     }
 
     if (outputDevice && outputDevice !== 'default' && audio.setSinkId) {

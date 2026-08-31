@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers } from 'lucide-react';
+import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers, Palette } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
@@ -45,6 +45,41 @@ export const UserSettingsModal = () => {
   const [downloadingUpdate, setDownloadingUpdate] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [updateReady, setUpdateReady] = useState(false);
+
+  const appThemes = [
+    { id: 'grafite', name: 'Grafite', color: '#0D0E12', accent: '#7077A1' },
+    { id: 'porcelana', name: 'Porcelana', color: '#E2E0D8', accent: '#8C8576' },
+    { id: 'marinho', name: 'Marinho', color: '#0A111F', accent: '#4B77C2' },
+    { id: 'floresta', name: 'Floresta', color: '#0B140E', accent: '#5A9468' },
+    { id: 'arenito', name: 'Arenito', color: '#1C1613', accent: '#B38B71' },
+    { id: 'rosewood', name: 'Rosewood', color: '#1A0C10', accent: '#B86A81' },
+    { id: 'lavanda', name: 'Lavanda', color: '#110D17', accent: '#9071BD' },
+    { id: 'cobre', name: 'Cobre', color: '#1A0E08', accent: '#C46D41' },
+    { id: 'cobalto', name: 'Cobalto', color: '#080F1F', accent: '#3C70D6' },
+    { id: 'oliva', name: 'Oliva', color: '#15170D', accent: '#8F9C62' },
+    { id: 'petroleo', name: 'Petróleo', color: '#081717', accent: '#46A3A3' },
+    { id: 'chocolate', name: 'Chocolate', color: '#17100D', accent: '#A3725D' },
+    { id: 'celeste', name: 'Celeste', color: '#0D141A', accent: '#6289A8' },
+    { id: 'menta', name: 'Menta', color: '#0B1A16', accent: '#5FB39C' },
+    { id: 'ameixa', name: 'Ameixa', color: '#150B15', accent: '#A35EA3' },
+    { id: 'carmesim', name: 'Carmesim', color: '#1C0A0A', accent: '#C74A4A' },
+    { id: 'stonewash', name: 'Stonewash', color: '#0E1317', accent: '#6987A3' },
+    { id: 'dourado', name: 'Dourado', color: '#1A170A', accent: '#BDA646' },
+    { id: 'ardosia', name: 'Ardósia', color: '#101317', accent: '#728399' },
+    { id: 'marfim', name: 'Marfim', color: '#FAFAFA', accent: '#52525B' },
+  ];
+
+  const [selectedAppTheme, setSelectedAppTheme] = useState(() => {
+    const saved = localStorage.getItem('pulsecord-theme');
+    return saved ? saved.replace('theme-', '') : 'grafite';
+  });
+
+  const handleSetTheme = (themeId) => {
+    setSelectedAppTheme(themeId);
+    const themeClass = `theme-${themeId}`;
+    localStorage.setItem('pulsecord-theme', themeClass);
+    document.body.className = themeClass;
+  };
 
   const handleTestAudioOutput = () => {
     try {
@@ -185,12 +220,12 @@ export const UserSettingsModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xl flex items-center justify-center z-50 p-6 select-none">
-      <div className="glass-modal w-full max-w-3xl h-[80vh] rounded-3xl shadow-2xl overflow-hidden border border-white/15 flex animate-modal">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6 select-none">
+      <div className="bg-sys-base w-full max-w-3xl h-[80vh] rounded-3xl shadow-2xl overflow-hidden border border-sys-border flex animate-modal">
         {/* Left Nav */}
-        <div className="w-56 bg-black/30 p-5 flex flex-col justify-between border-r border-white/[0.06]">
+        <div className="w-56 bg-sys-s2 p-5 flex flex-col justify-between border-r border-sys-border">
           <div>
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-3">
+            <h3 className="text-[10px] font-bold text-sys-muted uppercase tracking-wider px-2 mb-3">
               Ajustes
             </h3>
             <div className="space-y-1.5">
@@ -198,23 +233,35 @@ export const UserSettingsModal = () => {
                 onClick={() => setActiveTab('profile')}
                 className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
                   activeTab === 'profile'
-                    ? 'bg-white/15 text-white shadow-sm border border-white/10'
-                    : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                    : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
                 }`}
               >
-                <User className="w-4 h-4 text-indigo-400" />
+                <User className="w-4 h-4 text-sys-accent" />
                 <span>Perfil</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('appearance')}
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
+                  activeTab === 'appearance'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                    : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
+                }`}
+              >
+                <Palette className="w-4 h-4 text-sys-accent" />
+                <span>Aparência</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('voice')}
                 className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
                   activeTab === 'voice'
-                    ? 'bg-white/15 text-white shadow-sm border border-white/10'
-                    : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                    : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
                 }`}
               >
-                <Mic className="w-4 h-4 text-emerald-400" />
+                <Mic className="w-4 h-4 text-green-500" />
                 <span>Voz & Áudio</span>
               </button>
 
@@ -222,24 +269,24 @@ export const UserSettingsModal = () => {
                 onClick={() => setActiveTab('connection')}
                 className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
                   activeTab === 'connection'
-                    ? 'bg-white/15 text-white shadow-sm border border-white/10'
-                    : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                    : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
                 }`}
               >
-                <Server className="w-4 h-4 text-amber-300" />
+                <Server className="w-4 h-4 text-amber-500" />
                 <span>Servidor / Nuvem</span>
               </button>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-white/[0.06] space-y-2">
+          <div className="pt-4 border-t border-sys-border space-y-2">
             <button
               onClick={() => {
                 setMicTestActive(false);
                 setIsUserSettingsOpen(false);
                 logout();
               }}
-              className="flex items-center space-x-2 text-rose-400 hover:text-rose-300 text-xs font-semibold px-2 py-1.5 rounded-xl hover:bg-rose-500/10 w-full transition"
+              className="flex items-center space-x-2 text-red-500 hover:text-red-400 text-xs font-semibold px-2 py-1.5 rounded-xl hover:bg-red-500/10 w-full transition"
             >
               <LogOut className="w-4 h-4" />
               <span>Sair da Conta</span>
@@ -250,7 +297,7 @@ export const UserSettingsModal = () => {
                 setMicTestActive(false);
                 setIsUserSettingsOpen(false);
               }}
-              className="flex items-center space-x-2 text-slate-400 hover:text-white text-xs font-semibold px-2 py-1.5 rounded-xl hover:bg-white/[0.05] w-full transition"
+              className="flex items-center space-x-2 text-sys-muted hover:text-sys-text text-xs font-semibold px-2 py-1.5 rounded-xl hover:bg-sys-s1 w-full transition"
             >
               <X className="w-4 h-4" />
               <span>Fechar</span>
@@ -263,21 +310,21 @@ export const UserSettingsModal = () => {
           {activeTab === 'profile' && (
             <form onSubmit={handleSaveProfile} className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Perfil de Usuário</h2>
-                <p className="text-xs text-slate-400 mt-1">
+                <h2 className="text-xl font-bold text-sys-text tracking-tight">Perfil de Usuário</h2>
+                <p className="text-xs text-sys-muted mt-1">
                   Personalize sua identidade e cores nos canais de texto e voz.
                 </p>
               </div>
 
               {/* Avatar Preview & Monogram */}
-              <div className="flex items-center space-x-5 p-4 rounded-2xl bg-black/30 border border-white/[0.08]">
+              <div className="flex items-center space-x-5 p-4 rounded-2xl bg-sys-s3 border border-sys-border">
                 <div
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${selectedGradient} text-white flex items-center justify-center text-xl font-bold shadow-xl border border-white/20`}
+                  className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${selectedGradient} text-white flex items-center justify-center text-xl font-bold shadow-sm border border-sys-border`}
                 >
                   {(avatarInitials || username || 'PC').substring(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 space-y-1">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">
                     Iniciais do Avatar (1-2 Letras)
                   </label>
                   <input
@@ -286,15 +333,15 @@ export const UserSettingsModal = () => {
                     value={avatarInitials}
                     onChange={(e) => setAvatarInitials(e.target.value.toUpperCase())}
                     placeholder="Ex: KY"
-                    className="w-24 glass-input text-white px-3 py-1.5 rounded-xl text-center font-bold text-sm focus:outline-none"
+                    className="w-24 bg-sys-s1 border border-sys-border text-sys-text px-3 py-1.5 rounded-xl text-center font-bold text-sm focus:outline-none focus:border-sys-accent/50 transition-colors"
                   />
                 </div>
               </div>
 
               {/* Color Gradient Theme Picker */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">
-                  Tema de Cor do Perfil
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2.5">
+                  Cor do Avatar (Gradiente)
                 </label>
                 <div className="grid grid-cols-3 gap-2.5">
                   {gradientOptions.map((opt) => (
@@ -302,13 +349,13 @@ export const UserSettingsModal = () => {
                       key={opt.name}
                       type="button"
                       onClick={() => setSelectedGradient(opt.gradient)}
-                      className={`flex items-center space-x-2.5 p-2 rounded-xl transition ${
+                      className={`flex items-center space-x-2.5 p-2 rounded-xl border transition-colors ${
                         selectedGradient === opt.gradient
-                          ? 'bg-white/15 ring-1 ring-white/30 text-white'
-                          : 'bg-black/30 hover:bg-white/5 text-slate-400'
+                          ? 'bg-sys-s3 border-sys-accent text-sys-text'
+                          : 'bg-sys-s1 border-transparent hover:bg-sys-s2 hover:border-sys-border text-sys-muted'
                       }`}
                     >
-                      <span className={`w-5 h-5 rounded-lg bg-gradient-to-tr ${opt.gradient} shadow-md`} />
+                      <span className={`w-5 h-5 rounded-lg bg-gradient-to-tr ${opt.gradient} shadow-sm border border-black/10`} />
                       <span className="text-xs font-medium truncate">{opt.name}</span>
                     </button>
                   ))}
@@ -317,7 +364,7 @@ export const UserSettingsModal = () => {
 
               {/* Username Input */}
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
                   Nome de Usuário
                 </label>
                 <input
@@ -325,14 +372,14 @@ export const UserSettingsModal = () => {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full glass-input text-white px-4 py-3 rounded-2xl text-xs focus:outline-none placeholder-slate-500"
+                  className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-3 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors placeholder-sys-muted/50"
                 />
               </div>
 
-              <div className="pt-4 border-t border-white/[0.06] flex justify-end">
+              <div className="pt-4 border-t border-sys-border flex justify-end">
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl text-xs font-semibold transition shadow-lg btn-interactive"
+                  className="px-6 py-2.5 bg-sys-accent hover:bg-sys-accentHov text-white rounded-xl text-xs font-semibold transition shadow-sm btn-interactive"
                 >
                   Salvar Perfil
                 </button>
@@ -340,11 +387,50 @@ export const UserSettingsModal = () => {
             </form>
           )}
 
+          {activeTab === 'appearance' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-sys-text tracking-tight">Aparência do Aplicativo</h2>
+                <p className="text-xs text-sys-muted mt-1">
+                  Mude o tema de cores principal do PulseCord.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {appThemes.map((theme) => (
+                  <button
+                    key={theme.id}
+                    onClick={() => handleSetTheme(theme.id)}
+                    className={`flex flex-col items-start p-3 rounded-2xl border transition-all ${
+                      selectedAppTheme === theme.id
+                        ? 'bg-sys-s3 border-sys-accent'
+                        : 'bg-sys-s1 border-transparent hover:bg-sys-s2 hover:border-sys-border'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3 w-full mb-2">
+                      <div
+                        className="w-8 h-8 rounded-full border border-black/20 flex-shrink-0"
+                        style={{ backgroundColor: theme.color }}
+                      />
+                      <div
+                        className="w-4 h-4 rounded-full border border-black/20 flex-shrink-0"
+                        style={{ backgroundColor: theme.accent }}
+                      />
+                    </div>
+                    <span className={`text-xs font-semibold ${selectedAppTheme === theme.id ? 'text-sys-text' : 'text-sys-muted'}`}>
+                      {theme.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'voice' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Dispositivos & Áudio</h2>
-                <p className="text-xs text-slate-400 mt-1">
+                <h2 className="text-xl font-bold text-sys-text tracking-tight">Dispositivos & Áudio</h2>
+                <p className="text-xs text-sys-muted mt-1">
                   Selecione seu microfone e fone de ouvido, ajuste a sensibilidade e ative o cancelamento de ruídos.
                 </p>
               </div>
@@ -352,16 +438,16 @@ export const UserSettingsModal = () => {
               {/* Audio Device Selection Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Input Device (Microphone) */}
-                <div className="p-4 glass-panel rounded-2xl space-y-2">
+                <div className="p-4 bg-sys-s3 rounded-2xl space-y-2 border border-sys-border">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <Mic className="w-3.5 h-3.5 text-indigo-400" />
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-sys-muted flex items-center gap-1.5">
+                      <Mic className="w-3.5 h-3.5 text-sys-accent" />
                       <span>Dispositivo de Entrada</span>
                     </label>
                     <button
                       type="button"
                       onClick={refreshAudioDevices}
-                      className="text-[10px] text-indigo-300 hover:text-white transition"
+                      className="text-[10px] text-sys-accent hover:text-sys-accentHov transition"
                     >
                       Recarregar
                     </button>
@@ -369,7 +455,7 @@ export const UserSettingsModal = () => {
                   <select
                     value={selectedInputDevice}
                     onChange={(e) => setInputDevice(e.target.value)}
-                    className="w-full bg-[#161722] text-white text-xs px-3 py-2.5 rounded-xl border border-white/10 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    className="w-full bg-sys-s1 text-sys-text text-xs px-3 py-2.5 rounded-xl border border-sys-border focus:outline-none focus:border-sys-accent cursor-pointer"
                   >
                     <option value="default">Padrão do Sistema (Microfone)</option>
                     {inputDevices.map((device, idx) => (
@@ -381,16 +467,16 @@ export const UserSettingsModal = () => {
                 </div>
 
                 {/* Output Device (Speakers / Headphones) */}
-                <div className="p-4 glass-panel rounded-2xl space-y-2">
+                <div className="p-4 bg-sys-s3 rounded-2xl space-y-2 border border-sys-border">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <Volume2 className="w-3.5 h-3.5 text-purple-400" />
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-sys-muted flex items-center gap-1.5">
+                      <Volume2 className="w-3.5 h-3.5 text-sys-accent" />
                       <span>Dispositivo de Saída</span>
                     </label>
                     <button
                       type="button"
                       onClick={handleTestAudioOutput}
-                      className="text-[10px] text-emerald-400 hover:text-emerald-300 font-semibold transition"
+                      className="text-[10px] text-green-500 hover:text-green-400 font-semibold transition"
                     >
                       {playingSoundTest ? 'Tocando Som...' : 'Testar Som'}
                     </button>
@@ -398,7 +484,7 @@ export const UserSettingsModal = () => {
                   <select
                     value={selectedOutputDevice}
                     onChange={(e) => setOutputDevice(e.target.value)}
-                    className="w-full bg-[#161722] text-white text-xs px-3 py-2.5 rounded-xl border border-white/10 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    className="w-full bg-sys-s1 text-sys-text text-xs px-3 py-2.5 rounded-xl border border-sys-border focus:outline-none focus:border-sys-accent cursor-pointer"
                   >
                     <option value="default">Padrão do Sistema (Fones / Alto-falantes)</option>
                     {outputDevices.map((device, idx) => (
@@ -411,13 +497,13 @@ export const UserSettingsModal = () => {
               </div>
 
               {/* Krisp Noise Suppression Toggle Card */}
-              <div className="p-5 glass-panel rounded-2xl flex items-center justify-between border border-indigo-500/20 shadow-xl">
+              <div className="p-5 bg-sys-s3 rounded-2xl flex items-center justify-between border border-sys-border shadow-md">
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
-                    <Sparkles className="w-4 h-4 text-indigo-400" />
-                    <span className="text-xs font-bold text-white">Supressão de Ruído Krisp (Filtro IA)</span>
+                    <Sparkles className="w-4 h-4 text-sys-accent" />
+                    <span className="text-xs font-bold text-sys-text">Supressão de Ruído Krisp (Filtro IA)</span>
                   </div>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-sys-muted">
                     Corta ruídos de fundo como ventiladores, cliques de teclado mecânico e estática.
                   </p>
                 </div>
@@ -426,27 +512,27 @@ export const UserSettingsModal = () => {
                   onClick={() => setKrispEnabled(!krispEnabled)}
                   className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${
                     krispEnabled
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 justify-end shadow-[0_0_12px_rgba(99,102,241,0.5)]'
-                      : 'bg-black/50 justify-start border border-white/10'
+                      ? 'bg-sys-accent justify-end shadow-sm'
+                      : 'bg-sys-s1 justify-start border border-sys-border'
                   }`}
                 >
-                  <div className="w-4 h-4 rounded-full bg-white shadow-md" />
+                  <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
                 </button>
               </div>
 
               {/* Sensitivity / Noise Gate Slider */}
-              <div className="p-5 glass-panel rounded-2xl space-y-4">
+              <div className="p-5 bg-sys-s3 border border-sys-border rounded-2xl space-y-4">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-white">
+                  <label className="text-xs font-bold text-sys-text">
                     Sensibilidade de Entrada (Noise Gate)
                   </label>
-                  <span className="text-xs font-mono font-bold text-indigo-400">
+                  <span className="text-xs font-mono font-bold text-sys-accent">
                     {micSensitivity}%
                   </span>
                 </div>
 
-                <p className="text-[11px] text-slate-400">
-                  Aumente se o microfone for muito sensível e captar ruídos ambientes. Apenas sons acima da linha amarela serão transmitidos.
+                <p className="text-[11px] text-sys-muted">
+                  Aumente se o microfone for muito sensível e captar ruídos ambientes. Apenas sons acima da linha de limite serão transmitidos.
                 </p>
 
                 {/* Interactive Slider */}
@@ -456,27 +542,27 @@ export const UserSettingsModal = () => {
                   max="100"
                   value={micSensitivity}
                   onChange={(e) => setMicSensitivity(Number(e.target.value))}
-                  className="w-full h-2 bg-black/50 rounded-lg appearance-none cursor-pointer accent-indigo-500 border border-white/10"
+                  className="w-full h-2 bg-sys-s1 rounded-lg appearance-none cursor-pointer accent-sys-accent border border-sys-border"
                 />
 
                 {/* Live Volume Meter with Sensitivity Marker */}
                 <div className="space-y-1.5 pt-1">
-                  <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <div className="flex items-center justify-between text-[10px] text-sys-muted">
                     <span>Nível do Sinal</span>
-                    <span className={`font-semibold ${isGateOpen || micLevel >= micSensitivity ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    <span className={`font-semibold ${isGateOpen || micLevel >= micSensitivity ? 'text-green-500' : 'text-sys-muted'}`}>
                       {isGateOpen || micLevel >= micSensitivity ? 'Transmitindo Voz' : 'Bloqueando Ruído'}
                     </span>
                   </div>
 
-                  <div className="relative w-full h-3 bg-black/60 rounded-full overflow-hidden border border-white/10">
+                  <div className="relative w-full h-3 bg-sys-s1 rounded-full overflow-hidden border border-sys-border">
                     {/* Live signal level */}
                     <div
-                      className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-indigo-400 transition-all duration-75"
+                      className="h-full bg-sys-accent transition-all duration-75"
                       style={{ width: `${micTestActive ? micLevel : (micLiveLevel || micLevel)}%` }}
                     />
                     {/* Threshold marker pin */}
                     <div
-                      className="absolute top-0 bottom-0 w-1 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.9)] z-10"
+                      className="absolute top-0 bottom-0 w-1 bg-white shadow-sm z-10"
                       style={{ left: `${micSensitivity}%` }}
                       title={`Limite: ${micSensitivity}%`}
                     />
@@ -484,16 +570,16 @@ export const UserSettingsModal = () => {
                 </div>
 
                 <div className="flex items-center justify-between pt-2">
-                  <div className="text-[11px] text-slate-400">
-                    Teste seu tom de voz normal para ajustar a linha amarela.
+                  <div className="text-[11px] text-sys-muted">
+                    Teste seu tom de voz normal para ajustar o limite.
                   </div>
                   <button
                     type="button"
                     onClick={() => setMicTestActive(!micTestActive)}
                     className={`px-4 py-2 rounded-xl text-xs font-semibold transition btn-interactive ${
                       micTestActive
-                        ? 'bg-rose-500/80 text-white'
-                        : 'bg-indigo-500/80 hover:bg-indigo-600 text-white'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-sys-accent hover:bg-sys-accentHov text-white shadow-sm'
                     }`}
                   >
                     {micTestActive ? 'Parar Teste' : 'Testar Microfone'}
@@ -502,12 +588,12 @@ export const UserSettingsModal = () => {
               </div>
 
               {/* Mic Input Gain */}
-              <div className="p-5 glass-panel rounded-2xl space-y-3">
+              <div className="p-5 bg-sys-s3 border border-sys-border rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-white">
+                  <label className="text-xs font-bold text-sys-text">
                     Volume / Ganho de Entrada
                   </label>
-                  <span className="text-xs font-mono font-bold text-indigo-400">
+                  <span className="text-xs font-mono font-bold text-sys-accent">
                     {micGain}%
                   </span>
                 </div>
@@ -517,18 +603,18 @@ export const UserSettingsModal = () => {
                   max="200"
                   value={micGain}
                   onChange={(e) => setMicGain(Number(e.target.value))}
-                  className="w-full h-2 bg-black/50 rounded-lg appearance-none cursor-pointer accent-indigo-500 border border-white/10"
+                  className="w-full h-2 bg-sys-s1 rounded-lg appearance-none cursor-pointer accent-sys-accent border border-sys-border"
                 />
               </div>
 
               {/* DSP Features Active */}
-              <div className="space-y-2 text-xs text-slate-300">
-                <div className="flex items-center space-x-2.5 p-2 rounded-xl bg-black/20">
-                  <Check className="w-4 h-4 text-emerald-400" />
+              <div className="space-y-2 text-xs text-sys-muted">
+                <div className="flex items-center space-x-2.5 p-2 rounded-xl bg-sys-s2 border border-sys-border">
+                  <Check className="w-4 h-4 text-green-500" />
                   <span>Acoustic Echo Cancellation (Sem retorno de áudio para amigos)</span>
                 </div>
-                <div className="flex items-center space-x-2.5 p-2 rounded-xl bg-black/20">
-                  <Check className="w-4 h-4 text-emerald-400" />
+                <div className="flex items-center space-x-2.5 p-2 rounded-xl bg-sys-s2 border border-sys-border">
+                  <Check className="w-4 h-4 text-green-500" />
                   <span>High-Pass Filter 85Hz (Elimina tremores de mesa e graves)</span>
                 </div>
               </div>
@@ -538,14 +624,14 @@ export const UserSettingsModal = () => {
           {activeTab === 'connection' && (
             <form onSubmit={handleSaveConnection} className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Servidor de Sinalização</h2>
-                <p className="text-xs text-slate-400 mt-1">
+                <h2 className="text-xl font-bold text-sys-text tracking-tight">Servidor de Sinalização</h2>
+                <p className="text-xs text-sys-muted mt-1">
                   Gerencie o endpoint WebRTC / Socket.io para comunicação em nuvem.
                 </p>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
                   URL do Servidor na Nuvem
                 </label>
                 <input
@@ -554,23 +640,23 @@ export const UserSettingsModal = () => {
                   value={customServerUrl}
                   onChange={(e) => setCustomServerUrl(e.target.value)}
                   placeholder="https://pulsecord-1-w3xw.onrender.com"
-                  className="w-full glass-input text-white px-4 py-3 rounded-2xl text-xs font-mono focus:outline-none"
+                  className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-3 rounded-2xl text-xs font-mono focus:outline-none focus:border-sys-accent/50 transition-colors"
                 />
-                <p className="text-[11px] text-slate-400 mt-2">
-                  Servidor padrão conectado: <code className="text-indigo-300">https://pulsecord-1-w3xw.onrender.com</code>.
+                <p className="text-[11px] text-sys-muted mt-2">
+                  Servidor padrão conectado: <code className="text-sys-accent">https://pulsecord-1-w3xw.onrender.com</code>.
                 </p>
               </div>
 
               {/* OTA In-App Auto-Updater Card */}
-              <div className="p-4 rounded-2xl bg-black/30 border border-white/[0.08] space-y-3">
+              <div className="p-4 rounded-2xl bg-sys-s3 border border-sys-border space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                    <div className="w-8 h-8 rounded-xl bg-sys-accent/20 text-sys-accent flex items-center justify-center border border-sys-accent/30">
                       <Sparkles className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-white">Atualizações do PulseCord</h4>
-                      <p className="text-[11px] text-slate-400 font-mono">Versão Atual: v{appVersion}</p>
+                      <h4 className="text-xs font-bold text-sys-text">Atualizações do PulseCord</h4>
+                      <p className="text-[11px] text-sys-muted font-mono">Versão Atual: v{appVersion}</p>
                     </div>
                   </div>
 
@@ -578,7 +664,7 @@ export const UserSettingsModal = () => {
                     type="button"
                     onClick={handleCheckUpdates}
                     disabled={checkingUpdate}
-                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition flex items-center gap-1.5 disabled:opacity-60 border border-white/10"
+                    className="px-3 py-1.5 rounded-xl bg-sys-s2 hover:bg-sys-s1 text-sys-text text-xs font-medium transition flex items-center gap-1.5 disabled:opacity-60 border border-sys-border"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${checkingUpdate ? 'animate-spin' : ''}`} />
                     <span>{checkingUpdate ? 'Verificando...' : 'Verificar Atualização'}</span>
@@ -586,30 +672,30 @@ export const UserSettingsModal = () => {
                 </div>
 
                 {updateResult && (
-                  <div className="pt-2 border-t border-white/[0.06] text-xs">
+                  <div className="pt-2 border-t border-sys-border text-xs">
                     {updateResult.hasUpdate ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <p className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                          <p className="text-green-500 font-semibold flex items-center gap-1.5">
                             <Check className="w-4 h-4" />
                             Nova versão v{updateResult.remoteVersion} disponível!
                           </p>
-                          <span className="text-[10px] text-slate-400 font-mono">~450 KB</span>
+                          <span className="text-[10px] text-sys-muted font-mono">~450 KB</span>
                         </div>
                         {updateResult.notes && (
-                          <p className="text-[11px] text-slate-300 bg-black/40 p-2 rounded-xl border border-white/[0.04]">
+                          <p className="text-[11px] text-sys-muted bg-sys-s1 p-2 rounded-xl border border-sys-border">
                             {updateResult.notes}
                           </p>
                         )}
                         {downloadingUpdate && (
                           <div className="w-full space-y-1">
-                            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                            <div className="flex justify-between text-[10px] text-sys-muted font-mono">
                               <span>Baixando pacote...</span>
                               <span>{downloadProgress}%</span>
                             </div>
-                            <div className="w-full h-1.5 bg-black/50 rounded-full overflow-hidden">
+                            <div className="w-full h-1.5 bg-sys-s1 rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-200"
+                                className="h-full bg-sys-accent transition-all duration-200"
                                 style={{ width: `${downloadProgress}%` }}
                               />
                             </div>
@@ -620,7 +706,7 @@ export const UserSettingsModal = () => {
                             <button
                               type="button"
                               onClick={handleApplyUpdate}
-                              className="w-full py-2 bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20"
+                              className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
                             >
                               <RotateCw className="w-3.5 h-3.5" />
                               <span>Reiniciar e Aplicar Atualização</span>
@@ -630,7 +716,7 @@ export const UserSettingsModal = () => {
                               type="button"
                               onClick={handleDownloadUpdate}
                               disabled={downloadingUpdate}
-                              className="w-full py-2 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20"
+                              className="w-full py-2 bg-sys-accent hover:bg-sys-accentHov text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
                             >
                               <Download className="w-3.5 h-3.5" />
                               <span>{downloadingUpdate ? 'Baixando...' : 'Baixar Atualização (~450 KB)'}</span>
@@ -639,10 +725,10 @@ export const UserSettingsModal = () => {
                         </div>
                       </div>
                     ) : updateResult.error ? (
-                      <p className="text-rose-400 text-[11px]">{updateResult.error}</p>
+                      <p className="text-red-500 text-[11px]">{updateResult.error}</p>
                     ) : (
-                      <p className="text-slate-400 text-[11px] flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <p className="text-sys-muted text-[11px] flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-green-500" />
                         Você já está usando a versão mais recente do PulseCord (v{appVersion}).
                       </p>
                     )}
@@ -650,10 +736,10 @@ export const UserSettingsModal = () => {
                 )}
               </div>
 
-              <div className="pt-4 border-t border-white/[0.06] flex justify-end">
+              <div className="pt-4 border-t border-sys-border flex justify-end">
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl text-xs font-semibold transition shadow-lg btn-interactive"
+                  className="px-6 py-2.5 bg-sys-accent hover:bg-sys-accentHov text-white rounded-xl text-xs font-semibold transition shadow-sm btn-interactive"
                 >
                   Conectar
                 </button>

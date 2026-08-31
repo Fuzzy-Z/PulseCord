@@ -235,10 +235,12 @@ export const VoiceProvider = ({ children }) => {
       onRemoteStream: (peerSocketId, stream, kind) => {
         setRemoteStreams((prev) => {
           const current = prev[peerSocketId] || {};
+          // Clone the stream so React detects the change when new tracks are dynamically added
+          const clonedStream = new MediaStream(stream.getTracks());
           if (kind === 'video') {
-            return { ...prev, [peerSocketId]: { ...current, videoStream: stream } };
+            return { ...prev, [peerSocketId]: { ...current, videoStream: clonedStream } };
           } else {
-            return { ...prev, [peerSocketId]: { ...current, audioStream: stream } };
+            return { ...prev, [peerSocketId]: { ...current, audioStream: clonedStream } };
           }
         });
       },
@@ -518,21 +520,44 @@ export const VoiceProvider = ({ children }) => {
     try {
       let stream;
       if (window.electronAPI?.isElectron && sourceId) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: sourceId,
-              minWidth: 1280,
-              maxWidth: 1920,
-              minHeight: 720,
-              maxHeight: 1080,
-              minFrameRate: 30,
-              maxFrameRate: 60
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+              }
+            },
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: sourceId,
+                minWidth: 1280,
+                maxWidth: 1920,
+                minHeight: 720,
+                maxHeight: 1080,
+                minFrameRate: 30,
+                maxFrameRate: 60
+              }
             }
-          }
-        });
+          });
+        } catch (e) {
+          console.warn('Failed to capture desktop audio in Electron, falling back to video only:', e);
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: sourceId,
+                minWidth: 1280,
+                maxWidth: 1920,
+                minHeight: 720,
+                maxHeight: 1080,
+                minFrameRate: 30,
+                maxFrameRate: 60
+              }
+            }
+          });
+        }
       } else {
         stream = await navigator.mediaDevices.getDisplayMedia({
           video: { frameRate: { ideal: 60, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 } },

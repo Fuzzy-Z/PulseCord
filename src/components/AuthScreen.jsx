@@ -66,20 +66,20 @@ export const AuthScreen = () => {
         <div className="liquid-orb-3" />
       </div>
 
-      <div className="glass-modal w-full max-w-md rounded-3xl p-8 shadow-2xl border border-white/15 relative z-10 animate-modal">
+      <div className="bg-sys-base border border-sys-border w-full max-w-md rounded-3xl p-8 shadow-2xl border border-sys-border relative z-10 animate-modal">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 mx-auto flex items-center justify-center text-white shadow-xl mb-3 border border-white/20">
+          <div className="w-14 h-14 rounded-2xl bg-sys-accent mx-auto flex items-center justify-center text-sys-text shadow-xl mb-3 border border-sys-border">
             <Radio className="w-7 h-7" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">PulseCord</h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <h1 className="text-2xl font-bold text-sys-text tracking-tight">PulseCord</h1>
+          <p className="text-xs text-sys-muted mt-1">
             Comunicação por voz em tempo real e compartilhamento 60 FPS
           </p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="grid grid-cols-3 p-1 rounded-2xl bg-black/40 border border-white/[0.08] mb-5">
+        <div className="grid grid-cols-3 p-1 rounded-2xl bg-sys-s2 border border-sys-border mb-5">
           <button
             type="button"
             onClick={() => {
@@ -88,8 +88,8 @@ export const AuthScreen = () => {
             }}
             className={`py-2 rounded-xl text-[11px] font-semibold transition flex items-center justify-center gap-1.5 ${
               authMode === 'quick'
-                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-sys-text shadow-md'
+                : 'text-sys-muted hover:text-sys-text'
             }`}
           >
             <Zap className="w-3.5 h-3.5" />
@@ -103,8 +103,8 @@ export const AuthScreen = () => {
             }}
             className={`py-2 rounded-xl text-[11px] font-semibold transition ${
               authMode === 'login'
-                ? 'bg-white/15 text-white shadow-md border border-white/10'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-sys-s3 text-sys-text shadow-md border border-sys-border'
+                : 'text-sys-muted hover:text-sys-text'
             }`}
           >
             Entrar
@@ -117,8 +117,8 @@ export const AuthScreen = () => {
             }}
             className={`py-2 rounded-xl text-[11px] font-semibold transition ${
               authMode === 'register'
-                ? 'bg-white/15 text-white shadow-md border border-white/10'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-sys-s3 text-sys-text shadow-md border border-sys-border'
+                : 'text-sys-muted hover:text-sys-text'
             }`}
           >
             Criar Conta
@@ -138,31 +138,31 @@ export const AuthScreen = () => {
           {(authMode === 'quick' || authMode === 'register') && (
             <>
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-1.5">
                   {authMode === 'quick' ? 'Seu Nome / Apelido' : 'Nome de Usuário'}
                 </label>
-                <div className="relative flex items-center glass-input rounded-2xl">
-                  <User className="w-4 h-4 text-slate-400 ml-3.5 mr-2" />
+                <div className="relative flex items-center bg-sys-s1 border border-sys-border text-sys-text rounded-2xl">
+                  <User className="w-4 h-4 text-sys-muted ml-3.5 mr-2" />
                   <input
                     type="text"
                     required={authMode === 'register'}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Ex: Kayky"
-                    className="w-full bg-transparent py-3 pr-4 text-white text-xs focus:outline-none placeholder-slate-500"
+                    className="w-full bg-transparent py-3 pr-4 text-sys-text text-xs focus:outline-none placeholder-sys-muted/50"
                   />
                 </div>
               </div>
 
               {/* Avatar Preview & Gradient Theme */}
-              <div className="flex items-center space-x-3 p-3 rounded-2xl bg-black/30 border border-white/[0.06]">
+              <div className="flex items-center space-x-3 p-3 rounded-2xl bg-sys-s2 border border-sys-border">
                 <div
-                  className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${selectedGradient} text-white flex items-center justify-center text-sm font-bold shadow-md border border-white/15`}
+                  className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${selectedGradient} text-sys-text flex items-center justify-center text-sm font-bold shadow-md border border-sys-border`}
                 >
                   {previewInitials}
                 </div>
                 <div className="flex-1">
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  <label className="block text-[9px] font-bold uppercase tracking-wider text-sys-muted mb-1">
                     Cor do Perfil
                   </label>
                   <div className="flex gap-1.5">
@@ -189,35 +189,35 @@ export const AuthScreen = () => {
           {(authMode === 'login' || authMode === 'register') && (
             <>
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-1.5">
                   E-mail
                 </label>
-                <div className="relative flex items-center glass-input rounded-2xl">
-                  <Mail className="w-4 h-4 text-slate-400 ml-3.5 mr-2" />
+                <div className="relative flex items-center bg-sys-s1 border border-sys-border text-sys-text rounded-2xl">
+                  <Mail className="w-4 h-4 text-sys-muted ml-3.5 mr-2" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu.email@exemplo.com"
-                    className="w-full bg-transparent py-3 pr-4 text-white text-xs focus:outline-none placeholder-slate-500"
+                    className="w-full bg-transparent py-3 pr-4 text-sys-text text-xs focus:outline-none placeholder-sys-muted/50"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-1.5">
                   Senha
                 </label>
-                <div className="relative flex items-center glass-input rounded-2xl">
-                  <Lock className="w-4 h-4 text-slate-400 ml-3.5 mr-2" />
+                <div className="relative flex items-center bg-sys-s1 border border-sys-border text-sys-text rounded-2xl">
+                  <Lock className="w-4 h-4 text-sys-muted ml-3.5 mr-2" />
                   <input
                     type="password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-transparent py-3 pr-4 text-white text-xs focus:outline-none placeholder-slate-500"
+                    className="w-full bg-transparent py-3 pr-4 text-sys-text text-xs focus:outline-none placeholder-sys-muted/50"
                   />
                 </div>
               </div>
@@ -229,9 +229,9 @@ export const AuthScreen = () => {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded-lg bg-black/50 border border-white/20 text-indigo-500 focus:ring-0 cursor-pointer"
+                    className="w-4 h-4 rounded-lg bg-sys-s3 border border-sys-border text-sys-accent focus:ring-0 cursor-pointer"
                   />
-                  <span className="text-xs text-slate-300 font-medium select-none">
+                  <span className="text-xs text-sys-muted font-medium select-none">
                     Lembrar neste dispositivo
                   </span>
                 </label>
@@ -243,7 +243,7 @@ export const AuthScreen = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:opacity-60 text-white rounded-2xl text-xs font-bold transition shadow-xl flex items-center justify-center space-x-2 mt-4 btn-interactive cursor-pointer"
+            className="w-full py-3.5 bg-sys-accent hover:bg-sys-accentHov disabled:opacity-60 text-sys-text rounded-2xl text-xs font-bold transition shadow-xl flex items-center justify-center space-x-2 mt-4 btn-interactive cursor-pointer"
           >
             {loading ? (
               <>
@@ -266,7 +266,7 @@ export const AuthScreen = () => {
         </form>
 
         {/* Server Status Footer */}
-        <div className="mt-5 pt-4 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-slate-400">
+        <div className="mt-5 pt-4 border-t border-sys-border flex items-center justify-between text-[11px] text-sys-muted">
           <div className="flex items-center gap-1.5">
             <span
               className={`w-2 h-2 rounded-full ${
@@ -275,7 +275,7 @@ export const AuthScreen = () => {
             />
             <span>{isConnected ? 'Servidor Nuvem Conectado' : 'Conectando à Nuvem...'}</span>
           </div>
-          <span className="font-mono text-[10px] text-indigo-300/80">
+          <span className="font-mono text-[10px] text-sys-accent/80">
             {serverUrl?.replace('https://', '').split('.')[0] || 'onrender'}
           </span>
         </div>
@@ -283,3 +283,4 @@ export const AuthScreen = () => {
     </div>
   );
 };
+

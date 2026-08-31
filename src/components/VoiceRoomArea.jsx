@@ -121,17 +121,17 @@ export const VoiceRoomArea = () => {
   const watchingUser = usersInVoice.find((u) => u.socketId === watchingPeerId);
 
   return (
-    <div className="flex-1 bg-black/20 backdrop-blur-2xl flex flex-col h-full overflow-hidden select-none relative">
+    <div className="flex-1 bg-sys-base flex flex-col h-full overflow-hidden select-none relative">
       {/* Voice Stage Header */}
-      <div className="h-12 border-b border-white/[0.06] px-4 flex items-center justify-between flex-shrink-0 bg-black/30 backdrop-blur-2xl">
+      <div className="h-12 border-b border-sys-border px-4 flex items-center justify-between flex-shrink-0 bg-sys-s3">
         <div className="flex items-center space-x-2.5">
           <div className="relative flex items-center justify-center">
-            <Radio className={`w-4 h-4 ${isConnectedToThisRoom ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`} />
+            <Radio className={`w-4 h-4 ${isConnectedToThisRoom ? 'text-green-500 animate-pulse' : 'text-sys-muted'}`} />
           </div>
-          <span className="font-bold text-white text-[13px] tracking-tight">
+          <span className="font-bold text-sys-text text-[13px] tracking-tight">
             {currentChannel?.name || 'Canal de Voz'}
           </span>
-          <span className="text-[10px] glass-pill px-2.5 py-0.5 rounded-full text-slate-400 font-medium">
+          <span className="text-[10px] bg-sys-s1 px-2.5 py-0.5 rounded-full text-sys-muted font-medium border border-sys-border">
             {allParticipants.length} Participante(s) {isConnectedToThisRoom ? '• Conectado' : '• Visualizando'}
           </span>
         </div>
@@ -141,7 +141,7 @@ export const VoiceRoomArea = () => {
           {!isConnectedToThisRoom && (
             <button
               onClick={() => joinVoiceChannel(currentChannel?.id, currentServer?.id)}
-              className="flex items-center space-x-1.5 px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-full text-xs font-bold shadow-lg shadow-emerald-500/20 transition btn-interactive"
+              className="flex items-center space-x-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-full text-xs font-bold shadow-md transition btn-interactive"
             >
               <PhoneCall className="w-3.5 h-3.5" />
               <span>Conectar à Voz</span>
@@ -154,8 +154,8 @@ export const VoiceRoomArea = () => {
               onClick={() => setWatchingPeerId(watchingPeerId ? null : activeRemoteScreenShares[0][0])}
               className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition btn-interactive ${
                 watchingPeerId
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                  : 'glass-pill text-indigo-300'
+                  ? 'bg-red-500/20 text-red-500 border border-red-500/40'
+                  : 'bg-sys-s1 border border-sys-border text-sys-accent'
               }`}
             >
               {watchingPeerId ? <Grid className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -165,7 +165,7 @@ export const VoiceRoomArea = () => {
 
           <button
             onClick={() => setIsMusicModalOpen(true)}
-            className="flex items-center space-x-1.5 px-3 py-1 glass-pill text-amber-300 rounded-full text-xs font-medium transition btn-interactive"
+            className="flex items-center space-x-1.5 px-3 py-1 bg-sys-s1 border border-sys-border text-sys-text rounded-full text-xs font-medium transition btn-interactive"
           >
             <Disc3 className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} />
             <span>Player</span>
@@ -177,19 +177,19 @@ export const VoiceRoomArea = () => {
       <div className="flex-1 p-6 overflow-y-auto flex flex-col items-center justify-center thin-scrollbar relative">
         {/* 1. If not connected, show Preview Banner on top if room is empty */}
         {!isConnectedToThisRoom && (
-          <div className="mb-6 p-4 glass-panel rounded-2xl max-w-lg w-full flex items-center justify-between border border-white/10 shadow-xl">
+          <div className="mb-6 p-4 bg-sys-s3 rounded-2xl max-w-lg w-full flex items-center justify-between border border-sys-border shadow-md">
             <div className="space-y-0.5">
-              <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-indigo-400" />
+              <div className="text-xs font-bold text-sys-text flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-sys-accent" />
                 <span>Visualizando Canal de Voz</span>
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-sys-muted">
                 Você não está nesta chamada. Clique para conversar com seus amigos.
               </p>
             </div>
             <button
               onClick={() => joinVoiceChannel(currentChannel?.id, currentServer?.id)}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-bold rounded-xl shadow-lg transition btn-interactive flex items-center gap-1.5"
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl shadow-sm transition btn-interactive flex items-center gap-1.5"
             >
               <PhoneCall className="w-3.5 h-3.5" />
               <span>Entrar</span>
@@ -199,7 +199,7 @@ export const VoiceRoomArea = () => {
 
         {/* 2. Local Screen Share */}
         {isConnectedToThisRoom && isScreenSharing && localScreenStream ? (
-          <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-black/90 shadow-2xl border border-indigo-500/40">
+          <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-sys-s3 shadow-md border border-sys-accent/40">
             <video
               ref={localVideoRef}
               autoPlay
@@ -207,20 +207,20 @@ export const VoiceRoomArea = () => {
               muted
               className="w-full h-full object-contain"
             />
-            <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl px-3.5 py-1.5 rounded-full text-xs font-bold text-white flex items-center space-x-2 border border-white/10 shadow-lg">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+            <div className="absolute top-4 left-4 bg-sys-s1 px-3.5 py-1.5 rounded-full text-xs font-bold text-sys-text flex items-center space-x-2 border border-sys-border shadow-md">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span>Sua Transmissão (60 FPS)</span>
             </div>
             <button
               onClick={stopScreenShare}
-              className="absolute bottom-4 right-4 px-4 py-2 bg-rose-500/90 hover:bg-rose-600 text-white rounded-2xl text-xs font-bold shadow-xl transition btn-interactive"
+              className="absolute bottom-4 right-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-bold shadow-md transition btn-interactive"
             >
               Parar Transmissão
             </button>
           </div>
         ) : isConnectedToThisRoom && watchingPeerId ? (
           /* 3. Remote Screen Share Theater Mode */
-          <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-black/95 shadow-2xl border border-rose-500/30">
+          <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-sys-s3 shadow-md border border-red-500/30">
             {remoteStreams[watchingPeerId]?.videoStream ? (
               <video
                 ref={remoteVideoRef}
@@ -229,37 +229,37 @@ export const VoiceRoomArea = () => {
                 className="w-full h-full object-contain"
               />
             ) : (
-              <div className="flex flex-col items-center justify-center gap-3 p-8 text-slate-300">
-                <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
-                <p className="text-xs font-bold text-white">
+              <div className="flex flex-col items-center justify-center gap-3 p-8 text-sys-muted">
+                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+                <p className="text-xs font-bold text-sys-text">
                   Conectando à transmissão de {watchingUser?.username || 'Amigo'}...
                 </p>
               </div>
             )}
-            <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl px-3.5 py-1.5 rounded-full text-xs font-bold text-white flex items-center space-x-2 border border-white/10 shadow-lg">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+            <div className="absolute top-4 left-4 bg-sys-s1 px-3.5 py-1.5 rounded-full text-xs font-bold text-sys-text flex items-center space-x-2 border border-sys-border shadow-md">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span>Assistindo: {watchingUser?.username || 'Amigo'} (60 FPS)</span>
             </div>
             <button
               onClick={() => setWatchingPeerId(null)}
-              className="absolute bottom-4 right-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-xs font-bold shadow-xl transition backdrop-blur-md btn-interactive"
+              className="absolute bottom-4 right-4 px-4 py-2 bg-sys-s2 hover:bg-sys-s1 text-sys-text rounded-2xl text-xs font-bold shadow-md transition btn-interactive border border-sys-border"
             >
               Ver Todos em Grade
             </button>
           </div>
         ) : allParticipants.length === 0 ? (
           /* 4. Empty Room Placeholder */
-          <div className="text-center p-8 glass-panel rounded-3xl max-w-sm space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto border border-indigo-500/20">
+          <div className="text-center p-8 bg-sys-s3 rounded-3xl max-w-sm space-y-3 border border-sys-border">
+            <div className="w-14 h-14 rounded-2xl bg-sys-accent/20 text-sys-accent flex items-center justify-center mx-auto border border-sys-accent/30">
               <Radio className="w-7 h-7" />
             </div>
-            <h3 className="text-sm font-bold text-white">Ninguém nesta sala ainda</h3>
-            <p className="text-xs text-slate-400">
+            <h3 className="text-sm font-bold text-sys-text">Ninguém nesta sala ainda</h3>
+            <p className="text-xs text-sys-muted">
               Seja o primeiro a entrar! Conecte seu fone e microfone para começar.
             </p>
             <button
               onClick={() => joinVoiceChannel(currentChannel?.id, currentServer?.id)}
-              className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-bold rounded-xl shadow-lg transition btn-interactive inline-flex items-center gap-2"
+              className="px-5 py-2.5 bg-sys-accent hover:bg-sys-accentHov text-white text-xs font-bold rounded-xl shadow-md transition btn-interactive inline-flex items-center gap-2"
             >
               <PhoneCall className="w-4 h-4" />
               <span>Entrar na Sala</span>
@@ -276,14 +276,14 @@ export const VoiceRoomArea = () => {
               return (
                 <div
                   key={participant.id || idx}
-                  className={`glass-panel rounded-3xl p-5 flex flex-col items-center justify-between relative shadow-2xl min-h-[240px] transition-all hover:border-white/20 ${
-                    hasScreen ? 'border-rose-500/40 shadow-[0_0_20px_rgba(244,63,94,0.15)]' : ''
+                  className={`bg-sys-s3 border border-sys-border rounded-3xl p-5 flex flex-col items-center justify-between relative shadow-md min-h-[240px] transition-all hover:border-sys-accent/40 ${
+                    hasScreen ? 'border-red-500/40' : ''
                   }`}
                 >
                   {/* Top Badges & Live indicator */}
                   <div className="w-full flex items-center justify-between">
                     {hasScreen ? (
-                      <span className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-md animate-pulse">
+                      <span className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-sm animate-pulse">
                         <MonitorPlay className="w-3 h-3" />
                         AO VIVO
                       </span>
@@ -294,12 +294,12 @@ export const VoiceRoomArea = () => {
                     {/* Status Badges */}
                     <div className="flex items-center space-x-1.5">
                       {participant.isMuted && (
-                        <div className="p-1 bg-rose-500/20 rounded-full text-rose-400 border border-rose-500/30 shadow-md" title="Mutado">
+                        <div className="p-1 bg-red-500/20 rounded-full text-red-500 border border-red-500/30 shadow-sm" title="Mutado">
                           <MicOff className="w-3 h-3" />
                         </div>
                       )}
                       {participant.isDeafened && (
-                        <div className="p-1 bg-rose-500/20 rounded-full text-rose-400 border border-rose-500/30 shadow-md" title="Ensurdecido">
+                        <div className="p-1 bg-red-500/20 rounded-full text-red-500 border border-red-500/30 shadow-sm" title="Ensurdecido">
                           <Headphones className="w-3 h-3" />
                         </div>
                       )}
@@ -310,24 +310,23 @@ export const VoiceRoomArea = () => {
                   <div className="flex flex-col items-center my-1">
                     <div className="relative mb-2">
                       <div
-                        className={`w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center text-lg font-bold shadow-2xl border-2 transition-all duration-150 ${
+                        className={`w-16 h-16 rounded-2xl bg-sys-accent text-white flex items-center justify-center text-lg font-bold shadow-sm border-2 transition-all duration-150 ${
                           participant.isSpeaking
-                            ? 'border-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.8)] scale-105'
-                            : 'border-white/15'
+                            ? 'border-green-500 scale-105'
+                            : 'border-transparent'
                         }`}
                       >
                         {monogram}
                       </div>
 
                       {participant.isSpeaking && (
-                        <div className="absolute -bottom-1 -right-1 bg-emerald-400 text-black text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase shadow-md">
+                        <div className="absolute -bottom-1 -right-1 bg-green-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase shadow-sm">
                           VOZ
                         </div>
                       )}
                     </div>
 
-                    {/* Username */}
-                    <span className="font-semibold text-white text-xs truncate max-w-[160px] tracking-tight">
+                    <span className="font-semibold text-sys-text text-xs truncate max-w-[160px] tracking-tight">
                       {participant.username}
                     </span>
                   </div>
@@ -336,24 +335,24 @@ export const VoiceRoomArea = () => {
                   {isConnectedToThisRoom && !participant.isLocal && hasScreen ? (
                     <button
                       onClick={() => setWatchingPeerId(participant.socketId)}
-                      className="w-full mt-2 py-2 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-xs font-bold rounded-xl shadow-lg flex items-center justify-center gap-1.5 transition btn-interactive"
+                      className="w-full mt-2 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-1.5 transition btn-interactive"
                     >
                       <Eye className="w-3.5 h-3.5" />
                       <span>Assistir Transmissão</span>
                     </button>
                   ) : isConnectedToThisRoom && !participant.isLocal ? (
                     /* Individual Friend Volume Slider */
-                    <div className="w-full mt-2 px-3 py-1.5 rounded-xl bg-black/40 border border-white/[0.06] flex items-center space-x-2">
+                    <div className="w-full mt-2 px-3 py-1.5 rounded-xl bg-sys-s2 border border-sys-border flex items-center space-x-2">
                       <button
                         type="button"
                         onClick={() => setUserVolume(participant.id, friendVolume === 0 ? 100 : 0)}
-                        className="text-slate-400 hover:text-white transition"
+                        className="text-sys-muted hover:text-sys-text transition"
                         title={friendVolume === 0 ? 'Desmutar Amigo' : 'Mutar Amigo'}
                       >
                         {friendVolume === 0 ? (
-                          <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                          <VolumeX className="w-3.5 h-3.5 text-red-500" />
                         ) : (
-                          <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+                          <Volume2 className="w-3.5 h-3.5 text-sys-accent" />
                         )}
                       </button>
                       <input
@@ -362,19 +361,19 @@ export const VoiceRoomArea = () => {
                         max="200"
                         value={friendVolume}
                         onChange={(e) => setUserVolume(participant.id, Number(e.target.value))}
-                        className="w-full h-1 bg-black/60 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        className="w-full h-1 bg-sys-s3 rounded-lg appearance-none cursor-pointer accent-sys-accent"
                         title={`Volume: ${friendVolume}%`}
                       />
-                      <span className="text-[10px] font-mono text-slate-400 min-w-[32px] text-right font-medium">
+                      <span className="text-[10px] font-mono text-sys-muted min-w-[32px] text-right font-medium">
                         {friendVolume}%
                       </span>
                     </div>
                   ) : isConnectedToThisRoom ? (
-                    <div className="text-[10px] text-slate-500 font-medium py-1">
+                    <div className="text-[10px] text-sys-muted font-medium py-1">
                       Seu Microfone
                     </div>
                   ) : (
-                    <div className="text-[10px] text-slate-500 font-medium py-1">
+                    <div className="text-[10px] text-sys-muted font-medium py-1">
                       Conectado na Sala
                     </div>
                   )}
@@ -387,18 +386,18 @@ export const VoiceRoomArea = () => {
 
       {/* Active Music Bot Widget Bar */}
       {isConnectedToThisRoom && musicPlayer.currentTrack && (
-        <div className="h-14 bg-black/60 backdrop-blur-2xl border-t border-white/[0.08] px-5 flex items-center justify-between flex-shrink-0 z-20">
+        <div className="h-14 bg-sys-s2 border-t border-sys-border px-5 flex items-center justify-between flex-shrink-0 z-20">
           <div className="flex items-center space-x-3 truncate">
             <img
               src={musicPlayer.currentTrack.cover}
               alt="Track Cover"
-              className="w-9 h-9 rounded-xl object-cover border border-white/10 shadow-md flex-shrink-0"
+              className="w-9 h-9 rounded-xl object-cover border border-sys-border shadow-md flex-shrink-0"
             />
             <div className="truncate">
-              <div className="text-xs font-bold text-white truncate tracking-tight">
+              <div className="text-xs font-bold text-sys-text truncate tracking-tight">
                 {musicPlayer.currentTrack.title}
               </div>
-              <div className="text-[10px] text-slate-400 truncate">
+              <div className="text-[10px] text-sys-muted truncate">
                 {musicPlayer.currentTrack.artist} • por {musicPlayer.currentTrack.requestedBy || 'Bot'}
               </div>
             </div>
@@ -407,21 +406,21 @@ export const VoiceRoomArea = () => {
           <div className="flex items-center space-x-2 flex-shrink-0">
             <button
               onClick={() => sendMusicControl(musicPlayer.isPlaying ? 'pause' : 'resume')}
-              className="p-2 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500 hover:text-white rounded-xl transition"
+              className="p-2 bg-sys-accent/20 text-sys-accent hover:bg-sys-accent hover:text-white rounded-xl transition"
               title={musicPlayer.isPlaying ? 'Pausar' : 'Tocar'}
             >
               {musicPlayer.isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={() => sendMusicControl('skip')}
-              className="p-2 bg-white/5 text-slate-300 hover:bg-white/10 rounded-xl transition"
+              className="p-2 bg-sys-s3 text-sys-text hover:bg-sys-s1 rounded-xl transition border border-sys-border"
               title="Pular Faixa"
             >
               <SkipForward className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => sendMusicControl('stop')}
-              className="p-2 bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white rounded-xl transition"
+              className="p-2 bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition"
               title="Parar Música"
             >
               <Square className="w-3.5 h-3.5" />
@@ -433,14 +432,14 @@ export const VoiceRoomArea = () => {
       {/* Voice Bottom Dock Floating Controls (Only shown when CONNECTED) */}
       {isConnectedToThisRoom && (
         <div className="p-4 flex items-center justify-center">
-          <div className="glass-panel px-6 py-2.5 rounded-2xl flex items-center space-x-3 shadow-2xl border border-white/15">
+          <div className="bg-sys-s3 px-6 py-2.5 rounded-2xl flex items-center space-x-3 shadow-md border border-sys-border">
             {/* Mute Mic */}
             <button
               onClick={toggleMute}
-              className={`p-3 rounded-xl transition-all duration-200 shadow-md ${
+              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${
                 isMuted
-                  ? 'bg-rose-500/90 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]'
-                  : 'bg-white/[0.08] hover:bg-white/[0.15] text-slate-200'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
               }`}
               title={isMuted ? 'Desmutar Microfone' : 'Mutar Microfone'}
             >
@@ -450,10 +449,10 @@ export const VoiceRoomArea = () => {
             {/* Deafen Audio */}
             <button
               onClick={toggleDeafen}
-              className={`p-3 rounded-xl transition-all duration-200 shadow-md ${
+              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${
                 isDeafened
-                  ? 'bg-rose-500/90 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]'
-                  : 'bg-white/[0.08] hover:bg-white/[0.15] text-slate-200'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
               }`}
               title={isDeafened ? 'Desativar Silêncio' : 'Ensurdecer (Muta Todos)'}
             >
@@ -469,22 +468,22 @@ export const VoiceRoomArea = () => {
                   setIsScreenModalOpen(true);
                 }
               }}
-              className={`p-3 rounded-xl transition-all duration-200 shadow-md ${
+              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${
                 isScreenSharing
-                  ? 'bg-emerald-500/90 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                  : 'bg-white/[0.08] hover:bg-white/[0.15] text-slate-200'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
               }`}
               title={isScreenSharing ? 'Parar de Compartilhar' : 'Compartilhar Tela (60 FPS)'}
             >
               <Tv className="w-4 h-4" />
             </button>
 
-            <div className="w-[1px] h-6 bg-white/10 mx-1" />
+            <div className="w-[1px] h-6 bg-sys-border mx-1" />
 
             {/* Disconnect Call */}
             <button
               onClick={leaveVoiceChannel}
-              className="p-3 bg-rose-600/90 hover:bg-rose-700 text-white rounded-xl shadow-lg transition-all duration-200 hover:scale-105"
+              className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md transition-all duration-200 hover:scale-105"
               title="Desconectar do Canal de Voz"
             >
               <PhoneOff className="w-4 h-4" />

@@ -128,12 +128,12 @@ export const ServerSettingsModal = () => {
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xl flex items-center justify-center z-50 p-6 select-none">
-      <div className="glass-modal w-full max-w-4xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden border border-white/15 flex animate-modal">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6 select-none">
+      <div className="bg-sys-base w-full max-w-4xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden border border-sys-border flex animate-modal">
         {/* Left Sidebar of Modal */}
-        <div className="w-56 bg-black/30 p-5 flex flex-col justify-between border-r border-white/[0.06]">
+        <div className="w-56 bg-sys-s2 p-5 flex flex-col justify-between border-r border-sys-border">
           <div>
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-3">
+            <h3 className="text-[10px] font-bold text-sys-muted uppercase tracking-wider px-2 mb-3">
               {currentServer.name}
             </h3>
             <div className="space-y-1.5">
@@ -141,20 +141,20 @@ export const ServerSettingsModal = () => {
                 onClick={() => setActiveTab('roles')}
                 className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
                   activeTab === 'roles'
-                    ? 'bg-white/15 text-white shadow-sm border border-white/10'
-                    : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                    : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
                 }`}
               >
-                <Shield className="w-4 h-4 text-indigo-400" />
+                <Shield className="w-4 h-4 text-sys-accent" />
                 <span>Cargos & Acesso</span>
               </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
+          <div className="flex items-center justify-between pt-4 border-t border-sys-border">
             <button
               onClick={() => setIsServerSettingsOpen(false)}
-              className="flex items-center space-x-2 text-slate-400 hover:text-white text-xs font-semibold px-2 py-1 transition"
+              className="flex items-center space-x-2 text-sys-muted hover:text-sys-text text-xs font-semibold px-2 py-1 transition"
             >
               <X className="w-4 h-4" />
               <span>Fechar</span>
@@ -165,16 +165,16 @@ export const ServerSettingsModal = () => {
         {/* Right Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="p-6 border-b border-white/[0.06] bg-black/20 flex items-center justify-between flex-shrink-0">
+          <div className="p-6 border-b border-sys-border bg-sys-s3 flex items-center justify-between flex-shrink-0">
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">Cargos do Servidor</h2>
-              <p className="text-xs text-slate-400 mt-1">
+              <h2 className="text-xl font-bold text-sys-text tracking-tight">Cargos do Servidor</h2>
+              <p className="text-xs text-sys-muted mt-1">
                 Configure permissões e hierarquia de acesso dos membros.
               </p>
             </div>
             <button
               onClick={handleCreateRole}
-              className="flex items-center space-x-1.5 px-4 py-2 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl text-xs font-semibold transition shadow-lg btn-interactive"
+              className="flex items-center space-x-1.5 px-4 py-2 bg-sys-accent hover:bg-sys-accentHov text-white rounded-xl text-xs font-semibold transition shadow-sm btn-interactive"
             >
               <Plus className="w-4 h-4" />
               <span>Criar Cargo</span>
@@ -184,7 +184,7 @@ export const ServerSettingsModal = () => {
           {/* Body: Roles Column + Role Config Column */}
           <div className="flex-1 flex overflow-hidden">
             {/* Roles List */}
-            <div className="w-52 bg-black/20 p-3 overflow-y-auto border-r border-white/[0.06] space-y-1 thin-scrollbar">
+            <div className="w-52 bg-sys-s2 p-3 overflow-y-auto border-r border-sys-border space-y-1 thin-scrollbar">
               {roles.map((r) => {
                 const isSelected = selectedRole?.id === r.id;
                 const cleanName = (r.name || '').replace(/[\uD800-\uDFFF].*/g, '').trim();
@@ -193,10 +193,10 @@ export const ServerSettingsModal = () => {
                   <button
                     key={r.id}
                     onClick={() => setSelectedRoleId(r.id)}
-                    className={`w-full text-left flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition ${
+                    className={`w-full text-left flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition border ${
                       isSelected
-                        ? 'bg-white/15 text-white shadow-sm border border-white/10'
-                        : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
+                        ? 'bg-sys-s3 text-sys-text border-sys-border'
+                        : 'border-transparent text-sys-muted hover:bg-sys-s1 hover:text-sys-text hover:border-sys-border'
                     }`}
                   >
                     <div className="flex items-center space-x-2.5 truncate">
@@ -216,20 +216,20 @@ export const ServerSettingsModal = () => {
               <div className="flex-1 p-6 overflow-y-auto space-y-6 thin-scrollbar">
                 {/* Role Name */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
                     Nome do Cargo
                   </label>
                   <input
                     type="text"
                     value={(selectedRole.name || '').replace(/[\uD800-\uDFFF].*/g, '').trim() || selectedRole.name}
                     onChange={(e) => handleRoleNameChange(e.target.value)}
-                    className="w-full max-w-md glass-input text-white px-4 py-3 rounded-2xl text-xs focus:outline-none placeholder-slate-500"
+                    className="w-full max-w-md bg-sys-s1 border border-sys-border text-sys-text px-4 py-3 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors placeholder-sys-muted/50"
                   />
                 </div>
 
                 {/* Role Color */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2.5">
                     Cor de Destaque
                   </label>
                   <div className="flex items-center space-x-2 flex-wrap gap-y-2">
@@ -258,7 +258,7 @@ export const ServerSettingsModal = () => {
 
                 {/* Permissions List */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-3">
                     Permissões
                   </label>
                   <div className="space-y-2.5">
@@ -267,22 +267,22 @@ export const ServerSettingsModal = () => {
                       return (
                         <div
                           key={p.key}
-                          className="flex items-center justify-between p-3.5 rounded-2xl glass-panel-subtle border border-white/[0.04]"
+                          className="flex items-center justify-between p-3.5 rounded-2xl bg-sys-s1 border border-sys-border"
                         >
                           <div className="pr-4">
-                            <div className="text-xs font-semibold text-white">{p.name}</div>
-                            <div className="text-[11px] text-slate-400 mt-0.5">{p.desc}</div>
+                            <div className="text-xs font-semibold text-sys-text">{p.name}</div>
+                            <div className="text-[11px] text-sys-muted mt-0.5">{p.desc}</div>
                           </div>
 
                           {/* Toggle Switch */}
                           <button
                             type="button"
                             onClick={() => handlePermissionToggle(p.key)}
-                            className={`w-11 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${
-                              enabled ? 'bg-emerald-500 justify-end shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-black/50 justify-start border border-white/10'
+                            className={`w-11 h-6 flex items-center rounded-full p-1 transition-all duration-200 border ${
+                              enabled ? 'bg-sys-accent border-sys-accent justify-end shadow-sm' : 'bg-sys-s3 border-sys-border justify-start'
                             }`}
                           >
-                            <div className="w-4 h-4 rounded-full bg-white shadow-md" />
+                            <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
                           </button>
                         </div>
                       );
@@ -292,10 +292,10 @@ export const ServerSettingsModal = () => {
 
                 {/* Delete Role */}
                 {roles.length > 1 && (
-                  <div className="pt-4 border-t border-white/[0.06] flex justify-end">
+                  <div className="pt-4 border-t border-sys-border flex justify-end">
                     <button
                       onClick={() => handleDeleteRole(selectedRole.id)}
-                      className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/15 transition btn-interactive"
+                      className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-500/15 transition btn-interactive"
                     >
                       <Trash2 className="w-4 h-4" />
                       <span>Excluir Cargo</span>

@@ -60,29 +60,54 @@ export class WebRTCManager {
     });
   }
 
+  applyVideoQuality(sender) {
+    try {
+      const params = sender.getParameters();
+      if (!params.encodings) params.encodings = [{}];
+      // Force 15 Mbps max bitrate for 60fps Gaming without pixelation
+      params.encodings[0].maxBitrate = 15000000;
+      // Prioritize Framerate (60fps) over strict resolution scaling when under CPU load
+      params.degradationPreference = 'maintain-framerate';
+      sender.setParameters(params).catch(() => {});
+    } catch (e) {
+      console.warn('[WebRTC] Error setting video quality parameters:', e);
+    }
+  }
+
   setLocalScreenStream(stream) {
     this.localScreenStream = stream;
     // Update screen tracks for all peers and re-negotiate
     this.peers.forEach((pc, targetSocketId) => {
       if (stream) {
-        stream.getVideoTracks().forEach((track) => {
+        stream.getTracks().forEach((track) => {
           const senders = pc.getSenders();
-          const existingSender = senders.find((s) => s.track && s.track.kind === 'video');
+          const existingSender = senders.find((s) => s.track && s.track.kind === track.kind && s.track.id === track.id);
+          
           if (existingSender) {
             existingSender.replaceTrack(track);
+            if (track.kind === 'video') this.applyVideoQuality(existingSender);
           } else {
-            pc.addTrack(track, stream);
+            // Group screen audio track with microphone audio stream so receiver plays them together
+            const targetStream = (track.kind === 'audio' && this.localAudioStream) ? this.localAudioStream : stream;
+            const sender = pc.addTrack(track, targetStream);
+            if (track.kind === 'video') this.applyVideoQuality(sender);
           }
         });
         // Re-negotiate SDP offer so remote peers receive video track
         this.initiateOffer(targetSocketId, pc);
       } else {
         const senders = pc.getSenders();
-        const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
-        if (videoSender) {
-          pc.removeTrack(videoSender);
-          this.initiateOffer(targetSocketId, pc);
-        }
+        const micTrackIds = this.localAudioStream ? this.localAudioStream.getAudioTracks().map(t => t.id) : [];
+        
+        senders.forEach(sender => {
+           if (!sender.track) return;
+           if (sender.track.kind === 'video') {
+               pc.removeTrack(sender);
+           } else if (sender.track.kind === 'audio' && !micTrackIds.includes(sender.track.id)) {
+               pc.removeTrack(sender);
+           }
+        });
+        this.initiateOffer(targetSocketId, pc);
       }
     });
   }
@@ -106,8 +131,12 @@ export class WebRTCManager {
 
     // Add local screen share track if already active
     if (this.localScreenStream) {
-      this.localScreenStream.getVideoTracks().forEach((track) => {
-        pc.addTrack(track, this.localScreenStream);
+      this.localScreenStream.getTracks().forEach((track) => {
+        const targetStream = (track.kind === 'audio' && this.localAudioStream) ? this.localAudioStream : this.localScreenStream;
+        const sender = pc.addTrack(track, targetStream);
+        if (track.kind === 'video') {
+          this.applyVideoQuality(sender);
+        }
       });
     }
 
@@ -128,6 +157,14 @@ export class WebRTCManager {
       if (!stream) {
         stream = new MediaStream([event.track]);
       }
+
+      // When a track (e.g. screen audio) is removed, trigger state update
+      stream.onremovetrack = () => {
+        if (this.onRemoteStream) {
+          this.onRemoteStream(targetSocketId, stream, event.track.kind);
+        }
+      };
+
       if (this.onRemoteStream && stream) {
         this.onRemoteStream(targetSocketId, stream, event.track.kind);
       }

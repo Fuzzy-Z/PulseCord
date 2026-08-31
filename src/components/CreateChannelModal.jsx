@@ -27,13 +27,13 @@ export const CreateChannelModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xl flex items-center justify-center z-50 p-4 select-none">
-      <div className="glass-modal w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-white/15 animate-modal">
-        <div className="p-5 flex items-center justify-between border-b border-white/[0.06] bg-black/30">
-          <h2 className="text-lg font-bold text-white tracking-tight">Criar Novo Canal</h2>
+    <div className="fixed inset-0 bg-sys-s3 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-none">
+      <div className="bg-sys-base border border-sys-border w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-sys-border animate-modal">
+        <div className="p-5 flex items-center justify-between border-b border-sys-border bg-sys-s2">
+          <h2 className="text-lg font-bold text-sys-text tracking-tight">Criar Novo Canal</h2>
           <button
             onClick={() => setIsCreateChannelOpen(false)}
-            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition btn-interactive"
+            className="text-sys-muted hover:text-sys-text p-1.5 rounded-xl hover:bg-sys-s1 transition btn-interactive"
           >
             <X className="w-5 h-5" />
           </button>
@@ -42,7 +42,7 @@ export const CreateChannelModal = () => {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Channel Type Selector */}
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
               Tipo de Canal
             </label>
             <div className="space-y-2">
@@ -50,14 +50,14 @@ export const CreateChannelModal = () => {
                 onClick={() => setCreateChannelType('text')}
                 className={`p-3.5 rounded-2xl flex items-center space-x-3 cursor-pointer border transition ${
                   createChannelType === 'text'
-                    ? 'bg-white/15 border-indigo-400 shadow-sm'
-                    : 'bg-black/30 border-white/[0.04] hover:bg-white/[0.04]'
+                    ? 'bg-sys-s3 border-indigo-400 shadow-sm'
+                    : 'bg-sys-s2 border-sys-border hover:bg-sys-s1'
                 }`}
               >
-                <Hash className="w-5 h-5 text-indigo-400" />
+                <Hash className="w-5 h-5 text-sys-accent" />
                 <div>
-                  <div className="text-xs font-semibold text-white">Texto</div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-xs font-semibold text-sys-text">Texto</div>
+                  <div className="text-[10px] text-sys-muted">
                     Mensagens, arquivos, anexos e comandos
                   </div>
                 </div>
@@ -67,14 +67,14 @@ export const CreateChannelModal = () => {
                 onClick={() => setCreateChannelType('voice')}
                 className={`p-3.5 rounded-2xl flex items-center space-x-3 cursor-pointer border transition ${
                   createChannelType === 'voice'
-                    ? 'bg-white/15 border-indigo-400 shadow-sm'
-                    : 'bg-black/30 border-white/[0.04] hover:bg-white/[0.04]'
+                    ? 'bg-sys-s3 border-indigo-400 shadow-sm'
+                    : 'bg-sys-s2 border-sys-border hover:bg-sys-s1'
                 }`}
               >
-                <Volume2 className="w-5 h-5 text-emerald-400" />
+                <Volume2 className="w-5 h-5 text-green-500" />
                 <div>
-                  <div className="text-xs font-semibold text-white">Voz & Transmissão</div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-xs font-semibold text-sys-text">Voz & Transmissão</div>
+                  <div className="text-[10px] text-sys-muted">
                     Comunicação por voz em tempo real e compartilhamento
                   </div>
                 </div>
@@ -84,11 +84,11 @@ export const CreateChannelModal = () => {
 
           {/* Channel Name */}
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
               Nome do Canal
             </label>
-            <div className="relative flex items-center glass-input rounded-2xl">
-              <span className="pl-3.5 text-slate-400 text-xs font-semibold">
+            <div className="relative flex items-center bg-sys-s1 border border-sys-border text-sys-text rounded-2xl">
+              <span className="pl-3.5 text-sys-muted text-xs font-semibold">
                 {createChannelType === 'text' ? '#' : <Volume2 className="w-3.5 h-3.5" />}
               </span>
               <input
@@ -97,7 +97,7 @@ export const CreateChannelModal = () => {
                 value={channelName}
                 onChange={(e) => setChannelName(e.target.value)}
                 placeholder={createChannelType === 'text' ? 'novo-canal' : 'Sala de Conversa'}
-                className="w-full bg-transparent px-3 py-3 text-white text-xs focus:outline-none placeholder-slate-500"
+                className="w-full bg-transparent px-3 py-3 text-sys-text text-xs focus:outline-none placeholder-sys-muted/50"
               />
             </div>
           </div>
@@ -105,7 +105,7 @@ export const CreateChannelModal = () => {
           {/* Channel Topic (if text) */}
           {createChannelType === 'text' && (
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
                 Tópico (Opcional)
               </label>
               <input
@@ -113,23 +113,23 @@ export const CreateChannelModal = () => {
                 value={channelTopic}
                 onChange={(e) => setChannelTopic(e.target.value)}
                 placeholder="Descrição curta deste canal"
-                className="w-full glass-input text-white px-4 py-3 rounded-2xl text-xs focus:outline-none placeholder-slate-500"
+                className="w-full bg-sys-s1 border border-sys-border text-sys-text text-sys-text px-4 py-3 rounded-2xl text-xs focus:outline-none placeholder-sys-muted/50"
               />
             </div>
           )}
 
           {/* Buttons */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-white/[0.06]">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-sys-border">
             <button
               type="button"
               onClick={() => setIsCreateChannelOpen(false)}
-              className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+              className="px-4 py-2 text-xs font-medium text-sys-muted hover:text-sys-text"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl text-xs font-semibold transition shadow-lg btn-interactive"
+              className="px-6 py-2.5 bg-sys-accent hover:bg-sys-accentHov text-sys-text rounded-xl text-xs font-semibold transition shadow-lg btn-interactive"
             >
               Criar Canal
             </button>
@@ -139,3 +139,4 @@ export const CreateChannelModal = () => {
     </div>
   );
 };
+

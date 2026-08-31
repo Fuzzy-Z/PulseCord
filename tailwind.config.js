@@ -7,6 +7,17 @@ export default {
   theme: {
     extend: {
       colors: {
+        sys: {
+          base: 'var(--color-bg-base)',
+          s1: 'var(--color-bg-surface-1)',
+          s2: 'var(--color-bg-surface-2)',
+          s3: 'var(--color-bg-surface-3)',
+          accent: 'var(--color-accent)',
+          accentHov: 'var(--color-accent-hover)',
+          text: 'var(--color-text-main)',
+          muted: 'var(--color-text-muted)',
+          border: 'var(--color-border)',
+        },
         discord: {
           darkest: '#1e1f22',
           darker: '#2b2d31',
