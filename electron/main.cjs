@@ -7,15 +7,21 @@ const { spawn } = require('child_process');
 
 let mainWindow = null;
 
-// Read App Version
-let appVersion = '1.0.2';
-try {
-  const pkgPath = path.join(__dirname, '../package.json');
-  if (fs.existsSync(pkgPath)) {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    appVersion = pkg.version || '1.0.2';
-  }
-} catch (e) {}
+// Read App Version reliably from Electron or package.json
+function getInstalledVersion() {
+  try {
+    const v = app.getVersion();
+    if (v && v !== '0.0.0') return v;
+  } catch (e) {}
+  try {
+    const pkgPath = path.join(__dirname, '../package.json');
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+      if (pkg.version) return pkg.version;
+    }
+  } catch (e) {}
+  return '1.0.4';
+}
 
 // Start embedded signaling server if not already running
 async function ensureSignalingServer() {
@@ -32,7 +38,7 @@ async function ensureSignalingServer() {
   }
 }
 
-// Version Comparison Helper (e.g. 1.0.3 > 1.0.2)
+// Version Comparison Helper (e.g. 1.0.4 > 1.0.2)
 function isNewerVersion(remote, current) {
   if (!remote || !current) return false;
   const parse = (v) => String(v).replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
@@ -47,42 +53,47 @@ function isNewerVersion(remote, current) {
 function checkForUpdates(serverUrl = 'https://pulsecord-1-w3xw.onrender.com') {
   return new Promise((resolve) => {
     try {
+      const currentVersion = getInstalledVersion();
       const cleanUrl = (serverUrl || 'https://pulsecord-1-w3xw.onrender.com').replace(/\/$/, '');
-      const apiUrl = `${cleanUrl}/api/version`;
+      const apiUrl = `${cleanUrl}/api/version?_t=${Date.now()}`;
       const client = apiUrl.startsWith('https') ? https : http;
 
       const req = client.get(apiUrl, { timeout: 10000 }, (res) => {
         if (res.statusCode !== 200) {
-          return resolve({ hasUpdate: false, currentVersion: appVersion, error: `Status ${res.statusCode}` });
+          return resolve({
+            hasUpdate: false,
+            currentVersion,
+            error: `Servidor retornou status HTTP ${res.statusCode}`
+          });
         }
         let data = '';
         res.on('data', (chunk) => (data += chunk));
         res.on('end', () => {
           try {
             const remoteInfo = JSON.parse(data);
-            const remoteVersion = remoteInfo.version;
-            const hasUpdate = isNewerVersion(remoteVersion, appVersion);
+            const remoteVersion = remoteInfo.version || '1.0.0';
+            const hasUpdate = isNewerVersion(remoteVersion, currentVersion);
             resolve({
               hasUpdate,
-              currentVersion: appVersion,
+              currentVersion,
               remoteVersion,
               notes: remoteInfo.notes,
               releaseDate: remoteInfo.releaseDate,
-              asarUrl: `${cleanUrl}/api/update/app.asar`
+              asarUrl: `${cleanUrl}/api/update/app.asar?_t=${Date.now()}`
             });
           } catch (err) {
-            resolve({ hasUpdate: false, currentVersion: appVersion, error: err.message });
+            resolve({ hasUpdate: false, currentVersion, error: `Erro ao processar manifesto: ${err.message}` });
           }
         });
       });
 
-      req.on('error', (err) => resolve({ hasUpdate: false, currentVersion: appVersion, error: err.message }));
+      req.on('error', (err) => resolve({ hasUpdate: false, currentVersion, error: `Erro de conexão: ${err.message}` }));
       req.on('timeout', () => {
         req.destroy();
-        resolve({ hasUpdate: false, currentVersion: appVersion, error: 'Timeout ao verificar atualizações.' });
+        resolve({ hasUpdate: false, currentVersion, error: 'Tempo limite esgotado ao contatar servidor de atualização.' });
       });
     } catch (e) {
-      resolve({ hasUpdate: false, currentVersion: appVersion, error: e.message });
+      resolve({ hasUpdate: false, currentVersion: getInstalledVersion(), error: e.message });
     }
   });
 }
@@ -96,12 +107,14 @@ function downloadUpdate(asarUrl) {
       const client = asarUrl.startsWith('https') ? https : http;
 
       const file = fs.createWriteStream(tempAsar);
-      const req = client.get(asarUrl, { timeout: 45000 }, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
+      const req = client.get(asarUrl, { timeout: 60000 }, (res) => {
+        if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
           return downloadUpdate(res.headers.location).then(resolve).catch(reject);
         }
         if (res.statusCode !== 200) {
-          return reject(new Error(`Falha no download (Status ${res.statusCode})`));
+          file.close();
+          try { fs.unlinkSync(tempAsar); } catch (e) {}
+          return reject(new Error(`Falha no download (Status HTTP ${res.statusCode})`));
         }
 
         const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
@@ -118,18 +131,26 @@ function downloadUpdate(asarUrl) {
         res.pipe(file);
         file.on('finish', () => {
           file.close(() => {
-            console.log('[Updater] Package downloaded to:', tempAsar);
+            console.log('[Updater] Package downloaded successfully to:', tempAsar);
             resolve({ success: true, path: tempAsar });
           });
         });
       });
 
-      req.on('error', (err) => {
+      file.on('error', (err) => {
         try { fs.unlinkSync(tempAsar); } catch (e) {}
         reject(err);
       });
+
+      req.on('error', (err) => {
+        file.close();
+        try { fs.unlinkSync(tempAsar); } catch (e) {}
+        reject(err);
+      });
+
       req.on('timeout', () => {
         req.destroy();
+        file.close();
         try { fs.unlinkSync(tempAsar); } catch (e) {}
         reject(new Error('Tempo limite excedido ao baixar atualização.'));
       });
@@ -141,29 +162,38 @@ function downloadUpdate(asarUrl) {
 
 // Apply update and restart PulseCord
 function applyUpdateAndRestart() {
-  if (!app.isPackaged) {
-    console.log('[Updater] Dev mode: relaunching...');
-    app.relaunch();
-    app.exit(0);
-    return;
-  }
-
-  const resourcesDir = process.resourcesPath;
+  const resourcesDir = process.resourcesPath || path.join(__dirname, '..');
   const targetAsar = path.join(resourcesDir, 'app.asar');
   const newAsar = path.join(resourcesDir, 'app.asar.new');
   const exePath = app.getPath('exe');
 
   if (!fs.existsSync(newAsar)) {
-    console.warn('[Updater] app.asar.new not found.');
+    console.warn('[Updater] app.asar.new not found at:', newAsar);
+    app.relaunch();
+    app.exit(0);
     return;
   }
 
   if (process.platform === 'win32') {
-    const updaterBat = path.join(app.getPath('temp'), `pulsecord-update-${Date.now()}.bat`);
+    const updaterBat = path.join(app.getPath('temp'), `pulsecord-updater-${Date.now()}.bat`);
     const batContent = `@echo off
+setlocal
+set "NEW_ASAR=${newAsar}"
+set "TARGET_ASAR=${targetAsar}"
+set "EXE_PATH=${exePath}"
+
+:wait_loop
 timeout /t 1 /nobreak > nul
-move /y "${newAsar}" "${targetAsar}"
-start "" "${exePath}"
+tasklist /fi "imagename eq PulseCord.exe" 2>nul | findstr /i "PulseCord.exe" > nul
+if not errorlevel 1 goto wait_loop
+
+:copy_loop
+timeout /t 1 /nobreak > nul
+copy /y "%NEW_ASAR%" "%TARGET_ASAR%" > nul 2>&1
+if errorlevel 1 goto copy_loop
+
+del /f /q "%NEW_ASAR%" > nul 2>&1
+start "" "%EXE_PATH%"
 del "%~f0"
 exit
 `;
@@ -257,7 +287,7 @@ ipcMain.on('window-close', () => {
 });
 
 // IPC Auto-Updater Handlers
-ipcMain.handle('get-app-version', () => appVersion);
+ipcMain.handle('get-app-version', () => getInstalledVersion());
 
 ipcMain.handle('check-for-updates', async (event, serverUrl) => {
   return await checkForUpdates(serverUrl);
