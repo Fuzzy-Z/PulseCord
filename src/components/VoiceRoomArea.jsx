@@ -6,7 +6,6 @@ import {
   Tv,
   PhoneOff,
   Disc3,
-  Maximize2,
   Volume2,
   VolumeX,
   Play,
@@ -16,7 +15,9 @@ import {
   Radio,
   Eye,
   Grid,
-  MonitorPlay
+  MonitorPlay,
+  PhoneCall,
+  Users
 } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
@@ -33,6 +34,7 @@ export const VoiceRoomArea = () => {
     localScreenStream,
     remoteStreams,
     musicPlayer,
+    joinVoiceChannel,
     leaveVoiceChannel,
     toggleMute,
     toggleDeafen,
@@ -44,7 +46,7 @@ export const VoiceRoomArea = () => {
     setUserVolume
   } = useVoice();
 
-  const { currentServer, setIsMusicModalOpen, setIsScreenModalOpen } = useServer();
+  const { currentServer, currentChannel, voiceRooms, setIsMusicModalOpen, setIsScreenModalOpen } = useServer();
   const { currentUser } = useSocket();
 
   const localVideoRef = useRef(null);
@@ -53,6 +55,14 @@ export const VoiceRoomArea = () => {
   // Selected remote peer socketId whose screen is being watched
   const [watchingPeerId, setWatchingPeerId] = useState(null);
 
+  // Is user actively connected to THIS voice channel
+  const isConnectedToThisRoom = activeVoiceChannel === currentChannel?.id;
+
+  // Remote screen shares
+  const activeRemoteScreenShares = Object.entries(remoteStreams).filter(
+    ([_, streams]) => streams.videoStream
+  );
+
   // Attach local screen video stream
   useEffect(() => {
     if (localVideoRef.current && localScreenStream) {
@@ -60,12 +70,7 @@ export const VoiceRoomArea = () => {
     }
   }, [localScreenStream]);
 
-  // Find all active remote screen shares
-  const activeRemoteScreenShares = Object.entries(remoteStreams).filter(
-    ([_, streams]) => streams.videoStream
-  );
-
-  // Auto-watch first screen share if none is currently selected
+  // Auto-watch first screen share if none selected
   useEffect(() => {
     if (!watchingPeerId && activeRemoteScreenShares.length > 0) {
       setWatchingPeerId(activeRemoteScreenShares[0][0]);
@@ -81,28 +86,37 @@ export const VoiceRoomArea = () => {
     }
   }, [watchingPeerId, remoteStreams]);
 
-  const activeChannelObj = currentServer?.channels.find((c) => c.id === activeVoiceChannel);
+  // Users currently in this channel
+  const currentRoomUsers = isConnectedToThisRoom
+    ? usersInVoice
+    : (voiceRooms[currentChannel?.id] || []);
 
-  // Combine currentUser + other peers in the room
-  const allParticipants = [
-    {
-      id: currentUser?.id,
-      username: currentUser?.username + ' (Você)',
-      avatar: currentUser?.avatar || '👑',
-      isLocal: true,
-      isMuted: isMuted,
-      isDeafened: isDeafened,
-      isSpeaking: isSpeaking,
-      isScreenSharing: isScreenSharing,
-      socketId: 'local'
-    },
-    ...usersInVoice.map((u) => ({
-      ...u,
-      isLocal: false,
-      isSpeaking: speakingUsers.has(u.socketId),
-      hasVideoStream: !!remoteStreams[u.socketId]?.videoStream
-    }))
-  ];
+  const allParticipants = isConnectedToThisRoom
+    ? [
+        {
+          id: currentUser?.id,
+          username: currentUser?.username + ' (Você)',
+          avatar: currentUser?.avatar || '👑',
+          isLocal: true,
+          isMuted: isMuted,
+          isDeafened: isDeafened,
+          isSpeaking: isSpeaking,
+          isScreenSharing: isScreenSharing,
+          socketId: 'local'
+        },
+        ...usersInVoice.map((u) => ({
+          ...u,
+          isLocal: false,
+          isSpeaking: speakingUsers.has(u.socketId),
+          hasVideoStream: !!remoteStreams[u.socketId]?.videoStream
+        }))
+      ]
+    : currentRoomUsers.map((u) => ({
+        ...u,
+        isLocal: false,
+        isSpeaking: false,
+        hasVideoStream: false
+      }));
 
   const watchingUser = usersInVoice.find((u) => u.socketId === watchingPeerId);
 
@@ -112,19 +126,30 @@ export const VoiceRoomArea = () => {
       <div className="h-12 border-b border-white/[0.06] px-4 flex items-center justify-between flex-shrink-0 bg-black/30 backdrop-blur-2xl">
         <div className="flex items-center space-x-2.5">
           <div className="relative flex items-center justify-center">
-            <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
+            <Radio className={`w-4 h-4 ${isConnectedToThisRoom ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`} />
           </div>
           <span className="font-bold text-white text-[13px] tracking-tight">
-            {activeChannelObj?.name || 'Canal de Voz'}
+            {currentChannel?.name || 'Canal de Voz'}
           </span>
           <span className="text-[10px] glass-pill px-2.5 py-0.5 rounded-full text-slate-400 font-medium">
-            {allParticipants.length} Participante(s) • HD 60fps
+            {allParticipants.length} Participante(s) {isConnectedToThisRoom ? '• Conectado' : '• Visualizando'}
           </span>
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* If not connected to this room, show prominent Connect Button */}
+          {!isConnectedToThisRoom && (
+            <button
+              onClick={() => joinVoiceChannel(currentChannel?.id, currentServer?.id)}
+              className="flex items-center space-x-1.5 px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-full text-xs font-bold shadow-lg shadow-emerald-500/20 transition btn-interactive"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span>Conectar à Voz</span>
+            </button>
+          )}
+
           {/* View Mode Toggle (Grid vs Theater) */}
-          {activeRemoteScreenShares.length > 0 && (
+          {isConnectedToThisRoom && activeRemoteScreenShares.length > 0 && (
             <button
               onClick={() => setWatchingPeerId(watchingPeerId ? null : activeRemoteScreenShares[0][0])}
               className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition btn-interactive ${
@@ -148,10 +173,32 @@ export const VoiceRoomArea = () => {
         </div>
       </div>
 
-      {/* Main Stage Grid / Spotlight Screen Share */}
+      {/* Main Stage Area */}
       <div className="flex-1 p-6 overflow-y-auto flex flex-col items-center justify-center thin-scrollbar relative">
-        {/* 1. Local Screen Share (When sharing own screen) */}
-        {isScreenSharing && localScreenStream ? (
+        {/* 1. If not connected, show Preview Banner on top if room is empty */}
+        {!isConnectedToThisRoom && (
+          <div className="mb-6 p-4 glass-panel rounded-2xl max-w-lg w-full flex items-center justify-between border border-white/10 shadow-xl">
+            <div className="space-y-0.5">
+              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Visualizando Canal de Voz</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Você não está nesta chamada. Clique para conversar com seus amigos.
+              </p>
+            </div>
+            <button
+              onClick={() => joinVoiceChannel(currentChannel?.id, currentServer?.id)}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-bold rounded-xl shadow-lg transition btn-interactive flex items-center gap-1.5"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span>Entrar</span>
+            </button>
+          </div>
+        )}
+
+        {/* 2. Local Screen Share */}
+        {isConnectedToThisRoom && isScreenSharing && localScreenStream ? (
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-black/90 shadow-2xl border border-indigo-500/40">
             <video
               ref={localVideoRef}
@@ -171,8 +218,8 @@ export const VoiceRoomArea = () => {
               Parar Transmissão
             </button>
           </div>
-        ) : watchingPeerId && remoteStreams[watchingPeerId]?.videoStream ? (
-          /* 2. Remote Screen Share Theater Mode (Watching friend's stream) */
+        ) : isConnectedToThisRoom && watchingPeerId && remoteStreams[watchingPeerId]?.videoStream ? (
+          /* 3. Remote Screen Share Theater Mode */
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-black/95 shadow-2xl border border-rose-500/30">
             <video
               ref={remoteVideoRef}
@@ -191,8 +238,26 @@ export const VoiceRoomArea = () => {
               Ver Todos em Grade
             </button>
           </div>
+        ) : allParticipants.length === 0 ? (
+          /* 4. Empty Room Placeholder */
+          <div className="text-center p-8 glass-panel rounded-3xl max-w-sm space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto border border-indigo-500/20">
+              <Radio className="w-7 h-7" />
+            </div>
+            <h3 className="text-sm font-bold text-white">Ninguém nesta sala ainda</h3>
+            <p className="text-xs text-slate-400">
+              Seja o primeiro a entrar! Conecte seu fone e microfone para começar.
+            </p>
+            <button
+              onClick={() => joinVoiceChannel(currentChannel?.id, currentServer?.id)}
+              className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-bold rounded-xl shadow-lg transition btn-interactive inline-flex items-center gap-2"
+            >
+              <PhoneCall className="w-4 h-4" />
+              <span>Entrar na Sala</span>
+            </button>
+          </div>
         ) : (
-          /* 3. Participant Cards Grid */
+          /* 5. Participant Cards Grid */
           <div className="w-full max-w-5xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 auto-rows-fr items-center justify-center">
             {allParticipants.map((participant, idx) => {
               const monogram = (participant.username || 'User').substring(0, 2).toUpperCase();
@@ -259,7 +324,7 @@ export const VoiceRoomArea = () => {
                   </div>
 
                   {/* Watch Stream Button (if remote peer is sharing) */}
-                  {!participant.isLocal && hasScreen ? (
+                  {isConnectedToThisRoom && !participant.isLocal && hasScreen ? (
                     <button
                       onClick={() => setWatchingPeerId(participant.socketId)}
                       className="w-full mt-2 py-2 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-xs font-bold rounded-xl shadow-lg flex items-center justify-center gap-1.5 transition btn-interactive"
@@ -267,7 +332,7 @@ export const VoiceRoomArea = () => {
                       <Eye className="w-3.5 h-3.5" />
                       <span>Assistir Transmissão</span>
                     </button>
-                  ) : !participant.isLocal ? (
+                  ) : isConnectedToThisRoom && !participant.isLocal ? (
                     /* Individual Friend Volume Slider */
                     <div className="w-full mt-2 px-3 py-1.5 rounded-xl bg-black/40 border border-white/[0.06] flex items-center space-x-2">
                       <button
@@ -295,9 +360,13 @@ export const VoiceRoomArea = () => {
                         {friendVolume}%
                       </span>
                     </div>
-                  ) : (
+                  ) : isConnectedToThisRoom ? (
                     <div className="text-[10px] text-slate-500 font-medium py-1">
                       Seu Microfone
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-slate-500 font-medium py-1">
+                      Conectado na Sala
                     </div>
                   )}
                 </div>
@@ -307,8 +376,8 @@ export const VoiceRoomArea = () => {
         )}
       </div>
 
-      {/* Active Music Bot Widget Bar (at bottom of voice) */}
-      {musicPlayer.currentTrack && (
+      {/* Active Music Bot Widget Bar */}
+      {isConnectedToThisRoom && musicPlayer.currentTrack && (
         <div className="h-14 bg-black/60 backdrop-blur-2xl border-t border-white/[0.08] px-5 flex items-center justify-between flex-shrink-0 z-20">
           <div className="flex items-center space-x-3 truncate">
             <img
@@ -352,66 +421,68 @@ export const VoiceRoomArea = () => {
         </div>
       )}
 
-      {/* Voice Bottom Dock Floating Controls */}
-      <div className="p-4 flex items-center justify-center">
-        <div className="glass-panel px-6 py-2.5 rounded-2xl flex items-center space-x-3 shadow-2xl border border-white/15">
-          {/* Mute Mic */}
-          <button
-            onClick={toggleMute}
-            className={`p-3 rounded-xl transition-all duration-200 shadow-md ${
-              isMuted
-                ? 'bg-rose-500/90 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]'
-                : 'bg-white/[0.08] hover:bg-white/[0.15] text-slate-200'
-            }`}
-            title={isMuted ? 'Desmutar Microfone' : 'Mutar Microfone'}
-          >
-            {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          </button>
+      {/* Voice Bottom Dock Floating Controls (Only shown when CONNECTED) */}
+      {isConnectedToThisRoom && (
+        <div className="p-4 flex items-center justify-center">
+          <div className="glass-panel px-6 py-2.5 rounded-2xl flex items-center space-x-3 shadow-2xl border border-white/15">
+            {/* Mute Mic */}
+            <button
+              onClick={toggleMute}
+              className={`p-3 rounded-xl transition-all duration-200 shadow-md ${
+                isMuted
+                  ? 'bg-rose-500/90 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]'
+                  : 'bg-white/[0.08] hover:bg-white/[0.15] text-slate-200'
+              }`}
+              title={isMuted ? 'Desmutar Microfone' : 'Mutar Microfone'}
+            >
+              {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
 
-          {/* Deafen Audio */}
-          <button
-            onClick={toggleDeafen}
-            className={`p-3 rounded-xl transition-all duration-200 shadow-md ${
-              isDeafened
-                ? 'bg-rose-500/90 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]'
-                : 'bg-white/[0.08] hover:bg-white/[0.15] text-slate-200'
-            }`}
-            title={isDeafened ? 'Desativar Silêncio' : 'Ensurdecer (Muta Todos)'}
-          >
-            <Headphones className="w-4 h-4" />
-          </button>
+            {/* Deafen Audio */}
+            <button
+              onClick={toggleDeafen}
+              className={`p-3 rounded-xl transition-all duration-200 shadow-md ${
+                isDeafened
+                  ? 'bg-rose-500/90 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]'
+                  : 'bg-white/[0.08] hover:bg-white/[0.15] text-slate-200'
+              }`}
+              title={isDeafened ? 'Desativar Silêncio' : 'Ensurdecer (Muta Todos)'}
+            >
+              <Headphones className="w-4 h-4" />
+            </button>
 
-          {/* Screen Share (60 FPS) */}
-          <button
-            onClick={() => {
-              if (isScreenSharing) {
-                stopScreenShare();
-              } else {
-                setIsScreenModalOpen(true);
-              }
-            }}
-            className={`p-3 rounded-xl transition-all duration-200 shadow-md ${
-              isScreenSharing
-                ? 'bg-emerald-500/90 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                : 'bg-white/[0.08] hover:bg-white/[0.15] text-slate-200'
-            }`}
-            title={isScreenSharing ? 'Parar de Compartilhar' : 'Compartilhar Tela (60 FPS)'}
-          >
-            <Tv className="w-4 h-4" />
-          </button>
+            {/* Screen Share (60 FPS) */}
+            <button
+              onClick={() => {
+                if (isScreenSharing) {
+                  stopScreenShare();
+                } else {
+                  setIsScreenModalOpen(true);
+                }
+              }}
+              className={`p-3 rounded-xl transition-all duration-200 shadow-md ${
+                isScreenSharing
+                  ? 'bg-emerald-500/90 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                  : 'bg-white/[0.08] hover:bg-white/[0.15] text-slate-200'
+              }`}
+              title={isScreenSharing ? 'Parar de Compartilhar' : 'Compartilhar Tela (60 FPS)'}
+            >
+              <Tv className="w-4 h-4" />
+            </button>
 
-          <div className="w-[1px] h-6 bg-white/10 mx-1" />
+            <div className="w-[1px] h-6 bg-white/10 mx-1" />
 
-          {/* Disconnect Call */}
-          <button
-            onClick={leaveVoiceChannel}
-            className="p-3 bg-rose-600/90 hover:bg-rose-700 text-white rounded-xl shadow-lg transition-all duration-200 hover:scale-105"
-            title="Desconectar do Canal de Voz"
-          >
-            <PhoneOff className="w-4 h-4" />
-          </button>
+            {/* Disconnect Call */}
+            <button
+              onClick={leaveVoiceChannel}
+              className="p-3 bg-rose-600/90 hover:bg-rose-700 text-white rounded-xl shadow-lg transition-all duration-200 hover:scale-105"
+              title="Desconectar do Canal de Voz"
+            >
+              <PhoneOff className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

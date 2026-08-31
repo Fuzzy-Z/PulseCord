@@ -32,16 +32,15 @@ async function ensureSignalingServer() {
   }
 }
 
-// Version Comparison Helper (e.g. 1.0.1 > 1.0.0)
+// Version Comparison Helper (e.g. 1.0.3 > 1.0.2)
 function isNewerVersion(remote, current) {
   if (!remote || !current) return false;
-  const parse = (v) => v.split('.').map((n) => parseInt(n, 10) || 0);
+  const parse = (v) => String(v).replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
   const [r1 = 0, r2 = 0, r3 = 0] = parse(remote);
   const [c1 = 0, c2 = 0, c3 = 0] = parse(current);
-  if (r1 > c1) return true;
-  if (r1 === c1 && r2 > c2) return true;
-  if (r1 === c1 && r2 === c2 && r3 > c3) return true;
-  return false;
+  if (r1 !== c1) return r1 > c1;
+  if (r2 !== c2) return r2 > c2;
+  return r3 > c3;
 }
 
 // Check for updates
@@ -62,7 +61,7 @@ function checkForUpdates(serverUrl = 'https://pulsecord-1-w3xw.onrender.com') {
           try {
             const remoteInfo = JSON.parse(data);
             const remoteVersion = remoteInfo.version;
-            const hasUpdate = isNewerVersion(remoteVersion, appVersion) && remoteInfo.hasAsar !== false;
+            const hasUpdate = isNewerVersion(remoteVersion, appVersion);
             resolve({
               hasUpdate,
               currentVersion: appVersion,

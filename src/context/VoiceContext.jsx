@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { useSocket } from './SocketContext';
 import { WebRTCManager } from '../services/webrtc';
 import { KrispAudioProcessor } from '../services/audioUtils';
+import { soundFX } from '../services/soundEffects';
 
 const VoiceContext = createContext(null);
 
@@ -294,6 +295,7 @@ export const VoiceProvider = ({ children }) => {
     // WebRTC Signaling events
     socket.on('user-joined-voice', async ({ user, channelId }) => {
       if (channelId === activeVoiceChannel) {
+        soundFX.play('user-join');
         setUsersInVoice((prev) => {
           if (!prev.some((u) => u.id === user.id)) {
             return [...prev, user];
@@ -308,6 +310,7 @@ export const VoiceProvider = ({ children }) => {
     });
 
     socket.on('user-left-voice', ({ socketId, userId, channelId }) => {
+      soundFX.play('user-leave');
       setUsersInVoice((prev) => prev.filter((u) => u.id !== userId));
       setSpeakingUsers((prev) => {
         const next = new Set(prev);
@@ -450,6 +453,7 @@ export const VoiceProvider = ({ children }) => {
       // 4. Notify Socket Server
       socket.emit('join-voice', { channelId, serverId }, (response) => {
         if (response && response.success) {
+          soundFX.play('join');
           setActiveVoiceChannel(channelId);
           setActiveServerId(serverId);
           setUsersInVoice(response.usersInRoom || []);
@@ -468,6 +472,7 @@ export const VoiceProvider = ({ children }) => {
       console.error('Failed to access microphone:', err);
       socket.emit('join-voice', { channelId, serverId }, (response) => {
         if (response && response.success) {
+          soundFX.play('join');
           setActiveVoiceChannel(channelId);
           setActiveServerId(serverId);
           setUsersInVoice(response.usersInRoom || []);
@@ -480,6 +485,7 @@ export const VoiceProvider = ({ children }) => {
   const leaveVoiceChannel = () => {
     if (!socket) return;
 
+    soundFX.play('leave');
     socket.emit('leave-voice');
     setActiveVoiceChannel(null);
     setActiveServerId(null);
@@ -518,6 +524,7 @@ export const VoiceProvider = ({ children }) => {
   const toggleMute = () => {
     const newMuted = !isMuted;
     setIsMuted(newMuted);
+    soundFX.play(newMuted ? 'mute' : 'unmute');
     if (localAudioStream) {
       localAudioStream.getAudioTracks().forEach((t) => {
         t.enabled = !newMuted;
@@ -532,6 +539,7 @@ export const VoiceProvider = ({ children }) => {
   const toggleDeafen = () => {
     const newDeafened = !isDeafened;
     setIsDeafened(newDeafened);
+    soundFX.play(newDeafened ? 'deafen' : 'undeafen');
     remoteAudioElementsRef.current.forEach((audioEl) => {
       audioEl.volume = newDeafened ? 0 : 1.0;
     });
