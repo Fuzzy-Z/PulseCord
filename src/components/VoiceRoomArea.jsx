@@ -64,11 +64,15 @@ export const VoiceRoomArea = () => {
   const handleYoutubeSubmit = (e) => {
     e.preventDefault();
     if (!ytInput.trim()) return;
-    let videoId = ytInput;
-    try {
-      if (ytInput.includes('youtu.be/')) videoId = ytInput.split('youtu.be/')[1].split('?')[0];
-      else if (ytInput.includes('youtube.com/watch')) videoId = new URL(ytInput).searchParams.get('v');
-    } catch (e) {}
+    
+    let videoId = ytInput.trim();
+    // Support youtube.com, youtu.be, embed, shorts, etc.
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|\/shorts\/)([^#&?]*).*/;
+    const match = ytInput.match(regExp);
+    if (match && match[2].length === 11) {
+      videoId = match[2];
+    }
+
     if (videoId) {
       syncWatchTogether({ url: videoId, isPlaying: true, isActive: true });
       setYtInput('');
