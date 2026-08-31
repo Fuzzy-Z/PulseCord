@@ -41,6 +41,10 @@ export const UserSettingsModal = () => {
   const [compactMode, setCompactMode] = useState(() => {
     return localStorage.getItem('pulsecord_compact_mode') === 'true';
   });
+
+  const [isNitroActive, setIsNitroActive] = useState(() => {
+    return currentUser?.isNitro || false;
+  });
   
   const [clipSettings, setClipSettings] = useState(() => {
     try {
@@ -240,10 +244,6 @@ export const UserSettingsModal = () => {
     });
     setIsUserSettingsOpen(false);
   };
-
-  const [isNitroActive, setIsNitroActive] = useState(() => {
-    return currentUser?.isNitro || false;
-  });
 
   const handleSaveConnection = (e) => {
     e.preventDefault();
