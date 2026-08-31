@@ -15,7 +15,14 @@ export const UserSettingsModal = () => {
     micGain,
     setMicGain,
     micLiveLevel,
-    isGateOpen
+    isGateOpen,
+    inputDevices,
+    outputDevices,
+    selectedInputDevice,
+    selectedOutputDevice,
+    setInputDevice,
+    setOutputDevice,
+    refreshAudioDevices
   } = useVoice();
 
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'voice' | 'connection'
@@ -29,6 +36,7 @@ export const UserSettingsModal = () => {
   const [customServerUrl, setCustomServerUrl] = useState(serverUrl || 'https://pulsecord-1-w3xw.onrender.com');
   const [micTestActive, setMicTestActive] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
+  const [playingSoundTest, setPlayingSoundTest] = useState(false);
 
   // Auto-Updater State
   const [appVersion, setAppVersion] = useState('1.0.0');
@@ -37,6 +45,26 @@ export const UserSettingsModal = () => {
   const [downloadingUpdate, setDownloadingUpdate] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [updateReady, setUpdateReady] = useState(false);
+
+  const handleTestAudioOutput = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+      setPlayingSoundTest(true);
+      setTimeout(() => setPlayingSoundTest(false), 500);
+    } catch (e) {}
+  };
 
   const gradientOptions = [
     { name: 'Indigo / Roxo', gradient: 'from-indigo-500 to-purple-600' },
@@ -315,10 +343,71 @@ export const UserSettingsModal = () => {
           {activeTab === 'voice' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Voz & Supressão de Ruído</h2>
+                <h2 className="text-xl font-bold text-white tracking-tight">Dispositivos & Áudio</h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Ajuste a sensibilidade do seu microfone, ganho de entrada e ative o cancelamento de ruídos estilo Krisp.
+                  Selecione seu microfone e fone de ouvido, ajuste a sensibilidade e ative o cancelamento de ruídos.
                 </p>
+              </div>
+
+              {/* Audio Device Selection Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Input Device (Microphone) */}
+                <div className="p-4 glass-panel rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Mic className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Dispositivo de Entrada</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={refreshAudioDevices}
+                      className="text-[10px] text-indigo-300 hover:text-white transition"
+                    >
+                      Recarregar
+                    </button>
+                  </div>
+                  <select
+                    value={selectedInputDevice}
+                    onChange={(e) => setInputDevice(e.target.value)}
+                    className="w-full bg-[#161722] text-white text-xs px-3 py-2.5 rounded-xl border border-white/10 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="default">Padrão do Sistema (Microfone)</option>
+                    {inputDevices.map((device, idx) => (
+                      <option key={device.deviceId || idx} value={device.deviceId}>
+                        {device.label || `Microfone ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Output Device (Speakers / Headphones) */}
+                <div className="p-4 glass-panel rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Volume2 className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Dispositivo de Saída</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleTestAudioOutput}
+                      className="text-[10px] text-emerald-400 hover:text-emerald-300 font-semibold transition"
+                    >
+                      {playingSoundTest ? 'Tocando Som...' : 'Testar Som'}
+                    </button>
+                  </div>
+                  <select
+                    value={selectedOutputDevice}
+                    onChange={(e) => setOutputDevice(e.target.value)}
+                    className="w-full bg-[#161722] text-white text-xs px-3 py-2.5 rounded-xl border border-white/10 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="default">Padrão do Sistema (Fones / Alto-falantes)</option>
+                    {outputDevices.map((device, idx) => (
+                      <option key={device.deviceId || idx} value={device.deviceId}>
+                        {device.label || `Alto-falante / Fone ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Krisp Noise Suppression Toggle Card */}

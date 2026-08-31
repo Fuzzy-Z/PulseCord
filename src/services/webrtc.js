@@ -1,11 +1,18 @@
 const ICE_SERVERS = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' }
-  ]
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302'
+      ]
+    },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    { urls: 'stun:stun.services.mozilla.com' }
+  ],
+  iceCandidatePoolSize: 10
 };
 
 export class WebRTCManager {
@@ -24,12 +31,12 @@ export class WebRTCManager {
 
   setLocalAudioStream(stream) {
     this.localAudioStream = stream;
-    // Add audio track to all existing peers
+    // Add or replace audio track to all existing peers
     this.peers.forEach((pc) => {
       if (stream) {
-        stream.getAudioTracks().forEach(track => {
+        stream.getAudioTracks().forEach((track) => {
           const senders = pc.getSenders();
-          const existingSender = senders.find(s => s.track && s.track.kind === 'audio');
+          const existingSender = senders.find((s) => s.track && s.track.kind === 'audio');
           if (existingSender) {
             existingSender.replaceTrack(track);
           } else {
@@ -45,9 +52,9 @@ export class WebRTCManager {
     // Update screen tracks for all peers
     this.peers.forEach((pc) => {
       if (stream) {
-        stream.getVideoTracks().forEach(track => {
+        stream.getVideoTracks().forEach((track) => {
           const senders = pc.getSenders();
-          const existingSender = senders.find(s => s.track && s.track.kind === 'video');
+          const existingSender = senders.find((s) => s.track && s.track.kind === 'video');
           if (existingSender) {
             existingSender.replaceTrack(track);
           } else {
@@ -56,7 +63,7 @@ export class WebRTCManager {
         });
       } else {
         const senders = pc.getSenders();
-        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+        const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
         if (videoSender) {
           pc.removeTrack(videoSender);
         }
@@ -74,13 +81,13 @@ export class WebRTCManager {
 
     // Add local tracks to peer connection
     if (this.localAudioStream) {
-      this.localAudioStream.getAudioTracks().forEach(track => {
+      this.localAudioStream.getAudioTracks().forEach((track) => {
         pc.addTrack(track, this.localAudioStream);
       });
     }
 
     if (this.localScreenStream) {
-      this.localScreenStream.getVideoTracks().forEach(track => {
+      this.localScreenStream.getVideoTracks().forEach((track) => {
         pc.addTrack(track, this.localScreenStream);
       });
     }
@@ -95,11 +102,14 @@ export class WebRTCManager {
       }
     };
 
-    // Remote Track received
+    // Remote Track received (Ensures MediaStream exists even if single track)
     pc.ontrack = (event) => {
-      const [remoteStream] = event.streams;
-      if (this.onRemoteStream && remoteStream) {
-        this.onRemoteStream(targetSocketId, remoteStream, event.track.kind);
+      let stream = event.streams && event.streams[0];
+      if (!stream) {
+        stream = new MediaStream([event.track]);
+      }
+      if (this.onRemoteStream && stream) {
+        this.onRemoteStream(targetSocketId, stream, event.track.kind);
       }
     };
 

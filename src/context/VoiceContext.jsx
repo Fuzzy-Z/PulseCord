@@ -9,12 +9,23 @@ export const VoiceProvider = ({ children }) => {
   const { socket, currentUser } = useSocket();
 
   const [activeVoiceChannel, setActiveVoiceChannel] = useState(null);
+  const [activeServerId, setActiveServerId] = useState(null);
   const [usersInVoice, setUsersInVoice] = useState([]);
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingUsers, setSpeakingUsers] = useState(new Set());
+
+  // Audio Device Selection
+  const [inputDevices, setInputDevices] = useState([]);
+  const [outputDevices, setOutputDevices] = useState([]);
+  const [selectedInputDevice, setSelectedInputDeviceState] = useState(() => {
+    return localStorage.getItem('pulsecord_input_device') || 'default';
+  });
+  const [selectedOutputDevice, setSelectedOutputDeviceState] = useState(() => {
+    return localStorage.getItem('pulsecord_output_device') || 'default';
+  });
 
   // Krisp Noise Suppression & Sensitivity settings
   const [krispEnabled, setKrispEnabledState] = useState(() => {
@@ -23,7 +34,7 @@ export const VoiceProvider = ({ children }) => {
   });
   const [micSensitivity, setMicSensitivityState] = useState(() => {
     const saved = localStorage.getItem('pulsecord_mic_sensitivity');
-    return saved !== null ? Number(saved) : 35;
+    return saved !== null ? Number(saved) : 25;
   });
   const [micGain, setMicGainState] = useState(() => {
     const saved = localStorage.getItem('pulsecord_mic_gain');
@@ -59,6 +70,102 @@ export const VoiceProvider = ({ children }) => {
   const webrtcManagerRef = useRef(null);
   const krispProcessorRef = useRef(null);
   const musicAudioRef = useRef(null);
+  const remoteAudioElementsRef = useRef(new Map()); // socketId -> HTMLAudioElement
+
+  // Refresh audio input & output devices
+  const refreshAudioDevices = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const inputs = devices.filter((d) => d.kind === 'audioinput');
+      const outputs = devices.filter((d) => d.kind === 'audiooutput');
+      setInputDevices(inputs);
+      setOutputDevices(outputs);
+    } catch (err) {
+      console.warn('[AudioDevices] Error enumerating devices:', err);
+    }
+  };
+
+  useEffect(() => {
+    refreshAudioDevices();
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', refreshAudioDevices);
+      return () => {
+        navigator.mediaDevices.removeEventListener('devicechange', refreshAudioDevices);
+      };
+    }
+  }, []);
+
+  const setInputDevice = async (deviceId) => {
+    setSelectedInputDeviceState(deviceId);
+    localStorage.setItem('pulsecord_input_device', deviceId);
+
+    // If currently connected in voice, switch microphone live
+    if (activeVoiceChannel) {
+      try {
+        const audioConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
+          ...(deviceId && deviceId !== 'default' ? { deviceId: { exact: deviceId } } : {})
+        };
+        const newStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+        
+        if (localAudioStream) {
+          localAudioStream.getTracks().forEach((t) => t.stop());
+        }
+        setLocalAudioStream(newStream);
+
+        if (krispProcessorRef.current) {
+          krispProcessorRef.current.stop();
+        }
+
+        const processor = new KrispAudioProcessor(newStream, {
+          sensitivity: micSensitivity,
+          inputGain: micGain / 100,
+          krispEnabled,
+          onLevelChange: (level, gateOpen) => {
+            setMicLiveLevel(level);
+            setIsGateOpen(gateOpen);
+          },
+          onSpeakingChange: (speaking) => {
+            setIsSpeaking(speaking);
+            if (socket) socket.emit('speaking-state', { isSpeaking: speaking });
+          }
+        });
+        krispProcessorRef.current = processor;
+
+        const processedStream = processor.getProcessedStream();
+        if (webrtcManagerRef.current) {
+          webrtcManagerRef.current.setLocalAudioStream(processedStream);
+        }
+      } catch (err) {
+        console.error('[Voice] Error switching microphone:', err);
+      }
+    }
+  };
+
+  const setOutputDevice = async (deviceId) => {
+    setSelectedOutputDeviceState(deviceId);
+    localStorage.setItem('pulsecord_output_device', deviceId);
+
+    // Apply sinkId to all remote audio elements
+    remoteAudioElementsRef.current.forEach((audioEl) => {
+      if (audioEl.setSinkId && deviceId && deviceId !== 'default') {
+        audioEl.setSinkId(deviceId).catch(console.warn);
+      } else if (audioEl.setSinkId) {
+        audioEl.setSinkId('').catch(console.warn);
+      }
+    });
+
+    if (musicAudioRef.current && musicAudioRef.current.setSinkId) {
+      if (deviceId && deviceId !== 'default') {
+        musicAudioRef.current.setSinkId(deviceId).catch(console.warn);
+      } else {
+        musicAudioRef.current.setSinkId('').catch(console.warn);
+      }
+    }
+  };
 
   // Helper setters that persist to localStorage
   const setKrispEnabled = (val) => {
@@ -89,8 +196,53 @@ export const VoiceProvider = ({ children }) => {
     setUserVolumes((prev) => {
       const updated = { ...prev, [userId]: volume };
       localStorage.setItem('pulsecord_user_volumes', JSON.stringify(updated));
+
+      // Update active audio element volume
+      usersInVoice.forEach((u) => {
+        if (u.id === userId && u.socketId) {
+          const audioEl = remoteAudioElementsRef.current.get(u.socketId);
+          if (audioEl) {
+            audioEl.volume = isDeafened ? 0 : Math.min(1, volume / 100);
+          }
+        }
+      });
+
       return updated;
     });
+  };
+
+  // Manage Remote Audio Playback Globally (Never cuts off on tab switch)
+  const playRemoteAudio = (peerSocketId, stream) => {
+    try {
+      let audioEl = remoteAudioElementsRef.current.get(peerSocketId);
+      if (!audioEl) {
+        audioEl = new Audio();
+        audioEl.autoplay = true;
+        remoteAudioElementsRef.current.set(peerSocketId, audioEl);
+      }
+
+      if (audioEl.srcObject !== stream) {
+        audioEl.srcObject = stream;
+      }
+
+      if (selectedOutputDevice && selectedOutputDevice !== 'default' && audioEl.setSinkId) {
+        audioEl.setSinkId(selectedOutputDevice).catch(console.warn);
+      }
+
+      // Find user volume
+      const peerUser = usersInVoice.find((u) => u.socketId === peerSocketId);
+      const userVol = peerUser && userVolumes[peerUser.id] !== undefined ? userVolumes[peerUser.id] : 100;
+      audioEl.volume = isDeafened ? 0 : Math.min(1, userVol / 100);
+
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('[Audio Play Autoplay Policy]', err);
+        });
+      }
+    } catch (e) {
+      console.warn('[Voice] Error playing remote audio:', e);
+    }
   };
 
   // Initialize WebRTC Manager
@@ -104,11 +256,18 @@ export const VoiceProvider = ({ children }) => {
           if (kind === 'video') {
             return { ...prev, [peerSocketId]: { ...current, videoStream: stream } };
           } else {
+            playRemoteAudio(peerSocketId, stream);
             return { ...prev, [peerSocketId]: { ...current, audioStream: stream } };
           }
         });
       },
       onRemoteStreamRemoved: (peerSocketId) => {
+        const audioEl = remoteAudioElementsRef.current.get(peerSocketId);
+        if (audioEl) {
+          audioEl.srcObject = null;
+          audioEl.pause();
+          remoteAudioElementsRef.current.delete(peerSocketId);
+        }
         setRemoteStreams((prev) => {
           const updated = { ...prev };
           delete updated[peerSocketId];
@@ -116,6 +275,12 @@ export const VoiceProvider = ({ children }) => {
         });
       },
       onPeerDisconnected: (peerSocketId) => {
+        const audioEl = remoteAudioElementsRef.current.get(peerSocketId);
+        if (audioEl) {
+          audioEl.srcObject = null;
+          audioEl.pause();
+          remoteAudioElementsRef.current.delete(peerSocketId);
+        }
         setRemoteStreams((prev) => {
           const updated = { ...prev };
           delete updated[peerSocketId];
@@ -148,6 +313,12 @@ export const VoiceProvider = ({ children }) => {
         next.delete(socketId);
         return next;
       });
+      const audioEl = remoteAudioElementsRef.current.get(socketId);
+      if (audioEl) {
+        audioEl.srcObject = null;
+        audioEl.pause();
+        remoteAudioElementsRef.current.delete(socketId);
+      }
       if (manager) {
         manager.removePeer(socketId);
       }
@@ -200,7 +371,7 @@ export const VoiceProvider = ({ children }) => {
       socket.off('user-voice-status-updated');
       socket.off('music-state-update');
     };
-  }, [socket, activeVoiceChannel]);
+  }, [socket, activeVoiceChannel, usersInVoice, userVolumes, isDeafened, selectedOutputDevice]);
 
   // Synchronized Music Bot Audio Player Element
   useEffect(() => {
@@ -208,6 +379,10 @@ export const VoiceProvider = ({ children }) => {
       musicAudioRef.current = new Audio();
     }
     const audio = musicAudioRef.current;
+
+    if (selectedOutputDevice && selectedOutputDevice !== 'default' && audio.setSinkId) {
+      audio.setSinkId(selectedOutputDevice).catch(console.warn);
+    }
 
     if (musicPlayer.isPlaying && musicPlayer.currentTrack?.url && activeVoiceChannel && !isDeafened) {
       if (audio.src !== musicPlayer.currentTrack.url) {
@@ -218,27 +393,34 @@ export const VoiceProvider = ({ children }) => {
     } else {
       audio.pause();
     }
-  }, [musicPlayer, activeVoiceChannel, isDeafened]);
+  }, [musicPlayer, activeVoiceChannel, isDeafened, selectedOutputDevice]);
 
-  // Handle Join Voice Channel with Krisp Audio Filter
+  // Handle Join Voice Channel with Audio Device Selection & Krisp Filter
   const joinVoiceChannel = async (channelId, serverId) => {
     if (!socket) return;
     if (activeVoiceChannel === channelId) return;
 
     try {
-      // 1. Acquire Local Audio with WebRTC hardware processing
+      await refreshAudioDevices();
+
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: false,
+        ...(selectedInputDevice && selectedInputDevice !== 'default'
+          ? { deviceId: { exact: selectedInputDevice } }
+          : {})
+      };
+
+      // 1. Acquire Local Audio
       const rawMicStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: false // KrispProcessor handles smooth dynamic gain
-        },
+        audio: audioConstraints,
         video: false
       });
 
       setLocalAudioStream(rawMicStream);
 
-      // 2. Initialize Krisp Audio Processor (Noise Gate + HighPass/LowPass filters)
+      // 2. Initialize Krisp Audio Processor
       if (krispProcessorRef.current) {
         krispProcessorRef.current.stop();
       }
@@ -268,6 +450,7 @@ export const VoiceProvider = ({ children }) => {
       socket.emit('join-voice', { channelId, serverId }, (response) => {
         if (response && response.success) {
           setActiveVoiceChannel(channelId);
+          setActiveServerId(serverId);
           setUsersInVoice(response.usersInRoom || []);
           if (response.musicPlayer) {
             setMusicPlayer(response.musicPlayer);
@@ -285,6 +468,7 @@ export const VoiceProvider = ({ children }) => {
       socket.emit('join-voice', { channelId, serverId }, (response) => {
         if (response && response.success) {
           setActiveVoiceChannel(channelId);
+          setActiveServerId(serverId);
           setUsersInVoice(response.usersInRoom || []);
         }
       });
@@ -297,9 +481,16 @@ export const VoiceProvider = ({ children }) => {
 
     socket.emit('leave-voice');
     setActiveVoiceChannel(null);
+    setActiveServerId(null);
     setUsersInVoice([]);
     setSpeakingUsers(new Set());
     setRemoteStreams({});
+
+    remoteAudioElementsRef.current.forEach((audioEl) => {
+      audioEl.srcObject = null;
+      audioEl.pause();
+    });
+    remoteAudioElementsRef.current.clear();
 
     if (localAudioStream) {
       localAudioStream.getTracks().forEach((t) => t.stop());
@@ -340,6 +531,9 @@ export const VoiceProvider = ({ children }) => {
   const toggleDeafen = () => {
     const newDeafened = !isDeafened;
     setIsDeafened(newDeafened);
+    remoteAudioElementsRef.current.forEach((audioEl) => {
+      audioEl.volume = newDeafened ? 0 : 1.0;
+    });
     if (socket) {
       socket.emit('update-voice-status', { isDeafened: newDeafened });
     }
@@ -422,6 +616,7 @@ export const VoiceProvider = ({ children }) => {
     <VoiceContext.Provider
       value={{
         activeVoiceChannel,
+        activeServerId,
         usersInVoice,
         isMuted,
         isDeafened,
@@ -442,6 +637,13 @@ export const VoiceProvider = ({ children }) => {
         isGateOpen,
         userVolumes,
         setUserVolume,
+        inputDevices,
+        outputDevices,
+        selectedInputDevice,
+        selectedOutputDevice,
+        setInputDevice,
+        setOutputDevice,
+        refreshAudioDevices,
         joinVoiceChannel,
         leaveVoiceChannel,
         toggleMute,
