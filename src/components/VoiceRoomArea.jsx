@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import ReactPlayer from 'react-player';
 import {
   Mic,
   MicOff,
@@ -61,6 +62,10 @@ export const VoiceRoomArea = () => {
   const [watchingPeerId, setWatchingPeerId] = useState(null);
 
   const [ytInput, setYtInput] = useState('');
+  const [ytVolume, setYtVolume] = useState(0.5);
+  const [screenVolume, setScreenVolume] = useState(0.8);
+  const ytPlayerRef = useRef(null);
+
   const handleYoutubeSubmit = (e) => {
     e.preventDefault();
     if (!ytInput.trim()) return;
@@ -101,13 +106,34 @@ export const VoiceRoomArea = () => {
     }
   }, [watchingPeerId, usersInVoice]);
 
-  // Attach watched remote video stream whenever available
+  // Attach remote screen video stream
   useEffect(() => {
     if (remoteVideoRef.current && watchingPeerId && remoteStreams[watchingPeerId]?.videoStream) {
       remoteVideoRef.current.srcObject = remoteStreams[watchingPeerId].videoStream;
-      remoteVideoRef.current.play().catch(e => console.warn('[Video Play]', e));
+      remoteVideoRef.current.volume = screenVolume;
     }
-  }, [watchingPeerId, remoteStreams]);
+  }, [watchingPeerId, remoteStreams, screenVolume]);
+
+  // Sync Watch Together Current Time
+  useEffect(() => {
+    if (ytPlayerRef.current && watchTogetherState.currentTime !== undefined) {
+      const localTime = ytPlayerRef.current.getCurrentTime() || 0;
+      if (Math.abs(localTime - watchTogetherState.currentTime) > 2) {
+        ytPlayerRef.current.seekTo(watchTogetherState.currentTime, 'seconds');
+      }
+    }
+  }, [watchTogetherState.currentTime, watchTogetherState.url]);
+
+  const handleTogglePlaySync = () => {
+    let currentT = watchTogetherState.currentTime;
+    if (ytPlayerRef.current) {
+      currentT = ytPlayerRef.current.getCurrentTime();
+    }
+    syncWatchTogether({ 
+      isPlaying: !watchTogetherState.isPlaying,
+      currentTime: currentT
+    });
+  };
 
   // Users currently in this channel
   const currentRoomUsers = isConnectedToThisRoom
@@ -224,19 +250,29 @@ export const VoiceRoomArea = () => {
         {isConnectedToThisRoom && watchTogetherState.isActive && watchTogetherState.url ? (
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-black shadow-2xl border border-sys-border">
             {(() => {
-              // Safely extract ID in case the state has a full URL stored by mistake
               let safeId = watchTogetherState.url;
               const match = safeId.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|\/shorts\/)([^#&?]*).*/);
               if (match && match[2].length === 11) safeId = match[2];
 
               return (
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${safeId}?autoplay=${watchTogetherState.isPlaying ? 1 : 0}&controls=1&origin=http://localhost:4321`}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full object-cover"
+                <ReactPlayer
+                  ref={ytPlayerRef}
+                  url={`https://www.youtube.com/watch?v=${safeId}`}
+                  playing={watchTogetherState.isPlaying}
+                  volume={ytVolume}
+                  controls={true}
+                  width="100%"
+                  height="100%"
+                  onPlay={() => {
+                    if (!watchTogetherState.isPlaying) {
+                      handleTogglePlaySync();
+                    }
+                  }}
+                  onPause={() => {
+                    if (watchTogetherState.isPlaying) {
+                      handleTogglePlaySync();
+                    }
+                  }}
                 />
               );
             })()}
@@ -283,6 +319,21 @@ export const VoiceRoomArea = () => {
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span>Assistindo: {watchingUser?.username || 'Amigo'} (60 FPS)</span>
             </div>
+
+            <div className="absolute top-4 right-4 bg-sys-s1/80 backdrop-blur-md px-3 py-1.5 rounded-2xl flex items-center space-x-2 border border-sys-border shadow-md">
+              <Volume2 className="w-4 h-4 text-sys-muted" />
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={screenVolume}
+                onChange={(e) => setScreenVolume(parseFloat(e.target.value))}
+                className="w-20 accent-sys-accent cursor-pointer"
+                title="Volume da Transmissão"
+              />
+            </div>
+
             <button
               onClick={() => setWatchingPeerId(null)}
               className="absolute bottom-4 right-4 px-4 py-2 bg-sys-s2 hover:bg-sys-s1 text-sys-text rounded-2xl text-xs font-bold shadow-md transition btn-interactive border border-sys-border"
@@ -461,9 +512,23 @@ export const VoiceRoomArea = () => {
             </form>
           </div>
 
-          <div className="flex items-center space-x-2 flex-shrink-0">
+          <div className="flex items-center space-x-3 flex-shrink-0">
+            <div className="flex items-center bg-sys-s1 px-2 py-1.5 rounded-xl border border-sys-border">
+              <Volume2 className="w-3.5 h-3.5 text-sys-muted mr-1.5" />
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={ytVolume}
+                onChange={(e) => setYtVolume(parseFloat(e.target.value))}
+                className="w-16 accent-red-500 cursor-pointer"
+                title="Volume do YouTube"
+              />
+            </div>
+
             <button
-              onClick={() => syncWatchTogether({ isPlaying: !watchTogetherState.isPlaying })}
+              onClick={handleTogglePlaySync}
               className="p-2 bg-sys-accent/20 text-sys-accent hover:bg-sys-accent hover:text-white rounded-xl transition"
               title={watchTogetherState.isPlaying ? 'Pausar' : 'Tocar'}
             >
