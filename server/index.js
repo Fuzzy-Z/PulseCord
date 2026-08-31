@@ -29,6 +29,15 @@ const io = new Server(server, {
 const VERSION_FILE = path.join(__dirname, 'version.json');
 const ASAR_FILE = path.join(__dirname, 'app.asar');
 
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    service: 'PulseCord WebRTC & Signaling Server',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
 // REST Health and info endpoint
 app.get('/api/health', (req, res) => {
   res.json({
@@ -49,10 +58,10 @@ app.get('/api/version', (req, res) => {
     } catch (e) {}
   }
   res.json({
-    version: '1.0.0',
+    version: '1.0.1',
     releaseDate: new Date().toISOString(),
     hasAsar: fs.existsSync(ASAR_FILE),
-    notes: 'Versão inicial do PulseCord com voz em tempo real e compartilhamento 60fps.'
+    notes: 'Versão estável com suporte a Upstash Redis e salas de voz em tempo real.'
   });
 });
 
@@ -70,19 +79,20 @@ app.get('/api/update/app.asar', (req, res) => {
 setupSignaling(io);
 
 const PORT = process.env.PORT || 4000;
+let isListening = false;
 
 export function startServer(port = PORT) {
+  if (isListening) return Promise.resolve(server);
   return new Promise((resolve) => {
-    server.listen(port, () => {
-      console.log(`🚀 PulseCord Signaling Server running on http://localhost:${port}`);
+    server.listen(port, '0.0.0.0', () => {
+      isListening = true;
+      console.log(`🚀 PulseCord Signaling Server running on 0.0.0.0:${port}`);
       resolve(server);
     });
   });
 }
 
-// If run directly via `node server/index.js`
-if (process.argv[1]?.endsWith('server/index.js') || process.argv[1]?.endsWith('server\\index.js')) {
-  startServer(PORT);
-}
+// Auto start
+startServer(PORT);
 
 export { app, server, io };
