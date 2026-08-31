@@ -71,16 +71,14 @@ export const VoiceRoomArea = () => {
     }
   }, [localScreenStream]);
 
-  // Auto-watch first screen share if none selected
+  // Clear watchingPeerId only if that user has completely left the voice call
   useEffect(() => {
-    if (!watchingPeerId && activeRemoteScreenShares.length > 0) {
-      setWatchingPeerId(activeRemoteScreenShares[0][0]);
-    } else if (watchingPeerId && !remoteStreams[watchingPeerId]?.videoStream) {
-      setWatchingPeerId(activeRemoteScreenShares[0] ? activeRemoteScreenShares[0][0] : null);
+    if (watchingPeerId && !usersInVoice.some((u) => u.socketId === watchingPeerId)) {
+      setWatchingPeerId(null);
     }
-  }, [activeRemoteScreenShares, watchingPeerId, remoteStreams]);
+  }, [watchingPeerId, usersInVoice]);
 
-  // Attach watched remote video stream
+  // Attach watched remote video stream whenever available
   useEffect(() => {
     if (remoteVideoRef.current && watchingPeerId && remoteStreams[watchingPeerId]?.videoStream) {
       remoteVideoRef.current.srcObject = remoteStreams[watchingPeerId].videoStream;

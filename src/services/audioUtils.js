@@ -21,6 +21,9 @@ export class KrispAudioProcessor {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       this.audioContext = new AudioCtx();
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
 
       // 1. Source from raw mic
       this.source = this.audioContext.createMediaStreamSource(this.rawStream);
