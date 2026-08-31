@@ -176,8 +176,8 @@ export const VoiceRoomArea = () => {
             <button
               onClick={() => setWatchingPeerId(watchingPeerId ? null : activeRemoteScreenShares[0][0])}
               className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition btn-interactive ${watchingPeerId
-                  ? 'bg-red-500/20 text-red-500 border border-red-500/40'
-                  : 'bg-sys-s1 border border-sys-border text-sys-accent'
+                ? 'bg-red-500/20 text-red-500 border border-red-500/40'
+                : 'bg-sys-s1 border border-sys-border text-sys-accent'
                 }`}
             >
               {watchingPeerId ? <Grid className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -231,7 +231,7 @@ export const VoiceRoomArea = () => {
 
               return (
                 <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${safeId}?autoplay=${watchTogetherState.isPlaying ? 1 : 0}&controls=1&origin=https://localhost`}
+                  src={`https://www.youtube-nocookie.com/embed/${safeId}?autoplay=${watchTogetherState.isPlaying ? 1 : 0}&controls=1`}
                   title="YouTube video player"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -353,8 +353,8 @@ export const VoiceRoomArea = () => {
                     <div className="relative mb-2">
                       <div
                         className={`w-16 h-16 rounded-2xl bg-sys-accent text-white flex items-center justify-center text-lg font-bold shadow-sm border-2 transition-all duration-150 ${participant.isSpeaking
-                            ? 'border-green-500 scale-105'
-                            : 'border-transparent'
+                          ? 'border-green-500 scale-105'
+                          : 'border-transparent'
                           }`}
                       >
                         {monogram}
@@ -533,8 +533,8 @@ export const VoiceRoomArea = () => {
             <button
               onClick={toggleMute}
               className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${isMuted
-                  ? 'bg-red-500 text-white'
-                  : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
+                ? 'bg-red-500 text-white'
+                : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
                 }`}
               title={isMuted ? 'Desmutar Microfone' : 'Mutar Microfone'}
             >
@@ -545,8 +545,8 @@ export const VoiceRoomArea = () => {
             <button
               onClick={toggleDeafen}
               className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${isDeafened
-                  ? 'bg-red-500 text-white'
-                  : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
+                ? 'bg-red-500 text-white'
+                : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
                 }`}
               title={isDeafened ? 'Desativar Silêncio' : 'Ensurdecer (Muta Todos)'}
             >
@@ -563,8 +563,8 @@ export const VoiceRoomArea = () => {
                 }
               }}
               className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${isScreenSharing
-                  ? 'bg-green-500 text-white'
-                  : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
+                ? 'bg-green-500 text-white'
+                : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
                 }`}
               title={isScreenSharing ? 'Parar de Compartilhar' : 'Compartilhar Tela (60 FPS)'}
             >
@@ -592,8 +592,8 @@ export const VoiceRoomArea = () => {
                 syncWatchTogether({ isActive: !watchTogetherState.isActive, isPlaying: true });
               }}
               className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${watchTogetherState.isActive
-                  ? 'bg-red-500 text-white'
-                  : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
+                ? 'bg-red-500 text-white'
+                : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
                 }`}
               title="Watch Together (YouTube)"
             >
