@@ -19,7 +19,6 @@ import {
   PhoneCall,
   Users,
   Loader2,
-  Youtube,
   Music
 } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';

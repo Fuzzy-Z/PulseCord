@@ -3,6 +3,7 @@ import { Plus, MessageSquare, Settings } from 'lucide-react';
 import { useServer } from '../context/ServerContext';
 
 export const ServerSidebar = () => {
+  const {
     servers,
     currentServerId,
     selectServer,
