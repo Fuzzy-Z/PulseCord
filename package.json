@@ -1,6 +1,6 @@
 {
   "name": "pulsecord",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Discord Clone Desktop App with Voice, Screen Share, Roles, and Music Bot",
   "main": "electron/main.cjs",
   "type": "module",

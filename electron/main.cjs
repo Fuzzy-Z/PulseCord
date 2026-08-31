@@ -179,32 +179,17 @@ function applyUpdateAndRestart() {
   }
 
   if (process.platform === 'win32') {
-    const updaterBat = path.join(app.getPath('temp'), `pulsecord-updater-${Date.now()}.bat`);
-    const batContent = `@echo off
-setlocal
-set "NEW_ASAR=${newAsar}"
-set "TARGET_ASAR=${targetAsar}"
-set "EXE_PATH=${exePath}"
+    const psScript = `Start-Sleep -Seconds 1; while (Get-Process PulseCord -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 300 }; Copy-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Destination '${targetAsar.replace(/'/g, "''")}' -Force; Remove-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Force -ErrorAction SilentlyContinue; Start-Process -FilePath '${exePath.replace(/'/g, "''")}'`;
 
-:wait_loop
-timeout /t 1 /nobreak > nul
-tasklist /fi "imagename eq PulseCord.exe" 2>nul | findstr /i "PulseCord.exe" > nul
-if not errorlevel 1 goto wait_loop
-
-:copy_loop
-timeout /t 1 /nobreak > nul
-copy /y "%NEW_ASAR%" "%TARGET_ASAR%" > nul 2>&1
-if errorlevel 1 goto copy_loop
-
-del /f /q "%NEW_ASAR%" > nul 2>&1
-start "" "%EXE_PATH%"
-del "%~f0"
-exit
-`;
-    fs.writeFileSync(updaterBat, batContent, 'utf-8');
-    const child = spawn('cmd.exe', ['/c', updaterBat], {
+    const child = spawn('powershell.exe', [
+      '-WindowStyle', 'Hidden',
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-Command', psScript
+    ], {
       detached: true,
-      stdio: 'ignore'
+      stdio: 'ignore',
+      windowsHide: true
     });
     child.unref();
     app.exit(0);
