@@ -64,7 +64,7 @@ export const VoiceRoomArea = () => {
   const handleYoutubeSubmit = (e) => {
     e.preventDefault();
     if (!ytInput.trim()) return;
-    
+
     let videoId = ytInput.trim();
     // Support youtube.com, youtu.be, embed, shorts, etc.
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|\/shorts\/)([^#&?]*).*/;
@@ -116,30 +116,30 @@ export const VoiceRoomArea = () => {
 
   const allParticipants = isConnectedToThisRoom
     ? [
-        {
-          id: currentUser?.id,
-          username: currentUser?.username + ' (Você)',
-          avatar: currentUser?.avatar || '👑',
-          isLocal: true,
-          isMuted: isMuted,
-          isDeafened: isDeafened,
-          isSpeaking: isSpeaking,
-          isScreenSharing: isScreenSharing,
-          socketId: 'local'
-        },
-        ...usersInVoice.map((u) => ({
-          ...u,
-          isLocal: false,
-          isSpeaking: speakingUsers.has(u.socketId),
-          hasVideoStream: !!remoteStreams[u.socketId]?.videoStream || !!u.isScreenSharing
-        }))
-      ]
-    : currentRoomUsers.map((u) => ({
+      {
+        id: currentUser?.id,
+        username: currentUser?.username + ' (Você)',
+        avatar: currentUser?.avatar || '👑',
+        isLocal: true,
+        isMuted: isMuted,
+        isDeafened: isDeafened,
+        isSpeaking: isSpeaking,
+        isScreenSharing: isScreenSharing,
+        socketId: 'local'
+      },
+      ...usersInVoice.map((u) => ({
         ...u,
         isLocal: false,
-        isSpeaking: false,
-        hasVideoStream: false
-      }));
+        isSpeaking: speakingUsers.has(u.socketId),
+        hasVideoStream: !!remoteStreams[u.socketId]?.videoStream || !!u.isScreenSharing
+      }))
+    ]
+    : currentRoomUsers.map((u) => ({
+      ...u,
+      isLocal: false,
+      isSpeaking: false,
+      hasVideoStream: false
+    }));
 
   const watchingUser = usersInVoice.find((u) => u.socketId === watchingPeerId);
 
@@ -175,11 +175,10 @@ export const VoiceRoomArea = () => {
           {isConnectedToThisRoom && activeRemoteScreenShares.length > 0 && (
             <button
               onClick={() => setWatchingPeerId(watchingPeerId ? null : activeRemoteScreenShares[0][0])}
-              className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition btn-interactive ${
-                watchingPeerId
+              className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition btn-interactive ${watchingPeerId
                   ? 'bg-red-500/20 text-red-500 border border-red-500/40'
                   : 'bg-sys-s1 border border-sys-border text-sys-accent'
-              }`}
+                }`}
             >
               {watchingPeerId ? <Grid className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               <span>{watchingPeerId ? 'Modo Grade' : 'Assistir Transmissão'}</span>
@@ -229,7 +228,7 @@ export const VoiceRoomArea = () => {
               let safeId = watchTogetherState.url;
               const match = safeId.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|\/shorts\/)([^#&?]*).*/);
               if (match && match[2].length === 11) safeId = match[2];
-              
+
               return (
                 <iframe
                   src={`https://www.youtube.com/embed/${safeId}?autoplay=${watchTogetherState.isPlaying ? 1 : 0}&controls=1`}
@@ -320,9 +319,8 @@ export const VoiceRoomArea = () => {
               return (
                 <div
                   key={participant.id || idx}
-                  className={`bg-sys-s3 border border-sys-border rounded-3xl p-5 flex flex-col items-center justify-between relative shadow-md min-h-[240px] transition-all hover:border-sys-accent/40 ${
-                    hasScreen ? 'border-red-500/40' : ''
-                  }`}
+                  className={`bg-sys-s3 border border-sys-border rounded-3xl p-5 flex flex-col items-center justify-between relative shadow-md min-h-[240px] transition-all hover:border-sys-accent/40 ${hasScreen ? 'border-red-500/40' : ''
+                    }`}
                 >
                   {/* Top Badges & Live indicator */}
                   <div className="w-full flex items-center justify-between">
@@ -354,11 +352,10 @@ export const VoiceRoomArea = () => {
                   <div className="flex flex-col items-center my-1">
                     <div className="relative mb-2">
                       <div
-                        className={`w-16 h-16 rounded-2xl bg-sys-accent text-white flex items-center justify-center text-lg font-bold shadow-sm border-2 transition-all duration-150 ${
-                          participant.isSpeaking
+                        className={`w-16 h-16 rounded-2xl bg-sys-accent text-white flex items-center justify-center text-lg font-bold shadow-sm border-2 transition-all duration-150 ${participant.isSpeaking
                             ? 'border-green-500 scale-105'
                             : 'border-transparent'
-                        }`}
+                          }`}
                       >
                         {monogram}
                       </div>
@@ -444,7 +441,7 @@ export const VoiceRoomArea = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="flex-1 max-w-md mx-6">
             <form onSubmit={handleYoutubeSubmit} className="relative flex items-center">
               <Link className="absolute left-3 w-3.5 h-3.5 text-sys-muted" />
@@ -455,8 +452,8 @@ export const VoiceRoomArea = () => {
                 onChange={(e) => setYtInput(e.target.value)}
                 className="w-full bg-sys-s1 border border-sys-border text-sys-text pl-9 pr-16 py-1.5 rounded-xl text-[11px] focus:outline-none focus:border-sys-accent/50 transition-colors"
               />
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="absolute right-1 px-3 py-1 bg-sys-accent hover:bg-sys-accentHov text-white text-[10px] font-bold rounded-lg transition"
               >
                 Tocar
@@ -535,11 +532,10 @@ export const VoiceRoomArea = () => {
             {/* Mute Mic */}
             <button
               onClick={toggleMute}
-              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${
-                isMuted
+              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${isMuted
                   ? 'bg-red-500 text-white'
                   : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
-              }`}
+                }`}
               title={isMuted ? 'Desmutar Microfone' : 'Mutar Microfone'}
             >
               {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -548,11 +544,10 @@ export const VoiceRoomArea = () => {
             {/* Deafen Audio */}
             <button
               onClick={toggleDeafen}
-              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${
-                isDeafened
+              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${isDeafened
                   ? 'bg-red-500 text-white'
                   : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
-              }`}
+                }`}
               title={isDeafened ? 'Desativar Silêncio' : 'Ensurdecer (Muta Todos)'}
             >
               <Headphones className="w-4 h-4" />
@@ -567,11 +562,10 @@ export const VoiceRoomArea = () => {
                   setIsScreenModalOpen(true);
                 }
               }}
-              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${
-                isScreenSharing
+              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${isScreenSharing
                   ? 'bg-green-500 text-white'
                   : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
-              }`}
+                }`}
               title={isScreenSharing ? 'Parar de Compartilhar' : 'Compartilhar Tela (60 FPS)'}
             >
               <Tv className="w-4 h-4" />
@@ -597,11 +591,10 @@ export const VoiceRoomArea = () => {
               onClick={() => {
                 syncWatchTogether({ isActive: !watchTogetherState.isActive, isPlaying: true });
               }}
-              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${
-                watchTogetherState.isActive
+              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${watchTogetherState.isActive
                   ? 'bg-red-500 text-white'
                   : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
-              }`}
+                }`}
               title="Watch Together (YouTube)"
             >
               <MonitorPlay className="w-4 h-4" />
