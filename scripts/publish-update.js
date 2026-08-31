@@ -80,7 +80,7 @@ try { fs.unlinkSync(generatedAsar); } catch (e) {}
 console.log('🌐 Committing and pushing OTA update to GitHub (Render will deploy in ~1 min)...');
 
 try {
-  execSync(`"${git}" add index.js signaling.js storage.js version.json app.asar package.json`, { cwd: deployDir, stdio: 'inherit' });
+  execSync(`"${git}" add -f index.js signaling.js storage.js version.json app.asar package.json`, { cwd: deployDir, stdio: 'inherit' });
   execSync(`"${git}" commit -m "Publish OTA Update v${newVersion}"`, { cwd: deployDir, stdio: 'inherit' });
   execSync(`"${git}" push origin main`, { cwd: deployDir, stdio: 'inherit' });
   console.log('✅ Server repository updated with new app.asar!');
