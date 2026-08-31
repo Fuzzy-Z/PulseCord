@@ -6,15 +6,14 @@ const http = require('http');
 const { spawn } = require('child_process');
 
 let mainWindow = null;
-let signalingServerProcess = null;
 
 // Read App Version
-let appVersion = '1.0.0';
+let appVersion = '1.0.2';
 try {
   const pkgPath = path.join(__dirname, '../package.json');
   if (fs.existsSync(pkgPath)) {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    appVersion = pkg.version || '1.0.0';
+    appVersion = pkg.version || '1.0.2';
   }
 } catch (e) {}
 
@@ -187,6 +186,10 @@ exit
 }
 
 function createWindow() {
+  const preloadPath = fs.existsSync(path.join(__dirname, 'preload.cjs'))
+    ? path.join(__dirname, 'preload.cjs')
+    : path.join(__dirname, 'preload.js');
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 780,
@@ -196,7 +199,7 @@ function createWindow() {
     backgroundColor: '#090a0f',
     icon: path.join(__dirname, '../public/icon.png'),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true

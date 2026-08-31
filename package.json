@@ -2,7 +2,7 @@
   "name": "pulsecord",
   "version": "1.0.2",
   "description": "Discord Clone Desktop App with Voice, Screen Share, Roles, and Music Bot",
-  "main": "electron/main.js",
+  "main": "electron/main.cjs",
   "type": "module",
   "author": "PulseCord Team",
   "license": "MIT",
