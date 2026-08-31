@@ -203,6 +203,32 @@ function applyUpdateAndRestart() {
   }
 }
 
+function startStaticServer(distPath, port) {
+  return new Promise((resolve, reject) => {
+    const mimeTypes = {
+      '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+      '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
+      '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+      '.woff': 'font/woff', '.woff2': 'font/woff2'
+    };
+
+    const server = http.createServer((req, res) => {
+      let filePath = path.join(distPath, req.url === '/' ? 'index.html' : req.url.split('?')[0]);
+      if (!fs.existsSync(filePath)) filePath = path.join(distPath, 'index.html');
+
+      const ext = path.extname(filePath);
+      fs.readFile(filePath, (err, content) => {
+        if (err) { res.writeHead(500); res.end('Erro'); return; }
+        res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+        res.end(content);
+      });
+    });
+
+    server.on('error', reject);
+    server.listen(port, '127.0.0.1', () => resolve(server));
+  });
+}
+
 function createWindow() {
   const preloadPath = fs.existsSync(path.join(__dirname, 'preload.cjs'))
     ? path.join(__dirname, 'preload.cjs')
@@ -242,7 +268,12 @@ function createWindow() {
       mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
     });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    const distPath = path.join(__dirname, '../dist');
+    startStaticServer(distPath, 4321).then(() => {
+      mainWindow.loadURL('http://localhost:4321');
+    }).catch(() => {
+      mainWindow.loadFile(path.join(distPath, 'index.html'));
+    });
   }
 
   // Automatic Background Update Check 3 seconds after window launch

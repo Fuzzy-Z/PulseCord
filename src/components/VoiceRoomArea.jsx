@@ -231,7 +231,7 @@ export const VoiceRoomArea = () => {
 
               return (
                 <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${safeId}?autoplay=${watchTogetherState.isPlaying ? 1 : 0}&controls=1`}
+                  src={`https://www.youtube-nocookie.com/embed/${safeId}?autoplay=${watchTogetherState.isPlaying ? 1 : 0}&controls=1&origin=http://localhost:4321`}
                   title="YouTube video player"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
