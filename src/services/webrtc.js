@@ -1,3 +1,4 @@
+// High-Performance WebRTC Manager with Full STUN + TURN Relay Support
 const ICE_SERVERS = {
   iceServers: [
     {
@@ -6,11 +7,20 @@ const ICE_SERVERS = {
         'stun:stun1.l.google.com:19302',
         'stun:stun2.l.google.com:19302',
         'stun:stun3.l.google.com:19302',
-        'stun:stun4.l.google.com:19302'
+        'stun:stun4.l.google.com:19302',
+        'stun:global.stun.twilio.com:3478'
       ]
     },
-    { urls: 'stun:global.stun.twilio.com:3478' },
-    { urls: 'stun:stun.services.mozilla.com' }
+    // Free Public Global TURN Relay Servers (Bypasses all symmetric NATs / CGNAT / ISP firewalls)
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelay',
+      credential: 'openrelay'
+    }
   ],
   iceCandidatePoolSize: 10
 };
@@ -82,6 +92,7 @@ export class WebRTCManager {
       return this.peers.get(targetSocketId);
     }
 
+    console.log(`[WebRTC] Creating RTCPeerConnection for ${targetSocketId} (initiator: ${isInitiator})`);
     const pc = new RTCPeerConnection(ICE_SERVERS);
     this.peers.set(targetSocketId, pc);
     this.iceCandidateQueues.set(targetSocketId, []);
@@ -112,6 +123,7 @@ export class WebRTCManager {
 
     // Remote Track received (Ensures MediaStream exists even if single track)
     pc.ontrack = (event) => {
+      console.log(`[WebRTC] Received remote track (${event.track.kind}) from ${targetSocketId}`);
       let stream = event.streams && event.streams[0];
       if (!stream) {
         stream = new MediaStream([event.track]);
@@ -123,6 +135,7 @@ export class WebRTCManager {
 
     // Connection state changes
     pc.onconnectionstatechange = () => {
+      console.log(`[WebRTC] Connection state with ${targetSocketId}: ${pc.connectionState}`);
       if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
         this.removePeer(targetSocketId);
         if (this.onPeerDisconnected) {

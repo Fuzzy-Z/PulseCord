@@ -17,7 +17,8 @@ import {
   Grid,
   MonitorPlay,
   PhoneCall,
-  Users
+  Users,
+  Loader2
 } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
@@ -108,7 +109,7 @@ export const VoiceRoomArea = () => {
           ...u,
           isLocal: false,
           isSpeaking: speakingUsers.has(u.socketId),
-          hasVideoStream: !!remoteStreams[u.socketId]?.videoStream
+          hasVideoStream: !!remoteStreams[u.socketId]?.videoStream || !!u.isScreenSharing
         }))
       ]
     : currentRoomUsers.map((u) => ({
@@ -218,15 +219,24 @@ export const VoiceRoomArea = () => {
               Parar Transmissão
             </button>
           </div>
-        ) : isConnectedToThisRoom && watchingPeerId && remoteStreams[watchingPeerId]?.videoStream ? (
+        ) : isConnectedToThisRoom && watchingPeerId ? (
           /* 3. Remote Screen Share Theater Mode */
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-black/95 shadow-2xl border border-rose-500/30">
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-contain"
-            />
+            {remoteStreams[watchingPeerId]?.videoStream ? (
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 p-8 text-slate-300">
+                <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
+                <p className="text-xs font-bold text-white">
+                  Conectando à transmissão de {watchingUser?.username || 'Amigo'}...
+                </p>
+              </div>
+            )}
             <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-xl px-3.5 py-1.5 rounded-full text-xs font-bold text-white flex items-center space-x-2 border border-white/10 shadow-lg">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
               <span>Assistindo: {watchingUser?.username || 'Amigo'} (60 FPS)</span>
