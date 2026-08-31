@@ -224,14 +224,23 @@ export const VoiceRoomArea = () => {
         {/* 1.5 Watch Together Player */}
         {isConnectedToThisRoom && watchTogetherState.isActive && watchTogetherState.url ? (
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-black shadow-2xl border border-sys-border">
-            <iframe
-              src={`https://www.youtube.com/embed/${watchTogetherState.url}?autoplay=${watchTogetherState.isPlaying ? 1 : 0}&controls=1`}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="w-full h-full object-cover"
-            />
+            {(() => {
+              // Safely extract ID in case the state has a full URL stored by mistake
+              let safeId = watchTogetherState.url;
+              const match = safeId.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|\/shorts\/)([^#&?]*).*/);
+              if (match && match[2].length === 11) safeId = match[2];
+              
+              return (
+                <iframe
+                  src={`https://www.youtube.com/embed/${safeId}?autoplay=${watchTogetherState.isPlaying ? 1 : 0}&controls=1`}
+                  title="YouTube video player"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full object-cover"
+                />
+              );
+            })()}
           </div>
         ) : isConnectedToThisRoom && isScreenSharing && localScreenStream ? (
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-sys-s3 shadow-md border border-sys-accent/40">
@@ -464,7 +473,7 @@ export const VoiceRoomArea = () => {
               {watchTogetherState.isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
             </button>
             <button
-              onClick={() => syncWatchTogether({ isActive: false })}
+              onClick={() => syncWatchTogether({ isActive: false, url: '' })}
               className="p-2 bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition"
               title="Fechar YouTube"
             >
