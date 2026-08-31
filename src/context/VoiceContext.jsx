@@ -300,8 +300,9 @@ export const VoiceProvider = ({ children }) => {
           }
           return prev;
         });
+        // The newly joined user will initiate the WebRTC offer to existing peers
         if (manager) {
-          manager.createPeerConnection(user.socketId, true);
+          manager.createPeerConnection(user.socketId, false);
         }
       }
     });
