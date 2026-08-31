@@ -235,10 +235,15 @@ export const UserSettingsModal = () => {
       ...currentUser,
       username: username.trim(),
       avatar: finalInitials,
-      avatarColor: selectedGradient
+      avatarColor: selectedGradient,
+      isNitro: isNitroActive
     });
     setIsUserSettingsOpen(false);
   };
+
+  const [isNitroActive, setIsNitroActive] = useState(() => {
+    return currentUser?.isNitro || false;
+  });
 
   const handleSaveConnection = (e) => {
     e.preventDefault();
@@ -426,6 +431,32 @@ export const UserSettingsModal = () => {
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-3 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors placeholder-sys-muted/50"
                 />
+              </div>
+
+              {/* Nitro Toggle */}
+              <div className="p-4 rounded-2xl bg-sys-s3 border border-sys-border flex items-center justify-between shadow-sm">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white shadow-md">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-sys-text">Assinatura Nitro</h3>
+                    <p className="text-[11px] text-sys-muted mt-0.5 max-w-sm">
+                      Ativa funcionalidades exclusivas (Arquivos Maiores, Clipes em 4K, Emojis Animados).
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsNitroActive(!isNitroActive)}
+                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${
+                    isNitroActive
+                      ? 'bg-purple-500 justify-end shadow-md'
+                      : 'bg-sys-s1 justify-start border border-sys-border'
+                  }`}
+                >
+                  <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                </button>
               </div>
 
               <div className="pt-4 border-t border-sys-border flex justify-end">

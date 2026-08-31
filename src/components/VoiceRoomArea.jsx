@@ -19,7 +19,8 @@ import {
   PhoneCall,
   Users,
   Loader2,
-  Music
+  Music,
+  Link
 } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
@@ -58,6 +59,21 @@ export const VoiceRoomArea = () => {
 
   // Selected remote peer socketId whose screen is being watched
   const [watchingPeerId, setWatchingPeerId] = useState(null);
+
+  const [ytInput, setYtInput] = useState('');
+  const handleYoutubeSubmit = (e) => {
+    e.preventDefault();
+    if (!ytInput.trim()) return;
+    let videoId = ytInput;
+    try {
+      if (ytInput.includes('youtu.be/')) videoId = ytInput.split('youtu.be/')[1].split('?')[0];
+      else if (ytInput.includes('youtube.com/watch')) videoId = new URL(ytInput).searchParams.get('v');
+    } catch (e) {}
+    if (videoId) {
+      syncWatchTogether({ url: videoId, isPlaying: true, isActive: true });
+      setYtInput('');
+    }
+  };
 
   // Is user actively connected to THIS voice channel
   const isConnectedToThisRoom = activeVoiceChannel === currentChannel?.id;
@@ -201,7 +217,19 @@ export const VoiceRoomArea = () => {
         )}
 
         {/* 2. Local Screen Share */}
-        {isConnectedToThisRoom && isScreenSharing && localScreenStream ? (
+        {/* 1.5 Watch Together Player */}
+        {isConnectedToThisRoom && watchTogetherState.isActive && watchTogetherState.url ? (
+          <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-black shadow-2xl border border-sys-border">
+            <iframe
+              src={`https://www.youtube.com/embed/${watchTogetherState.url}?autoplay=${watchTogetherState.isPlaying ? 1 : 0}&controls=1`}
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ) : isConnectedToThisRoom && isScreenSharing && localScreenStream ? (
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-sys-s3 shadow-md border border-sys-accent/40">
             <video
               ref={localVideoRef}
@@ -404,6 +432,25 @@ export const VoiceRoomArea = () => {
             </div>
           </div>
           
+          <div className="flex-1 max-w-md mx-6">
+            <form onSubmit={handleYoutubeSubmit} className="relative flex items-center">
+              <Link className="absolute left-3 w-3.5 h-3.5 text-sys-muted" />
+              <input
+                type="text"
+                placeholder="Cole o link do YouTube aqui..."
+                value={ytInput}
+                onChange={(e) => setYtInput(e.target.value)}
+                className="w-full bg-sys-s1 border border-sys-border text-sys-text pl-9 pr-16 py-1.5 rounded-xl text-[11px] focus:outline-none focus:border-sys-accent/50 transition-colors"
+              />
+              <button 
+                type="submit" 
+                className="absolute right-1 px-3 py-1 bg-sys-accent hover:bg-sys-accentHov text-white text-[10px] font-bold rounded-lg transition"
+              >
+                Tocar
+              </button>
+            </form>
+          </div>
+
           <div className="flex items-center space-x-2 flex-shrink-0">
             <button
               onClick={() => syncWatchTogether({ isPlaying: !watchTogetherState.isPlaying })}

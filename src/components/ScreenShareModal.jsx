@@ -41,7 +41,7 @@ export const ScreenShareModal = () => {
   const displayedSources = activeTab === 'screens' ? screens : windows;
 
   const handleConfirmShare = () => {
-    startScreenShare(selectedSourceId);
+    startScreenShare(selectedSourceId, { resolution, frameRate });
     setIsScreenModalOpen(false);
   };
 

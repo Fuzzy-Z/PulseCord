@@ -525,9 +525,14 @@ export const VoiceProvider = ({ children }) => {
   };
 
   // Screen Share
-  const startScreenShare = async (sourceId = null) => {
+  const startScreenShare = async (sourceId = null, options = { resolution: '1080p', frameRate: 60 }) => {
     try {
       let stream;
+      
+      const targetWidth = options.resolution === '1080p' ? 1920 : 1280;
+      const targetHeight = options.resolution === '1080p' ? 1080 : 720;
+      const targetFps = options.frameRate || 60;
+
       if (window.electronAPI?.isElectron && sourceId) {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
@@ -541,11 +546,11 @@ export const VoiceProvider = ({ children }) => {
                 chromeMediaSource: 'desktop',
                 chromeMediaSourceId: sourceId,
                 minWidth: 1280,
-                maxWidth: 1920,
+                maxWidth: targetWidth,
                 minHeight: 720,
-                maxHeight: 1080,
+                maxHeight: targetHeight,
                 minFrameRate: 30,
-                maxFrameRate: 60
+                maxFrameRate: targetFps
               }
             }
           });
@@ -558,11 +563,11 @@ export const VoiceProvider = ({ children }) => {
                 chromeMediaSource: 'desktop',
                 chromeMediaSourceId: sourceId,
                 minWidth: 1280,
-                maxWidth: 1920,
+                maxWidth: targetWidth,
                 minHeight: 720,
-                maxHeight: 1080,
+                maxHeight: targetHeight,
                 minFrameRate: 30,
-                maxFrameRate: 60
+                maxFrameRate: targetFps
               }
             }
           });
