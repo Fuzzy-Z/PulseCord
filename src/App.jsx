@@ -5,7 +5,9 @@ import { VoiceProvider, useVoice } from './context/VoiceContext';
 import { TitleBar } from './components/TitleBar';
 import { ServerSidebar } from './components/ServerSidebar';
 import { ChannelSidebar } from './components/ChannelSidebar';
+import { DMSidebar } from './components/DMSidebar';
 import { ChatArea } from './components/ChatArea';
+import { ForumArea } from './components/ForumArea';
 import { VoiceRoomArea } from './components/VoiceRoomArea';
 import { ScreenShareModal } from './components/ScreenShareModal';
 import { ServerSettingsModal } from './components/ServerSettingsModal';
@@ -13,23 +15,25 @@ import { MusicPlayerModal } from './components/MusicPlayerModal';
 import { UserSettingsModal } from './components/UserSettingsModal';
 import { CreateChannelModal } from './components/CreateChannelModal';
 import { CreateServerModal } from './components/CreateServerModal';
+import { ClipManagerModal } from './components/ClipManagerModal';
 import { AuthScreen } from './components/AuthScreen';
 import { UpdateToast } from './components/UpdateToast';
 import { GlobalAudioEngine } from './components/GlobalAudioEngine';
 import { Loader2 } from 'lucide-react';
 
 const MainLayout = () => {
-  const { currentChannel } = useServer();
+  const { currentChannel, activeView } = useServer();
   const { activeVoiceChannel } = useVoice();
 
   // If current selected channel is a voice channel, or user is in active voice channel and selected it
   const isVoiceView = currentChannel?.type === 'voice';
+  const isForumView = currentChannel?.type === 'forum';
 
   return (
     <div className="flex-1 flex overflow-hidden">
       <ServerSidebar />
-      <ChannelSidebar />
-      {isVoiceView ? <VoiceRoomArea /> : <ChatArea />}
+      {activeView === 'dms' ? <DMSidebar /> : <ChannelSidebar />}
+      {isVoiceView ? <VoiceRoomArea /> : isForumView ? <ForumArea /> : <ChatArea />}
 
       {/* Global Modals */}
       <ScreenShareModal />
@@ -38,6 +42,7 @@ const MainLayout = () => {
       <UserSettingsModal />
       <CreateChannelModal />
       <CreateServerModal />
+      <ClipManagerModal />
     </div>
   );
 };

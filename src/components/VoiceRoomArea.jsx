@@ -18,7 +18,9 @@ import {
   MonitorPlay,
   PhoneCall,
   Users,
-  Loader2
+  Loader2,
+  Youtube,
+  Music
 } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
@@ -44,7 +46,9 @@ export const VoiceRoomArea = () => {
     stopScreenShare,
     sendMusicControl,
     userVolumes,
-    setUserVolume
+    setUserVolume,
+    watchTogetherState,
+    syncWatchTogether
   } = useVoice();
 
   const { currentServer, currentChannel, voiceRooms, setIsMusicModalOpen, setIsScreenModalOpen } = useServer();
@@ -384,6 +388,42 @@ export const VoiceRoomArea = () => {
         )}
       </div>
 
+      {/* Watch Together Widget Bar */}
+      {isConnectedToThisRoom && watchTogetherState.isActive && (
+        <div className="h-14 bg-sys-s2 border-t border-sys-border px-5 flex items-center justify-between flex-shrink-0 z-20">
+          <div className="flex items-center space-x-3 truncate">
+            <div className="w-9 h-9 rounded-xl bg-red-500 flex items-center justify-center shadow-md flex-shrink-0 text-white">
+              <Youtube className="w-5 h-5" />
+            </div>
+            <div className="truncate">
+              <div className="text-xs font-bold text-sys-text truncate tracking-tight">
+                Watch Together
+              </div>
+              <div className="text-[10px] text-sys-muted truncate">
+                Assistindo YouTube em Sincronia
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <button
+              onClick={() => syncWatchTogether({ isPlaying: !watchTogetherState.isPlaying })}
+              className="p-2 bg-sys-accent/20 text-sys-accent hover:bg-sys-accent hover:text-white rounded-xl transition"
+              title={watchTogetherState.isPlaying ? 'Pausar' : 'Tocar'}
+            >
+              {watchTogetherState.isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={() => syncWatchTogether({ isActive: false })}
+              className="p-2 bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition"
+              title="Fechar YouTube"
+            >
+              <Square className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Active Music Bot Widget Bar */}
       {isConnectedToThisRoom && musicPlayer.currentTrack && (
         <div className="h-14 bg-sys-s2 border-t border-sys-border px-5 flex items-center justify-between flex-shrink-0 z-20">
@@ -476,6 +516,36 @@ export const VoiceRoomArea = () => {
               title={isScreenSharing ? 'Parar de Compartilhar' : 'Compartilhar Tela (60 FPS)'}
             >
               <Tv className="w-4 h-4" />
+            </button>
+
+            {/* Soundboard (Nitro Feature) */}
+            <button
+              onClick={() => {
+                if (currentUser?.nitro) {
+                  alert('Soundboard aberto!');
+                } else {
+                  alert('O Soundboard é um recurso do Discord Nitro!');
+                }
+              }}
+              className="p-3 rounded-xl transition-all duration-200 shadow-sm bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border"
+              title="Soundboard (Sons)"
+            >
+              <Music className="w-4 h-4 text-sys-accent" />
+            </button>
+
+            {/* Watch Together (YouTube) */}
+            <button
+              onClick={() => {
+                syncWatchTogether({ isActive: !watchTogetherState.isActive, isPlaying: true });
+              }}
+              className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${
+                watchTogetherState.isActive
+                  ? 'bg-red-500 text-white'
+                  : 'bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border'
+              }`}
+              title="Watch Together (YouTube)"
+            >
+              <Youtube className="w-4 h-4" />
             </button>
 
             <div className="w-[1px] h-6 bg-sys-border mx-1" />

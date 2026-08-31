@@ -7,6 +7,7 @@ export const ServerSettingsModal = () => {
   const [activeTab, setActiveTab] = useState('roles'); // 'overview' | 'roles' | 'members'
   const [roles, setRoles] = useState(() => currentServer?.roles || []);
   const [selectedRoleId, setSelectedRoleId] = useState(() => currentServer?.roles?.[0]?.id || null);
+  const [draggedRoleIndex, setDraggedRoleIndex] = useState(null);
 
   if (!isServerSettingsOpen || !currentServer) return null;
 
@@ -124,8 +125,36 @@ export const ServerSettingsModal = () => {
       key: 'kickMembers',
       name: 'Expulsar Membros',
       desc: 'Permite remover membros do servidor.'
+    },
+    {
+      key: 'viewChannel',
+      name: 'Ver Canal (Permissão de Canal)',
+      desc: 'Permite visualizar canais específicos (Canais Privados).'
     }
   ];
+
+  const handleDragStart = (e, index) => {
+    setDraggedRoleIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedRoleIndex === null || draggedRoleIndex === index) return;
+    
+    const updatedRoles = [...roles];
+    const draggedRole = updatedRoles[draggedRoleIndex];
+    updatedRoles.splice(draggedRoleIndex, 1);
+    updatedRoles.splice(index, 0, draggedRole);
+    
+    setDraggedRoleIndex(index);
+    setRoles(updatedRoles);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedRoleIndex(null);
+    updateRoles(roles);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6 select-none">
@@ -185,19 +214,23 @@ export const ServerSettingsModal = () => {
           <div className="flex-1 flex overflow-hidden">
             {/* Roles List */}
             <div className="w-52 bg-sys-s2 p-3 overflow-y-auto border-r border-sys-border space-y-1 thin-scrollbar">
-              {roles.map((r) => {
+              {roles.map((r, index) => {
                 const isSelected = selectedRole?.id === r.id;
                 const cleanName = (r.name || '').replace(/[\uD800-\uDFFF].*/g, '').trim();
 
                 return (
                   <button
                     key={r.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragEnd={handleDragEnd}
                     onClick={() => setSelectedRoleId(r.id)}
-                    className={`w-full text-left flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition border ${
+                    className={`w-full text-left flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition border cursor-grab active:cursor-grabbing ${
                       isSelected
                         ? 'bg-sys-s3 text-sys-text border-sys-border'
                         : 'border-transparent text-sys-muted hover:bg-sys-s1 hover:text-sys-text hover:border-sys-border'
-                    }`}
+                    } ${draggedRoleIndex === index ? 'opacity-50' : 'opacity-100'}`}
                   >
                     <div className="flex items-center space-x-2.5 truncate">
                       <div

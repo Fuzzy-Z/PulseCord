@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, session } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, session, globalShortcut, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -256,6 +256,13 @@ function createWindow() {
       } catch (e) {}
     }, 3000);
   });
+
+  // Register Global Shortcut for Clips (Alt+C)
+  globalShortcut.register('Alt+C', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('trigger-clip-record');
+    }
+  });
 }
 
 // IPC Window Controls
@@ -305,6 +312,13 @@ ipcMain.handle('get-desktop-sources', async (event, opts) => {
     appIcon: source.appIcon ? source.appIcon.toDataURL() : null,
     display_id: source.display_id
   }));
+});
+
+// Save Clip Mock
+ipcMain.handle('save-clip', async (event, clipData) => {
+  // In a real app we'd save a buffer to disk using fs.writeFileSync
+  // For now, we mock the success.
+  return { success: true, message: 'Clipe salvo em: Downloads/PulseCord Clips' };
 });
 
 app.whenReady().then(async () => {

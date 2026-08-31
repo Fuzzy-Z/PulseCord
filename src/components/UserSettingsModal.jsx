@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers, Palette } from 'lucide-react';
+import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers, Palette, Lock, Video } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
@@ -37,6 +37,22 @@ export const UserSettingsModal = () => {
   const [micTestActive, setMicTestActive] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const [playingSoundTest, setPlayingSoundTest] = useState(false);
+
+  const [compactMode, setCompactMode] = useState(() => {
+    return localStorage.getItem('pulsecord_compact_mode') === 'true';
+  });
+  
+  const [clipSettings, setClipSettings] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('pulsecord_clip_settings')) || {
+        keybind: 'Alt+C',
+        quality: '1080p',
+        saveLocation: 'Downloads/PulseCord Clips'
+      };
+    } catch {
+      return { keybind: 'Alt+C', quality: '1080p', saveLocation: 'Downloads/PulseCord Clips' };
+    }
+  });
 
   // Auto-Updater State
   const [appVersion, setAppVersion] = useState('1.0.0');
@@ -79,6 +95,18 @@ export const UserSettingsModal = () => {
     const themeClass = `theme-${themeId}`;
     localStorage.setItem('pulsecord-theme', themeClass);
     document.body.className = themeClass;
+  };
+
+  const handleToggleCompactMode = () => {
+    const newValue = !compactMode;
+    setCompactMode(newValue);
+    localStorage.setItem('pulsecord_compact_mode', newValue.toString());
+    window.location.reload(); // Reload to apply layout changes
+  };
+
+  const handleSaveClipSettings = (newSettings) => {
+    setClipSettings(newSettings);
+    localStorage.setItem('pulsecord_clip_settings', JSON.stringify(newSettings));
   };
 
   const handleTestAudioOutput = () => {
@@ -254,6 +282,30 @@ export const UserSettingsModal = () => {
               </button>
 
               <button
+                onClick={() => setActiveTab('privacy')}
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
+                  activeTab === 'privacy'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                    : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
+                }`}
+              >
+                <Lock className="w-4 h-4 text-rose-500" />
+                <span>Privacidade</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('clips')}
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
+                  activeTab === 'clips'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                    : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
+                }`}
+              >
+                <Video className="w-4 h-4 text-purple-500" />
+                <span>Clipes (Gravação)</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('voice')}
                 className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
                   activeTab === 'voice'
@@ -422,6 +474,141 @@ export const UserSettingsModal = () => {
                     </span>
                   </button>
                 ))}
+              </div>
+
+              <div className="pt-6 border-t border-sys-border">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-sys-s3 border border-sys-border">
+                  <div>
+                    <h3 className="text-sm font-bold text-sys-text">Modo Compacto</h3>
+                    <p className="text-[11px] text-sys-muted mt-0.5 max-w-sm">
+                      Oculta avatares no chat de texto para exibir mais mensagens na tela simultaneamente. (Requer reinício)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleCompactMode}
+                    className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${
+                      compactMode
+                        ? 'bg-sys-accent justify-end shadow-sm'
+                        : 'bg-sys-s1 justify-start border border-sys-border'
+                    }`}
+                  >
+                    <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'privacy' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-sys-text tracking-tight">Privacidade e Segurança</h2>
+                <p className="text-xs text-sys-muted mt-1">
+                  Controle quem pode interagir com você e visualizar suas informações.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-sys-s3 border border-sys-border flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-sys-text">Permitir Mensagens Diretas</h3>
+                    <p className="text-[11px] text-sys-muted mt-0.5">Permitir que membros do mesmo servidor enviem DMs.</p>
+                  </div>
+                  <button className="w-12 h-6 bg-sys-accent rounded-full p-1 flex justify-end transition-all shadow-sm">
+                    <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-sys-s3 border border-sys-border flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-sys-text">Filtragem Automática</h3>
+                    <p className="text-[11px] text-sys-muted mt-0.5">Ocultar links suspeitos e imagens NSFW em DMs.</p>
+                  </div>
+                  <button className="w-12 h-6 bg-sys-accent rounded-full p-1 flex justify-end transition-all shadow-sm">
+                    <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                  </button>
+                </div>
+
+                <div>
+                  <h3 className="text-[10px] font-bold text-sys-muted uppercase tracking-wider mb-2 mt-6">
+                    Usuários Bloqueados
+                  </h3>
+                  <div className="p-6 rounded-2xl bg-sys-s3 border border-sys-border flex flex-col items-center justify-center text-center">
+                    <p className="text-xs text-sys-muted">Você não bloqueou ninguém.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'clips' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-sys-text tracking-tight">Clipes (Gravação em Segundo Plano)</h2>
+                <p className="text-xs text-sys-muted mt-1">
+                  Grave os melhores momentos das suas partidas diretamente pelo PulseCord.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-sys-s3 border border-sys-border">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-sys-text">Ativar Clipes</h3>
+                      <p className="text-[11px] text-sys-muted mt-0.5">Captura os últimos 30 segundos da sua tela e áudio.</p>
+                    </div>
+                    <button className="w-12 h-6 bg-sys-accent rounded-full p-1 flex justify-end transition-all shadow-sm">
+                      <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-sys-border">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
+                        Atalho de Gravação
+                      </label>
+                      <input
+                        type="text"
+                        value={clipSettings.keybind}
+                        readOnly
+                        className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-xl text-xs font-mono focus:outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
+                        Qualidade do Clipe
+                      </label>
+                      <select
+                        value={clipSettings.quality}
+                        onChange={(e) => handleSaveClipSettings({ ...clipSettings, quality: e.target.value })}
+                        className="w-full bg-sys-s1 text-sys-text text-xs px-4 py-2.5 rounded-xl border border-sys-border focus:outline-none cursor-pointer"
+                      >
+                        <option value="720p">Alta (720p 60fps)</option>
+                        <option value="1080p">Ultra (1080p 60fps)</option>
+                        <option value="4k">Extrema (4K 60fps) - Requer Nitro</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
+                        Local de Salvamento
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={clipSettings.saveLocation}
+                          readOnly
+                          className="flex-1 bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-xl text-xs focus:outline-none transition-colors"
+                        />
+                        <button className="px-4 py-2.5 bg-sys-s2 hover:bg-sys-s1 border border-sys-border rounded-xl text-xs text-sys-text transition font-medium">
+                          Alterar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

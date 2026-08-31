@@ -3,10 +3,11 @@ import { Plus, MessageSquare, Settings } from 'lucide-react';
 import { useServer } from '../context/ServerContext';
 
 export const ServerSidebar = () => {
-  const {
     servers,
     currentServerId,
     selectServer,
+    activeView,
+    setActiveView,
     setIsUserSettingsOpen,
     setIsAddServerOpen
   } = useServer();
@@ -22,13 +23,17 @@ export const ServerSidebar = () => {
     <div className="w-[72px] bg-sys-s3 flex flex-col items-center py-3 space-y-2 flex-shrink-0 select-none z-20 border-r border-sys-border">
       {/* Direct Messages / Home icon */}
       <div className="relative group flex items-center justify-center w-full">
-        <div className="absolute left-0 w-1 bg-sys-text rounded-r-full transition-all duration-200 h-0 group-hover:h-5" />
+        <div className={`absolute left-0 w-1 bg-sys-text rounded-r-full transition-all duration-200 ${activeView === 'dms' ? 'h-9' : 'h-0 group-hover:h-5'}`} />
         <button
-          onClick={() => servers.length > 0 && selectServer(servers[0].id)}
-          className="w-12 h-12 apple-squircle bg-sys-s2 border border-sys-border text-sys-muted group-hover:text-white flex items-center justify-center shadow-md group-hover:bg-sys-accent group-hover:border-sys-accent/20 transition-all duration-200"
-          title="Início"
+          onClick={() => setActiveView('dms')}
+          className={`w-12 h-12 flex items-center justify-center transition-all duration-200 shadow-md ${
+            activeView === 'dms'
+              ? 'rounded-[14px] bg-sys-accent text-white ring-2 ring-sys-s2 scale-105'
+              : 'apple-squircle bg-sys-s2 border border-sys-border text-sys-muted group-hover:text-white group-hover:bg-sys-accent group-hover:border-sys-accent/20'
+          }`}
+          title="Mensagens Diretas"
         >
-          <MessageSquare className="w-5 h-5 transition-transform group-hover:scale-105" />
+          <MessageSquare className={`w-5 h-5 transition-transform ${activeView !== 'dms' && 'group-hover:scale-105'}`} />
         </button>
       </div>
 
@@ -45,14 +50,17 @@ export const ServerSidebar = () => {
               {/* Active Pill indicator */}
               <div
                 className={`absolute left-0 w-1 bg-sys-text rounded-r-full transition-all duration-200 ${
-                  isSelected ? 'h-9' : 'h-0 group-hover:h-4'
+                  isSelected && activeView === 'server' ? 'h-9' : 'h-0 group-hover:h-4'
                 }`}
               />
 
               <button
-                onClick={() => selectServer(server.id)}
+                onClick={() => {
+                  setActiveView('server');
+                  selectServer(server.id);
+                }}
                 className={`w-12 h-12 flex items-center justify-center font-bold text-xs tracking-wider transition-all duration-200 shadow-sm ${
-                  isSelected
+                  isSelected && activeView === 'server'
                     ? `rounded-[14px] bg-sys-accent text-white ring-2 ring-sys-s2 scale-105`
                     : 'apple-squircle bg-sys-s2 border border-sys-border text-sys-muted hover:text-sys-text hover:border-sys-accent/20'
                 }`}

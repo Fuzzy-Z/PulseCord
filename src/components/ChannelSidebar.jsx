@@ -30,7 +30,9 @@ export const ChannelSidebar = () => {
     setIsCreateChannelOpen,
     setCreateChannelType,
     setIsMusicModalOpen,
-    setIsScreenModalOpen
+    setIsScreenModalOpen,
+    mutedChannels,
+    toggleMuteChannel
   } = useServer();
 
   const { currentUser } = useSocket();
@@ -49,6 +51,7 @@ export const ChannelSidebar = () => {
   } = useVoice();
 
   const [isServerMenuOpen, setIsServerMenuOpen] = useState(false);
+  const [contextMenuChannel, setContextMenuChannel] = useState(null);
 
   if (!currentServer) {
     return (
@@ -138,21 +141,42 @@ export const ChannelSidebar = () => {
           <div className="space-y-0.5">
             {textChannels.map((channel) => {
               const isSelected = channel.id === currentChannelId;
+              const isMutedChan = !!mutedChannels[channel.id];
+
               return (
-                <button
-                  key={channel.id}
-                  onClick={() => selectChannel(channel.id)}
-                  className={`w-full flex items-center px-2.5 py-1.5 rounded-xl text-xs transition-all group ${
-                    isSelected
-                      ? 'bg-sys-accent/20 text-sys-text font-medium shadow-sm border border-sys-accent/30 backdrop-blur-md'
-                      : 'text-sys-muted hover:bg-sys-s2 hover:text-sys-text'
-                  }`}
-                >
-                  <Hash className={`w-3.5 h-3.5 mr-2 flex-shrink-0 transition-colors ${
-                    isSelected ? 'text-sys-accent' : 'text-sys-muted group-hover:text-sys-text'
-                  }`} />
-                  <span className="truncate">{channel.name}</span>
-                </button>
+                <div key={channel.id} className="relative">
+                  <button
+                    onClick={() => selectChannel(channel.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenuChannel(contextMenuChannel === channel.id ? null : channel.id);
+                    }}
+                    className={`w-full flex items-center px-2.5 py-1.5 rounded-xl text-xs transition-all group ${
+                      isSelected
+                        ? 'bg-sys-accent/20 text-sys-text font-medium shadow-sm border border-sys-accent/30 backdrop-blur-md'
+                        : isMutedChan 
+                          ? 'text-sys-muted/50 hover:bg-sys-s2 hover:text-sys-muted'
+                          : 'text-sys-muted hover:bg-sys-s2 hover:text-sys-text'
+                    }`}
+                  >
+                    <Hash className={`w-3.5 h-3.5 mr-2 flex-shrink-0 transition-colors ${
+                      isSelected ? 'text-sys-accent' : isMutedChan ? 'text-sys-muted/50' : 'text-sys-muted group-hover:text-sys-text'
+                    }`} />
+                    <span className={`truncate ${isMutedChan && !isSelected ? 'line-through decoration-sys-muted/50' : ''}`}>{channel.name}</span>
+                  </button>
+
+                  {/* Context Menu */}
+                  {contextMenuChannel === channel.id && (
+                    <div className="absolute left-6 top-8 bg-sys-s3 border border-sys-border shadow-2xl rounded-xl py-1 z-30 text-xs w-40">
+                      <button 
+                        onClick={() => { toggleMuteChannel(channel.id, 'forever'); setContextMenuChannel(null); }}
+                        className="w-full text-left px-4 py-2 hover:bg-sys-s1 text-sys-text transition"
+                      >
+                        {isMutedChan ? 'Desmutar Canal' : 'Mutar Canal'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

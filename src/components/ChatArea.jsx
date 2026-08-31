@@ -23,6 +23,13 @@ export const ChatArea = () => {
   const [attachments, setAttachments] = useState([]);
   const [showSlashHints, setShowSlashHints] = useState(false);
   const [showMemberList, setShowMemberList] = useState(true);
+  
+  const [compactMode, setCompactMode] = useState(() => {
+    return localStorage.getItem('pulsecord_compact_mode') === 'true';
+  });
+
+  const [contextMenuMsg, setContextMenuMsg] = useState(null);
+  const { pinMessage, unpinMessage, pinnedMessages, activeView } = useServer();
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -58,6 +65,14 @@ export const ChatArea = () => {
     files.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
+        // Upload Limits (Non-Nitro: 25MB, Nitro: 500MB)
+        const isNitro = currentUser?.nitro === true;
+        const limitMB = isNitro ? 500 : 25;
+        if (file.size > limitMB * 1024 * 1024) {
+          alert(`O arquivo ${file.name} excede o limite de upload (${limitMB}MB).`);
+          return;
+        }
+
         setAttachments((prev) => [
           ...prev,
           {
@@ -167,22 +182,34 @@ export const ChatArea = () => {
             {messages.map((msg) => {
               const isBot = msg.author.isBot;
               const monogram = getMonogram(msg.author.username);
+              const isPinned = (pinnedMessages[currentChannel.id] || []).some(m => m.id === msg.id);
 
               return (
                 <div
                   key={msg.id}
-                  className="flex space-x-3.5 hover:bg-sys-s1 -mx-4 px-4 py-2 rounded-2xl transition-all group"
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenuMsg(contextMenuMsg === msg.id ? null : msg.id);
+                  }}
+                  className={`flex space-x-3.5 hover:bg-sys-s1 -mx-4 px-4 py-2 rounded-2xl transition-all group relative ${isPinned ? 'bg-yellow-500/10 border border-yellow-500/20' : ''} ${compactMode ? 'py-0.5 space-x-2' : ''}`}
                 >
                   {/* Avatar */}
-                  <div className="w-9 h-9 rounded-xl bg-sys-accent flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 border border-sys-border">
-                    {monogram}
-                  </div>
+                  {!compactMode && (
+                    <div className="w-9 h-9 rounded-xl bg-sys-accent flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 border border-sys-border">
+                      {monogram}
+                    </div>
+                  )}
 
                   {/* Message Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2">
+                    <div className={`flex items-center space-x-2 ${compactMode ? 'inline-flex mr-2' : ''}`}>
+                      {compactMode && (
+                        <span className="text-[10px] text-sys-muted font-medium w-12 text-right">
+                          {formatTime(msg.timestamp)}
+                        </span>
+                      )}
                       <span
-                        className="font-semibold text-xs hover:underline cursor-pointer tracking-tight"
+                        className={`font-semibold text-xs hover:underline cursor-pointer tracking-tight ${compactMode ? 'ml-2' : ''}`}
                         style={{ color: msg.author.roleColor || '#ffffff' }}
                       >
                         {msg.author.username}
@@ -203,11 +230,11 @@ export const ChatArea = () => {
                         )
                       )}
 
-                      <span className="text-[10px] text-sys-muted font-medium">{formatTime(msg.timestamp)}</span>
+                      {!compactMode && <span className="text-[10px] text-sys-muted font-medium">{formatTime(msg.timestamp)}</span>}
                     </div>
 
                     {/* Text Message Body */}
-                    <div className="text-xs text-sys-text mt-1 leading-relaxed whitespace-pre-wrap select-text font-normal">
+                    <div className={`text-xs text-sys-text mt-1 leading-relaxed whitespace-pre-wrap select-text font-normal ${compactMode ? 'mt-0 inline' : ''}`}>
                       {msg.content}
                     </div>
 
@@ -239,6 +266,27 @@ export const ChatArea = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Context Menu / Pin Actions */}
+                  {contextMenuMsg === msg.id && (
+                    <div className="absolute right-4 top-2 bg-sys-s3 border border-sys-border shadow-2xl rounded-xl py-1 z-20 text-xs">
+                      {isPinned ? (
+                        <button 
+                          onClick={() => { unpinMessage(currentChannel.id, msg.id); setContextMenuMsg(null); }}
+                          className="w-full text-left px-4 py-2 hover:bg-sys-s1 text-sys-text transition"
+                        >
+                          Desfixar Mensagem
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => { pinMessage(currentChannel.id, msg); setContextMenuMsg(null); }}
+                          className="w-full text-left px-4 py-2 hover:bg-sys-s1 text-sys-text transition"
+                        >
+                          Fixar Mensagem
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

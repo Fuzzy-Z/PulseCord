@@ -12,6 +12,13 @@ export const ServerProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [voiceRooms, setVoiceRooms] = useState({});
   const [onlineMembers, setOnlineMembers] = useState([]);
+  
+  // DMs & UI State
+  const [activeView, setActiveView] = useState('server'); // 'server' | 'dms'
+  const [dms, setDms] = useState([]); // Array of private conversations
+  const [pinnedMessages, setPinnedMessages] = useState({}); // { channelId: [messages] }
+  const [mutedServers, setMutedServers] = useState({}); // { serverId: expirationTimestamp }
+  const [mutedChannels, setMutedChannels] = useState({}); // { channelId: expirationTimestamp }
 
   // Modals
   const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
@@ -20,6 +27,7 @@ export const ServerProvider = ({ children }) => {
   const [createChannelType, setCreateChannelType] = useState('text');
   const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
   const [isScreenModalOpen, setIsScreenModalOpen] = useState(false);
+  const [isClipManagerOpen, setIsClipManagerOpen] = useState(false);
   const [isAddServerOpen, setIsAddServerOpen] = useState(false);
 
   // Sync servers when initialServersData updates (after login / register / session restore)
@@ -137,6 +145,44 @@ export const ServerProvider = ({ children }) => {
     setCurrentChannelId(channelId);
   };
 
+  const selectDM = (dmId) => {
+    setActiveView('dms');
+    setCurrentChannelId(dmId);
+  };
+
+  const toggleMuteServer = (serverId, duration) => {
+    setMutedServers(prev => {
+      const copy = { ...prev };
+      if (copy[serverId]) delete copy[serverId];
+      else copy[serverId] = duration === 'forever' ? -1 : Date.now() + duration;
+      return copy;
+    });
+  };
+
+  const toggleMuteChannel = (channelId, duration) => {
+    setMutedChannels(prev => {
+      const copy = { ...prev };
+      if (copy[channelId]) delete copy[channelId];
+      else copy[channelId] = duration === 'forever' ? -1 : Date.now() + duration;
+      return copy;
+    });
+  };
+
+  const pinMessage = (channelId, msg) => {
+    setPinnedMessages(prev => {
+      const current = prev[channelId] || [];
+      if (current.find(m => m.id === msg.id)) return prev;
+      return { ...prev, [channelId]: [...current, msg] };
+    });
+  };
+
+  const unpinMessage = (channelId, msgId) => {
+    setPinnedMessages(prev => {
+      const current = prev[channelId] || [];
+      return { ...prev, [channelId]: current.filter(m => m.id !== msgId) };
+    });
+  };
+
   const sendMessage = (content, attachments = []) => {
     if (!socket || !currentChannelId) return;
     socket.emit('send-message', {
@@ -200,6 +246,20 @@ export const ServerProvider = ({ children }) => {
         joinServer,
         createChannel,
         updateRoles,
+        
+        // DMs & Mutings
+        activeView,
+        setActiveView,
+        dms,
+        setDms,
+        selectDM,
+        pinnedMessages,
+        pinMessage,
+        unpinMessage,
+        mutedServers,
+        toggleMuteServer,
+        mutedChannels,
+        toggleMuteChannel,
         // Modals
         isServerSettingsOpen,
         setIsServerSettingsOpen,
@@ -214,7 +274,9 @@ export const ServerProvider = ({ children }) => {
         isScreenModalOpen,
         setIsScreenModalOpen,
         isAddServerOpen,
-        setIsAddServerOpen
+        setIsAddServerOpen,
+        isClipManagerOpen,
+        setIsClipManagerOpen
       }}
     >
       {children}

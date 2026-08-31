@@ -18,6 +18,15 @@ export const VoiceProvider = ({ children }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingUsers, setSpeakingUsers] = useState(new Set());
 
+  // Watch Together & Listen Together
+  const [watchTogetherState, setWatchTogetherState] = useState({
+    isActive: false,
+    videoUrl: '',
+    isPlaying: false,
+    currentTime: 0
+  });
+  const [listenTogetherPeer, setListenTogetherPeer] = useState(null);
+
   // Audio Device Selection
   const [inputDevices, setInputDevices] = useState([]);
   const [outputDevices, setOutputDevices] = useState([]);
@@ -611,6 +620,12 @@ export const VoiceProvider = ({ children }) => {
     });
   };
 
+  const syncWatchTogether = (state) => {
+    if (!socket || !activeVoiceChannel) return;
+    setWatchTogetherState(prev => ({ ...prev, ...state }));
+    socket.emit('watch-together-sync', { channelId: activeVoiceChannel, state });
+  };
+
   return (
     <VoiceContext.Provider
       value={{
@@ -649,7 +664,12 @@ export const VoiceProvider = ({ children }) => {
         toggleDeafen,
         startScreenShare,
         stopScreenShare,
-        sendMusicControl
+        sendMusicControl,
+        watchTogetherState,
+        setWatchTogetherState,
+        syncWatchTogether,
+        listenTogetherPeer,
+        setListenTogetherPeer
       }}
     >
       {children}
