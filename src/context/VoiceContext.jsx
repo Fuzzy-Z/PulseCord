@@ -171,9 +171,17 @@ export const VoiceProvider = ({ children }) => {
   // Helper setters that persist to localStorage
   const setKrispEnabled = (val) => {
     setKrispEnabledState(val);
-    localStorage.setItem('pulsecord_krisp_enabled', String(val));
+    localStorage.setItem('pulsecord_krisp_enabled', val);
     if (krispProcessorRef.current) {
       krispProcessorRef.current.setKrispEnabled(val);
+    }
+    
+    // Switch stream live if in voice channel
+    if (webrtcManagerRef.current && localAudioStream) {
+      const streamToUse = val && krispProcessorRef.current 
+        ? krispProcessorRef.current.getProcessedStream() 
+        : localAudioStream;
+      webrtcManagerRef.current.setLocalAudioStream(streamToUse);
     }
   };
 
@@ -212,39 +220,12 @@ export const VoiceProvider = ({ children }) => {
     });
   };
 
-  // Manage Remote Audio Playback Globally (Never cuts off on tab switch)
-  const playRemoteAudio = (peerSocketId, stream) => {
-    try {
-      let audioEl = remoteAudioElementsRef.current.get(peerSocketId);
-      if (!audioEl) {
-        audioEl = new Audio();
-        audioEl.autoplay = true;
-        remoteAudioElementsRef.current.set(peerSocketId, audioEl);
-      }
-
-      if (audioEl.srcObject !== stream) {
-        audioEl.srcObject = stream;
-      }
-
-      if (selectedOutputDevice && selectedOutputDevice !== 'default' && audioEl.setSinkId) {
-        audioEl.setSinkId(selectedOutputDevice).catch(console.warn);
-      }
-
-      // Find user volume
-      const peerUser = usersInVoice.find((u) => u.socketId === peerSocketId);
-      const userVol = peerUser && userVolumes[peerUser.id] !== undefined ? userVolumes[peerUser.id] : 100;
-      audioEl.volume = isDeafened ? 0 : Math.min(1, userVol / 100);
-
-      const playPromise = audioEl.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn('[Audio Play Autoplay Policy]', err);
-        });
-      }
-    } catch (e) {
-      console.warn('[Voice] Error playing remote audio:', e);
-    }
-  };
+  // Manage Remote Audio Playback Globally (Handled by GlobalAudioEngine)
+  
+  const activeVoiceChannelRef = useRef(activeVoiceChannel);
+  useEffect(() => {
+    activeVoiceChannelRef.current = activeVoiceChannel;
+  }, [activeVoiceChannel]);
 
   // Initialize WebRTC Manager
   useEffect(() => {
@@ -257,18 +238,11 @@ export const VoiceProvider = ({ children }) => {
           if (kind === 'video') {
             return { ...prev, [peerSocketId]: { ...current, videoStream: stream } };
           } else {
-            playRemoteAudio(peerSocketId, stream);
             return { ...prev, [peerSocketId]: { ...current, audioStream: stream } };
           }
         });
       },
       onRemoteStreamRemoved: (peerSocketId) => {
-        const audioEl = remoteAudioElementsRef.current.get(peerSocketId);
-        if (audioEl) {
-          audioEl.srcObject = null;
-          audioEl.pause();
-          remoteAudioElementsRef.current.delete(peerSocketId);
-        }
         setRemoteStreams((prev) => {
           const updated = { ...prev };
           delete updated[peerSocketId];
@@ -276,12 +250,6 @@ export const VoiceProvider = ({ children }) => {
         });
       },
       onPeerDisconnected: (peerSocketId) => {
-        const audioEl = remoteAudioElementsRef.current.get(peerSocketId);
-        if (audioEl) {
-          audioEl.srcObject = null;
-          audioEl.pause();
-          remoteAudioElementsRef.current.delete(peerSocketId);
-        }
         setRemoteStreams((prev) => {
           const updated = { ...prev };
           delete updated[peerSocketId];
@@ -294,7 +262,7 @@ export const VoiceProvider = ({ children }) => {
 
     // WebRTC Signaling events
     socket.on('user-joined-voice', async ({ user, channelId }) => {
-      if (channelId === activeVoiceChannel) {
+      if (channelId === activeVoiceChannelRef.current) {
         soundFX.play('user-join');
         setUsersInVoice((prev) => {
           if (!prev.some((u) => u.id === user.id)) {
@@ -317,12 +285,6 @@ export const VoiceProvider = ({ children }) => {
         next.delete(socketId);
         return next;
       });
-      const audioEl = remoteAudioElementsRef.current.get(socketId);
-      if (audioEl) {
-        audioEl.srcObject = null;
-        audioEl.pause();
-        remoteAudioElementsRef.current.delete(socketId);
-      }
       if (manager) {
         manager.removePeer(socketId);
       }
@@ -360,12 +322,15 @@ export const VoiceProvider = ({ children }) => {
     });
 
     socket.on('music-state-update', ({ channelId, player }) => {
-      if (channelId === activeVoiceChannel) {
+      if (channelId === activeVoiceChannelRef.current) {
         setMusicPlayer(player);
       }
     });
 
     return () => {
+      if (manager) {
+        manager.closeAll();
+      }
       socket.off('user-joined-voice');
       socket.off('user-left-voice');
       socket.off('webrtc-offer');
@@ -375,7 +340,7 @@ export const VoiceProvider = ({ children }) => {
       socket.off('user-voice-status-updated');
       socket.off('music-state-update');
     };
-  }, [socket, activeVoiceChannel, usersInVoice, userVolumes, isDeafened, selectedOutputDevice]);
+  }, [socket]);
 
   // Synchronized Music Bot Audio Player Element
   useEffect(() => {
@@ -444,10 +409,10 @@ export const VoiceProvider = ({ children }) => {
       });
       krispProcessorRef.current = processor;
 
-      // 3. Feed processed stream to WebRTC
-      const processedStream = processor.getProcessedStream();
+      // 3. Feed stream to WebRTC (Bypass processor completely if Krisp is disabled)
+      const streamToUse = krispEnabled ? processor.getProcessedStream() : rawMicStream;
       if (webrtcManagerRef.current) {
-        webrtcManagerRef.current.setLocalAudioStream(processedStream);
+        webrtcManagerRef.current.setLocalAudioStream(streamToUse);
       }
 
       // 4. Notify Socket Server

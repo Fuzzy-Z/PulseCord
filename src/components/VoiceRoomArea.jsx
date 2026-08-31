@@ -82,6 +82,7 @@ export const VoiceRoomArea = () => {
   useEffect(() => {
     if (remoteVideoRef.current && watchingPeerId && remoteStreams[watchingPeerId]?.videoStream) {
       remoteVideoRef.current.srcObject = remoteStreams[watchingPeerId].videoStream;
+      remoteVideoRef.current.play().catch(e => console.warn('[Video Play]', e));
     }
   }, [watchingPeerId, remoteStreams]);
 

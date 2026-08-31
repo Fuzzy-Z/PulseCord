@@ -2,6 +2,30 @@ import React, { useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 import { useVoice } from '../context/VoiceContext';
 
+const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice }) => {
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream;
+    }
+
+    if (outputDevice && outputDevice !== 'default' && audio.setSinkId) {
+      audio.setSinkId(outputDevice).catch(() => {});
+    }
+
+    audio.volume = volume;
+    audio.play().catch((err) => {
+      console.warn(`[WebRTC Audio Play ${socketId}]`, err.message);
+    });
+  }, [stream, volume, outputDevice, socketId]);
+
+  return <audio ref={audioRef} autoPlay playsInline />;
+};
+
 export const GlobalAudioEngine = () => {
   const {
     remoteStreams,
@@ -15,7 +39,6 @@ export const GlobalAudioEngine = () => {
 
   const musicAudioRef = useRef(null);
   const hlsRef = useRef(null);
-  const remoteAudioRefs = useRef({});
 
   // 1. Music Bot Audio Engine (Supports HLS .m3u8 from SoundCloud, MP3, AAC, and radio streams)
   useEffect(() => {
@@ -70,20 +93,6 @@ export const GlobalAudioEngine = () => {
     };
   }, [musicPlayer.isPlaying, musicPlayer.currentTrack?.url, musicPlayer.volume, activeVoiceChannel, isDeafened, selectedOutputDevice]);
 
-  // Clean unmounted peer audio references
-  useEffect(() => {
-    Object.keys(remoteAudioRefs.current).forEach((socketId) => {
-      if (!remoteStreams[socketId]?.audioStream) {
-        const el = remoteAudioRefs.current[socketId];
-        if (el) {
-          el.srcObject = null;
-          el.pause();
-        }
-        delete remoteAudioRefs.current[socketId];
-      }
-    });
-  }, [remoteStreams]);
-
   return (
     <div id="pulsecord-global-audio-engine" style={{ display: 'none', position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}>
       {/* 1. Music Bot Global Audio Element */}
@@ -98,25 +107,12 @@ export const GlobalAudioEngine = () => {
         const finalVolume = isDeafened ? 0 : Math.max(0, Math.min(1, userVol / 100));
 
         return (
-          <audio
+          <RemoteAudioPlayer
             key={socketId}
-            autoPlay
-            playsInline
-            ref={(el) => {
-              if (el) {
-                remoteAudioRefs.current[socketId] = el;
-                if (el.srcObject !== streams.audioStream) {
-                  el.srcObject = streams.audioStream;
-                }
-                el.volume = finalVolume;
-                if (selectedOutputDevice && selectedOutputDevice !== 'default' && el.setSinkId) {
-                  el.setSinkId(selectedOutputDevice).catch(() => {});
-                }
-                el.play().catch((err) => {
-                  console.warn(`[WebRTC Audio Play ${socketId}]`, err.message);
-                });
-              }
-            }}
+            socketId={socketId}
+            stream={streams.audioStream}
+            volume={finalVolume}
+            outputDevice={selectedOutputDevice}
           />
         );
       })}
