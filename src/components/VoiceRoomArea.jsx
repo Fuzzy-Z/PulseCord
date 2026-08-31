@@ -392,7 +392,7 @@ export const VoiceRoomArea = () => {
         <div className="h-14 bg-sys-s2 border-t border-sys-border px-5 flex items-center justify-between flex-shrink-0 z-20">
           <div className="flex items-center space-x-3 truncate">
             <div className="w-9 h-9 rounded-xl bg-red-500 flex items-center justify-center shadow-md flex-shrink-0 text-white">
-              <Youtube className="w-5 h-5" />
+              <MonitorPlay className="w-5 h-5" />
             </div>
             <div className="truncate">
               <div className="text-xs font-bold text-sys-text truncate tracking-tight">
@@ -544,7 +544,7 @@ export const VoiceRoomArea = () => {
               }`}
               title="Watch Together (YouTube)"
             >
-              <Youtube className="w-4 h-4" />
+              <MonitorPlay className="w-4 h-4" />
             </button>
 
             <div className="w-[1px] h-6 bg-sys-border mx-1" />
