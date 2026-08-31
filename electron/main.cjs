@@ -5,6 +5,10 @@ const https = require('https');
 const http = require('http');
 const { spawn } = require('child_process');
 
+// Bypass all browser autoplay restrictions for WebRTC and Music Bot audio
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('disable-features', 'PreloadMediaEngagementData');
+
 let mainWindow = null;
 
 // Read App Version reliably from Electron or package.json

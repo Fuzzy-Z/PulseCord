@@ -1,6 +1,6 @@
 {
   "name": "pulsecord",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Discord Clone Desktop App with Voice, Screen Share, Roles, and Music Bot",
   "main": "electron/main.cjs",
   "type": "module",
@@ -22,6 +22,7 @@
     "@upstash/redis": "^1.34.4",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "hls.js": "^1.7.1",
     "lucide-react": "^1.16.0",
     "play-dl": "^1.9.7",
     "react": "^19.0.0",

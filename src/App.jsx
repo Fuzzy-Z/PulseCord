@@ -15,6 +15,7 @@ import { CreateChannelModal } from './components/CreateChannelModal';
 import { CreateServerModal } from './components/CreateServerModal';
 import { AuthScreen } from './components/AuthScreen';
 import { UpdateToast } from './components/UpdateToast';
+import { GlobalAudioEngine } from './components/GlobalAudioEngine';
 import { Loader2 } from 'lucide-react';
 
 const MainLayout = () => {
@@ -67,6 +68,7 @@ const AppContent = () => {
           <MainLayout />
         )}
         <UpdateToast />
+        <GlobalAudioEngine />
       </div>
     </div>
   );
