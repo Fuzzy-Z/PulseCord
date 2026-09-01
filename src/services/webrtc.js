@@ -87,9 +87,8 @@ export class WebRTCManager {
             existingSender.replaceTrack(track);
             if (track.kind === 'video') this.applyVideoQuality(existingSender);
           } else {
-            // Group screen audio track with microphone audio stream so receiver plays them together
-            const targetStream = (track.kind === 'audio' && this.localAudioStream) ? this.localAudioStream : stream;
-            const sender = pc.addTrack(track, targetStream);
+            // Keep screen tracks in stream (never merge into microphone localAudioStream to prevent echo loopback)
+            const sender = pc.addTrack(track, stream);
             if (track.kind === 'video') this.applyVideoQuality(sender);
           }
         });
@@ -122,18 +121,17 @@ export class WebRTCManager {
     this.peers.set(targetSocketId, pc);
     this.iceCandidateQueues.set(targetSocketId, []);
 
-    // Add local audio track to peer connection
+    // Add local microphone audio track ONLY to peer connection
     if (this.localAudioStream) {
       this.localAudioStream.getAudioTracks().forEach((track) => {
         pc.addTrack(track, this.localAudioStream);
       });
     }
 
-    // Add local screen share track if already active
+    // Add local screen share track if already active (isolated in localScreenStream)
     if (this.localScreenStream) {
       this.localScreenStream.getTracks().forEach((track) => {
-        const targetStream = (track.kind === 'audio' && this.localAudioStream) ? this.localAudioStream : this.localScreenStream;
-        const sender = pc.addTrack(track, targetStream);
+        const sender = pc.addTrack(track, this.localScreenStream);
         if (track.kind === 'video') {
           this.applyVideoQuality(sender);
         }
