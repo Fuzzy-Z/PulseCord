@@ -77,7 +77,8 @@ export const GlobalAudioEngine = () => {
     userVolumes,
     usersInVoice,
     selectedOutputDevice,
-    activeVoiceChannel
+    activeVoiceChannel,
+    sendMusicControl
   } = useVoice();
 
   const musicAudioRef = useRef(null);
@@ -143,8 +144,32 @@ export const GlobalAudioEngine = () => {
       }
     }
 
-    return () => {};
-  }, [musicPlayer.isPlaying, musicPlayer.currentTrack?.url, localMusicVolume, musicPlayer.volume, activeVoiceChannel, isDeafened, selectedOutputDevice]);
+    const handleEnded = () => {
+      if (musicPlayer.queue && musicPlayer.queue.length > 0) {
+        sendMusicControl('skip');
+      }
+    };
+
+    const handleError = () => {
+      // Auto-reconnect for live streams on brief network hiccups
+      if (shouldPlay && currentUrl && !currentUrl.includes('.mp3')) {
+        setTimeout(() => {
+          if (audio && shouldPlay) {
+            audio.load();
+            audio.play().catch(() => {});
+          }
+        }, 2000);
+      }
+    };
+
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+
+    return () => {
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
+    };
+  }, [musicPlayer.isPlaying, musicPlayer.currentTrack?.url, localMusicVolume, musicPlayer.volume, activeVoiceChannel, isDeafened, selectedOutputDevice, musicPlayer.queue]);
 
   return (
     <div id="pulsecord-global-audio-engine" style={{ display: 'none', position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}>
