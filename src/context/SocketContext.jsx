@@ -3,11 +3,32 @@ import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
 
-const DEFAULT_SERVER_URL =
-  localStorage.getItem('pulsecord_server_url') ||
-  (import.meta.env.DEV && window.location.hostname === 'localhost' && window.location.port === '5173'
-    ? 'http://localhost:4000'
-    : 'https://pulsecord-1-w3xw.onrender.com');
+const OFFICIAL_SERVER_URL = 'https://pulsecord-1-w3xw.onrender.com';
+
+const getInitialServerUrl = () => {
+  try {
+    const saved = localStorage.getItem('pulsecord_server_url');
+    const isViteDev =
+      typeof window !== 'undefined' &&
+      window.location.hostname === 'localhost' &&
+      window.location.port === '5173';
+
+    if (isViteDev) {
+      return saved || 'http://localhost:4000';
+    }
+
+    if (saved && !saved.includes('localhost') && !saved.includes('127.0.0.1')) {
+      return saved;
+    }
+
+    localStorage.removeItem('pulsecord_server_url');
+    return OFFICIAL_SERVER_URL;
+  } catch {
+    return OFFICIAL_SERVER_URL;
+  }
+};
+
+const DEFAULT_SERVER_URL = getInitialServerUrl();
 
 export const SocketProvider = ({ children }) => {
   const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL);
