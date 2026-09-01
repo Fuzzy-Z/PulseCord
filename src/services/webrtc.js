@@ -171,6 +171,17 @@ export class WebRTCManager {
 
       console.log(`[WebRTC] Received remote track (${kind}) from ${targetSocketId}`);
 
+      // Handle track ending directly (e.g. streamer turned off screen share)
+      event.track.onended = () => {
+        console.log(`[WebRTC] Remote track ended (${kind}) from ${targetSocketId}`);
+        if (kind === 'video') {
+          this.peerScreenStreamIds.delete(targetSocketId);
+          if (this.onRemoteStream) {
+            this.onRemoteStream(targetSocketId, null, 'video');
+          }
+        }
+      };
+
       // When a track is removed, trigger state update
       stream.onremovetrack = () => {
         if (this.onRemoteStream) {

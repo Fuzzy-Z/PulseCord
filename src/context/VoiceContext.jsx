@@ -260,6 +260,15 @@ export const VoiceProvider = ({ children }) => {
       onRemoteStream: (peerSocketId, stream, kind) => {
         setRemoteStreams((prev) => {
           const current = prev[peerSocketId] || {};
+          if (!stream) {
+            if (kind === 'video') {
+              const updated = { ...current };
+              delete updated.videoStream;
+              delete updated.screenAudioStream;
+              return { ...prev, [peerSocketId]: updated };
+            }
+            return prev;
+          }
           const clonedStream = new MediaStream(stream.getTracks());
           if (kind === 'video') {
             return { ...prev, [peerSocketId]: { ...current, videoStream: clonedStream } };
@@ -348,6 +357,17 @@ export const VoiceProvider = ({ children }) => {
 
     socket.on('user-voice-status-updated', ({ user }) => {
       setUsersInVoice((prev) => prev.map((u) => (u.id === user.id ? { ...u, ...user } : u)));
+      if (user.isScreenSharing === false && user.socketId) {
+        setRemoteStreams((prev) => {
+          if (!prev[user.socketId]) return prev;
+          const updated = { ...prev };
+          const peer = { ...updated[user.socketId] };
+          delete peer.videoStream;
+          delete peer.screenAudioStream;
+          updated[user.socketId] = peer;
+          return updated;
+        });
+      }
     });
 
     socket.on('music-state-update', ({ channelId, player }) => {

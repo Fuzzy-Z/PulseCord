@@ -196,12 +196,20 @@ export const VoiceRoomArea = () => {
         isScreenSharing: isScreenSharing,
         socketId: 'local'
       },
-      ...usersInVoice.map((u) => ({
-        ...u,
-        isLocal: false,
-        isSpeaking: speakingUsers.has(u.socketId),
-        hasVideoStream: !!remoteStreams[u.socketId]?.videoStream || !!u.isScreenSharing
-      }))
+      ...usersInVoice.map((u) => {
+        const isLive = Boolean(
+          u.isScreenSharing &&
+          remoteStreams[u.socketId]?.videoStream &&
+          remoteStreams[u.socketId].videoStream.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled !== false)
+        );
+
+        return {
+          ...u,
+          isLocal: false,
+          isSpeaking: speakingUsers.has(u.socketId),
+          hasVideoStream: isLive
+        };
+      })
     ]
     : currentRoomUsers.map((u) => ({
       ...u,
