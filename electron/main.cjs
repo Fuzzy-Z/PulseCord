@@ -319,10 +319,14 @@ function createWindow() {
     });
   } else {
     const distPath = path.join(__dirname, '../dist');
-    startStaticServer(distPath, 4321).then(() => {
-      mainWindow.loadURL('http://localhost:4321');
+    startStaticServer(distPath, 5173).then(() => {
+      mainWindow.loadURL('http://localhost:5173');
     }).catch(() => {
-      mainWindow.loadFile(path.join(distPath, 'index.html'));
+      startStaticServer(distPath, 4321).then(() => {
+        mainWindow.loadURL('http://localhost:4321');
+      }).catch(() => {
+        mainWindow.loadFile(path.join(distPath, 'index.html'));
+      });
     });
   }
 
