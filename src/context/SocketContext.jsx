@@ -8,20 +8,22 @@ const OFFICIAL_SERVER_URL = 'https://pulsecord-1-w3xw.onrender.com';
 const getInitialServerUrl = () => {
   try {
     const saved = localStorage.getItem('pulsecord_server_url');
-    const isViteDev =
-      typeof window !== 'undefined' &&
-      window.location.hostname === 'localhost' &&
-      window.location.port === '5173';
 
-    if (isViteDev) {
+    // Only in vite dev mode directly (npm run dev:vite)
+    if (import.meta.env.DEV) {
       return saved || 'http://localhost:4000';
     }
 
-    if (saved && !saved.includes('localhost') && !saved.includes('127.0.0.1')) {
+    // In production / packaged desktop app: ignore leftover localhost entries
+    if (saved && (saved.includes('localhost') || saved.includes('127.0.0.1'))) {
+      localStorage.removeItem('pulsecord_server_url');
+      return OFFICIAL_SERVER_URL;
+    }
+
+    if (saved && saved.startsWith('http')) {
       return saved;
     }
 
-    localStorage.removeItem('pulsecord_server_url');
     return OFFICIAL_SERVER_URL;
   } catch {
     return OFFICIAL_SERVER_URL;
