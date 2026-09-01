@@ -67,9 +67,13 @@ const versionManifest = {
 
 const versionJsonStr = JSON.stringify(versionManifest, null, 2);
 
-// Copy asar & version.json to deploy-server & server
+// Copy all backend server files, asar & version.json to deploy-server
 fs.writeFileSync(path.join(deployDir, 'version.json'), versionJsonStr);
 fs.copyFileSync(generatedAsar, path.join(deployDir, 'app.asar'));
+if (fs.existsSync(path.join(serverDir, 'index.js'))) fs.copyFileSync(path.join(serverDir, 'index.js'), path.join(deployDir, 'index.js'));
+if (fs.existsSync(path.join(serverDir, 'signaling.js'))) fs.copyFileSync(path.join(serverDir, 'signaling.js'), path.join(deployDir, 'signaling.js'));
+if (fs.existsSync(path.join(serverDir, 'storage.js'))) fs.copyFileSync(path.join(serverDir, 'storage.js'), path.join(deployDir, 'storage.js'));
+if (fs.existsSync(path.join(serverDir, 'musicService.js'))) fs.copyFileSync(path.join(serverDir, 'musicService.js'), path.join(deployDir, 'musicService.js'));
 
 fs.writeFileSync(path.join(serverDir, 'version.json'), versionJsonStr);
 fs.copyFileSync(generatedAsar, path.join(serverDir, 'app.asar'));
@@ -80,10 +84,10 @@ try { fs.unlinkSync(generatedAsar); } catch (e) {}
 console.log('🌐 Committing and pushing OTA update to GitHub (Render will deploy in ~1 min)...');
 
 try {
-  execSync(`"${git}" add -f index.js signaling.js storage.js version.json app.asar package.json`, { cwd: deployDir, stdio: 'inherit' });
+  execSync(`"${git}" add -f index.js signaling.js storage.js musicService.js version.json app.asar package.json`, { cwd: deployDir, stdio: 'inherit' });
   execSync(`"${git}" commit -m "Publish OTA Update v${newVersion}"`, { cwd: deployDir, stdio: 'inherit' });
   execSync(`"${git}" push origin main`, { cwd: deployDir, stdio: 'inherit' });
-  console.log('✅ Server repository updated with new app.asar!');
+  console.log('✅ Server repository updated with new app.asar and server code!');
 } catch (err) {
   console.warn('⚠️ Server git push warning:', err.message);
 }
