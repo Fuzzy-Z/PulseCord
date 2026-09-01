@@ -18,7 +18,7 @@ import { useSocket } from '../context/SocketContext';
 
 export const MusicPlayerModal = () => {
   const { isMusicModalOpen, setIsMusicModalOpen } = useServer();
-  const { musicPlayer, sendMusicControl, activeVoiceChannel } = useVoice();
+  const { musicPlayer, sendMusicControl, activeVoiceChannel, localMusicVolume, setLocalMusicVolume } = useVoice();
   const { socket } = useSocket();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -260,13 +260,13 @@ export const MusicPlayerModal = () => {
                       type="range"
                       min="0"
                       max="100"
-                      value={musicPlayer.volume ?? 70}
-                      onChange={(e) => sendMusicControl('volume', '', Number(e.target.value))}
+                      value={localMusicVolume ?? 70}
+                      onChange={(e) => setLocalMusicVolume(Number(e.target.value))}
                       className="w-20 md:w-28 accent-amber-400 h-1.5 bg-sys-s1 rounded-lg cursor-pointer"
-                      title="Volume do Rádio"
+                      title="Volume Local da Música"
                     />
                     <span className="text-[10px] font-bold text-sys-muted min-w-[28px] text-right">
-                      {musicPlayer.volume ?? 70}%
+                      {localMusicVolume ?? 70}%
                     </span>
                   </div>
                 </div>

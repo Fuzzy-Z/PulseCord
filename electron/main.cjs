@@ -179,7 +179,8 @@ function applyUpdateAndRestart() {
   }
 
   if (process.platform === 'win32') {
-    const psScript = `Start-Sleep -Seconds 1; while (Get-Process PulseCord -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 300 }; Copy-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Destination '${targetAsar.replace(/'/g, "''")}' -Force; Remove-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Force -ErrorAction SilentlyContinue; Start-Process -FilePath '${exePath.replace(/'/g, "''")}'`;
+    const currentPid = process.pid;
+    const psScript = `Start-Sleep -Milliseconds 400; Wait-Process -Id ${currentPid} -Timeout 12 -ErrorAction SilentlyContinue; Copy-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Destination '${targetAsar.replace(/'/g, "''")}' -Force; Remove-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Force -ErrorAction SilentlyContinue; Start-Process -FilePath '${exePath.replace(/'/g, "''")}'`;
 
     const child = spawn('powershell.exe', [
       '-WindowStyle', 'Hidden',

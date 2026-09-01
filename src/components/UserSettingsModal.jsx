@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers, Palette, Lock, Video } from 'lucide-react';
+import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers, Palette, Lock, Video, Upload } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
@@ -455,26 +455,65 @@ export const UserSettingsModal = () => {
                 </div>
 
                 {/* Banner & Avatar Row */}
-                <div className="flex space-x-4">
-                  <div className="flex-1 space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Banner Card */}
+                  <div className="p-3.5 bg-sys-s2 border border-sys-border rounded-2xl space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Banner (GIF/Img)</label>
-                      <label className="text-[10px] text-sys-accent hover:underline cursor-pointer">
-                        Fazer Upload
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-sys-muted">Banner do Perfil</span>
+                      {bannerUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setBannerUrl('')}
+                          className="text-[10px] text-rose-400 hover:underline"
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {bannerUrl ? (
+                        <img src={bannerUrl} alt="Banner" className="w-14 h-8 rounded-lg object-cover border border-sys-border flex-shrink-0" />
+                      ) : (
+                        <div className="w-14 h-8 rounded-lg bg-sys-s1 border border-dashed border-sys-border flex items-center justify-center text-[10px] text-sys-muted flex-shrink-0">
+                          Vazio
+                        </div>
+                      )}
+                      <label className="flex-1 py-2 px-3 bg-sys-s1 hover:bg-sys-s3 border border-sys-border text-sys-text text-center rounded-xl text-xs font-semibold cursor-pointer transition flex items-center justify-center gap-1.5">
+                        <Upload className="w-3.5 h-3.5 text-sys-accent" />
+                        <span>{bannerUrl ? 'Trocar Banner' : 'Enviar Banner (GIF/Img)'}</span>
                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setBannerUrl, true)} />
                       </label>
                     </div>
-                    <input type="text" placeholder="Ou cole a URL..." value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
                   </div>
-                  <div className="flex-1 space-y-2">
+
+                  {/* Avatar Card */}
+                  <div className="p-3.5 bg-sys-s2 border border-sys-border rounded-2xl space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Avatar (GIF/Img)</label>
-                      <label className="text-[10px] text-sys-accent hover:underline cursor-pointer">
-                        Fazer Upload
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-sys-muted">Avatar Customizado</span>
+                      {avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setAvatarUrl('')}
+                          className="text-[10px] text-rose-400 hover:underline"
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full object-cover border border-sys-border flex-shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-sys-s1 border border-dashed border-sys-border flex items-center justify-center text-[10px] text-sys-muted flex-shrink-0">
+                          Padrão
+                        </div>
+                      )}
+                      <label className="flex-1 py-2 px-3 bg-sys-s1 hover:bg-sys-s3 border border-sys-border text-sys-text text-center rounded-xl text-xs font-semibold cursor-pointer transition flex items-center justify-center gap-1.5">
+                        <Upload className="w-3.5 h-3.5 text-sys-accent" />
+                        <span>{avatarUrl ? 'Trocar Foto' : 'Enviar Foto / GIF'}</span>
                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setAvatarUrl, false)} />
                       </label>
                     </div>
-                    <input type="text" placeholder="Ou cole a URL..." value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
                   </div>
                 </div>
 
@@ -483,7 +522,7 @@ export const UserSettingsModal = () => {
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2.5">
                     Cor do Perfil (Gradiente)
                   </label>
-                  <div className="grid grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     {gradientOptions.map((opt) => (
                       <button
                         key={opt.name}
@@ -501,41 +540,37 @@ export const UserSettingsModal = () => {
                   </div>
                 </div>
 
-                {/* Identity Row */}
-                <div className="flex space-x-4">
-                  <div className="flex-1 space-y-2">
+                {/* Identity Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Nome de Exibição</label>
-                    <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                    <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Seu apelido" className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
                   </div>
-                  <div className="flex-1 space-y-2">
+                  <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Nome de Usuário (@)</label>
-                    <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                    <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="usuario" className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
                   </div>
-                  <div className="w-1/4 space-y-2">
+                  <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Pronomes</label>
-                    <input type="text" placeholder="Ele/Dele" value={pronouns} onChange={(e) => setPronouns(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                    <input type="text" placeholder="Ele/Dele" value={pronouns} onChange={(e) => setPronouns(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
                   </div>
                 </div>
 
                 {/* Bio */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">Sobre Mim (Bio)</label>
-                  <textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-3 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors resize-none" placeholder="Conte um pouco sobre você..." />
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Sobre Mim (Bio)</label>
+                  <textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors resize-none" placeholder="Conte um pouco sobre você..." />
                 </div>
 
-                {/* Status Row */}
-                <div className="flex space-x-4">
-                  <div className="w-1/3 space-y-2">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Emoji de Status</label>
-                    <input type="text" placeholder="🎮" value={customStatusEmoji} onChange={(e) => setCustomStatusEmoji(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none text-center focus:border-sys-accent/50 transition-colors" />
-                  </div>
-                  <div className="flex-1 space-y-2">
+                {/* Status & Activity Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Status Customizado</label>
-                    <input type="text" placeholder="Codando em Godot..." value={customStatusText} onChange={(e) => setCustomStatusText(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                    <input type="text" placeholder="Ex: Programando em React..." value={customStatusText} onChange={(e) => setCustomStatusText(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
                   </div>
-                  <div className="flex-1 space-y-2">
+                  <div className="space-y-1.5">
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Atividade / Jogo</label>
-                    <input type="text" placeholder="Jogando Terraria" value={gameStatus} onChange={(e) => setGameStatus(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                    <input type="text" placeholder="Ex: Jogando Terraria" value={gameStatus} onChange={(e) => setGameStatus(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
                   </div>
                 </div>
 

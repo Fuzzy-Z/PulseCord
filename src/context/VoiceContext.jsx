@@ -81,6 +81,18 @@ export const VoiceProvider = ({ children }) => {
     volume: 70
   });
 
+  // Local Music Volume (Personal to this user, doesn't affect others)
+  const [localMusicVolume, setLocalMusicVolumeState] = useState(() => {
+    const saved = localStorage.getItem('pulsecord_local_music_volume');
+    return saved !== null ? Number(saved) : 70;
+  });
+
+  const setLocalMusicVolume = (vol) => {
+    const clamped = Math.max(0, Math.min(100, vol));
+    setLocalMusicVolumeState(clamped);
+    localStorage.setItem('pulsecord_local_music_volume', String(clamped));
+  };
+
   const webrtcManagerRef = useRef(null);
   const krispProcessorRef = useRef(null);
   const musicAudioRef = useRef(null);
@@ -701,6 +713,8 @@ export const VoiceProvider = ({ children }) => {
         localScreenStream,
         remoteStreams,
         musicPlayer,
+        localMusicVolume,
+        setLocalMusicVolume,
         krispEnabled,
         setKrispEnabled,
         micSensitivity,

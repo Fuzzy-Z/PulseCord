@@ -112,9 +112,13 @@ export const VoiceRoomArea = () => {
   // Is user actively connected to THIS voice channel
   const isConnectedToThisRoom = activeVoiceChannel === currentChannel?.id;
 
-  // Remote screen shares
+  // Remote screen shares (Only keep active streams with live video tracks from users in voice)
   const activeRemoteScreenShares = Object.entries(remoteStreams).filter(
-    ([_, streams]) => streams.videoStream
+    ([socketId, streams]) => {
+      const v = streams.videoStream;
+      const isPeerInVoice = usersInVoice.some((u) => u.socketId === socketId);
+      return isPeerInVoice && v && v.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled !== false);
+    }
   );
 
   // Attach local screen video stream
@@ -124,12 +128,15 @@ export const VoiceRoomArea = () => {
     }
   }, [localScreenStream]);
 
-  // Clear watchingPeerId only if that user has completely left the voice call
+  // Clear watchingPeerId if that user is no longer sharing screen or left voice
   useEffect(() => {
-    if (watchingPeerId && !usersInVoice.some((u) => u.socketId === watchingPeerId)) {
-      setWatchingPeerId(null);
+    if (watchingPeerId) {
+      const isStillSharing = activeRemoteScreenShares.some(([socketId]) => socketId === watchingPeerId);
+      if (!isStillSharing || !isConnectedToThisRoom) {
+        setWatchingPeerId(null);
+      }
     }
-  }, [watchingPeerId, usersInVoice]);
+  }, [watchingPeerId, activeRemoteScreenShares, isConnectedToThisRoom]);
 
   // Attach remote screen video stream
   useEffect(() => {

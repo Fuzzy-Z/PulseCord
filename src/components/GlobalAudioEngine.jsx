@@ -4,16 +4,15 @@ import { useVoice } from '../context/VoiceContext';
 
 const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice }) => {
   const audioRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const sourceNodeRef = useRef(null);
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !stream) return;
 
     if (audio.srcObject !== stream) {
-      audio.srcObject = stream;
-    } else if (stream) {
-      // Force update for dynamically added tracks
-      audio.srcObject = null;
       audio.srcObject = stream;
     }
 
@@ -21,10 +20,49 @@ const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice }) => {
       audio.setSinkId(outputDevice).catch(() => {});
     }
 
-    audio.volume = volume;
+    // Initialize Web Audio API GainNode for true hardware amplification beyond 100% (up to 200%)
+    try {
+      if (!audioContextRef.current) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const source = ctx.createMediaStreamSource(stream);
+          const gainNode = ctx.createGain();
+
+          source.connect(gainNode);
+          // Connect to destination
+          gainNode.connect(ctx.destination);
+
+          audioContextRef.current = ctx;
+          gainNodeRef.current = gainNode;
+          sourceNodeRef.current = source;
+
+          // Mute native HTML audio element to avoid double playback (Web Audio handles output)
+          audio.muted = true;
+        }
+      }
+
+      if (gainNodeRef.current) {
+        gainNodeRef.current.gain.value = Math.max(0, volume);
+      } else {
+        audio.volume = Math.max(0, Math.min(1, volume));
+      }
+    } catch (e) {
+      // Fallback to native audio element volume
+      audio.muted = false;
+      audio.volume = Math.max(0, Math.min(1, volume));
+    }
+
     audio.play().catch((err) => {
       console.warn(`[WebRTC Audio Play ${socketId}]`, err.message);
     });
+
+    return () => {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
+    };
   }, [stream, volume, outputDevice, socketId]);
 
   return <audio ref={audioRef} autoPlay playsInline />;
@@ -34,6 +72,7 @@ export const GlobalAudioEngine = () => {
   const {
     remoteStreams,
     musicPlayer,
+    localMusicVolume,
     isDeafened,
     userVolumes,
     usersInVoice,
@@ -43,8 +82,9 @@ export const GlobalAudioEngine = () => {
 
   const musicAudioRef = useRef(null);
   const hlsRef = useRef(null);
+  const lastLoadedUrlRef = useRef(null);
 
-  // 1. Music Bot Audio Engine (Supports HLS .m3u8 from SoundCloud, MP3, AAC, and radio streams)
+  // 1. Music Bot Audio Engine
   useEffect(() => {
     const audio = musicAudioRef.current;
     if (!audio) return;
@@ -55,7 +95,10 @@ export const GlobalAudioEngine = () => {
 
     const currentUrl = musicPlayer.currentTrack?.url;
     const shouldPlay = musicPlayer.isPlaying && !!currentUrl && !!activeVoiceChannel && !isDeafened;
-    const vol = isDeafened ? 0 : Math.max(0, Math.min(1, (musicPlayer.volume || 70) / 100));
+    
+    // Fix: Use localMusicVolume and ensure 0% is strictly 0.0 (not fallback to 70)
+    const effectiveVol = localMusicVolume !== undefined ? localMusicVolume : (musicPlayer.volume !== undefined ? musicPlayer.volume : 70);
+    const vol = isDeafened ? 0 : Math.max(0, Math.min(1, effectiveVol / 100));
 
     audio.volume = vol;
 
@@ -63,14 +106,19 @@ export const GlobalAudioEngine = () => {
       const isHls = currentUrl.includes('.m3u8') || currentUrl.includes('sndcdn.com/playlist');
 
       if (isHls && Hls.isSupported()) {
-        if (!hlsRef.current) {
+        if (!hlsRef.current || lastLoadedUrlRef.current !== currentUrl) {
+          if (hlsRef.current) hlsRef.current.destroy();
           hlsRef.current = new Hls({ enableWorker: true, lowLatencyMode: true });
           hlsRef.current.attachMedia(audio);
+          hlsRef.current.loadSource(currentUrl);
+          lastLoadedUrlRef.current = currentUrl;
+          hlsRef.current.on(Hls.Events.MANIFEST_PARSED, () => {
+            audio.play().catch((err) => console.warn('[MusicEngine] HLS play:', err.message));
+          });
+        } else {
+          // Just resume playing without destroying HLS instance
+          audio.play().catch((err) => console.warn('[MusicEngine] HLS resume:', err.message));
         }
-        hlsRef.current.loadSource(currentUrl);
-        hlsRef.current.on(Hls.Events.MANIFEST_PARSED, () => {
-          audio.play().catch((err) => console.warn('[MusicEngine] HLS play:', err.message));
-        });
       } else {
         if (hlsRef.current) {
           hlsRef.current.destroy();
@@ -78,24 +126,25 @@ export const GlobalAudioEngine = () => {
         }
         if (audio.src !== currentUrl) {
           audio.src = currentUrl;
+          lastLoadedUrlRef.current = currentUrl;
         }
         audio.play().catch((err) => console.warn('[MusicEngine] Audio play:', err.message));
       }
     } else {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
+      // Pause playback without destroying current stream so it resumes from same position
       audio.pause();
+      if (!currentUrl) {
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+        audio.src = '';
+        lastLoadedUrlRef.current = null;
+      }
     }
 
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
-  }, [musicPlayer.isPlaying, musicPlayer.currentTrack?.url, musicPlayer.volume, activeVoiceChannel, isDeafened, selectedOutputDevice]);
+    return () => {};
+  }, [musicPlayer.isPlaying, musicPlayer.currentTrack?.url, localMusicVolume, musicPlayer.volume, activeVoiceChannel, isDeafened, selectedOutputDevice]);
 
   return (
     <div id="pulsecord-global-audio-engine" style={{ display: 'none', position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}>
@@ -108,7 +157,8 @@ export const GlobalAudioEngine = () => {
 
         const peerUser = usersInVoice.find((u) => u.socketId === socketId);
         const userVol = peerUser && userVolumes[peerUser.id] !== undefined ? userVolumes[peerUser.id] : 100;
-        const finalVolume = isDeafened ? 0 : Math.max(0, Math.min(1, userVol / 100));
+        // Allows up to 2.0 (200% volume amplification)
+        const finalVolume = isDeafened ? 0 : Math.max(0, userVol / 100);
 
         return (
           <RemoteAudioPlayer
