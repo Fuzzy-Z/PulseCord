@@ -36,6 +36,8 @@ export class WebRTCManager {
     this.peers = new Map();
     // Map of peerSocketId -> Array of queued RTCIceCandidate
     this.iceCandidateQueues = new Map();
+    // Map of peerSocketId -> Screen Stream ID
+    this.peerScreenStreamIds = new Map();
     // Local streams
     this.localAudioStream = null;
     this.localScreenStream = null;
@@ -150,21 +152,34 @@ export class WebRTCManager {
 
     // Remote Track received (Ensures MediaStream exists even if single track)
     pc.ontrack = (event) => {
-      console.log(`[WebRTC] Received remote track (${event.track.kind}) from ${targetSocketId}`);
       let stream = event.streams && event.streams[0];
       if (!stream) {
         stream = new MediaStream([event.track]);
       }
 
-      // When a track (e.g. screen audio) is removed, trigger state update
+      let kind = event.track.kind;
+      if (kind === 'video') {
+        this.peerScreenStreamIds.set(targetSocketId, stream.id);
+      } else if (kind === 'audio') {
+        const isScreenAudio =
+          (stream.getVideoTracks && stream.getVideoTracks().length > 0) ||
+          (this.peerScreenStreamIds.get(targetSocketId) && stream.id === this.peerScreenStreamIds.get(targetSocketId));
+        if (isScreenAudio) {
+          kind = 'screenAudio';
+        }
+      }
+
+      console.log(`[WebRTC] Received remote track (${kind}) from ${targetSocketId}`);
+
+      // When a track is removed, trigger state update
       stream.onremovetrack = () => {
         if (this.onRemoteStream) {
-          this.onRemoteStream(targetSocketId, stream, event.track.kind);
+          this.onRemoteStream(targetSocketId, stream, kind);
         }
       };
 
       if (this.onRemoteStream && stream) {
-        this.onRemoteStream(targetSocketId, stream, event.track.kind);
+        this.onRemoteStream(targetSocketId, stream, kind);
       }
     };
 

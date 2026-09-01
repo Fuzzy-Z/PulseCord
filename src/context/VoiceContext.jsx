@@ -260,11 +260,13 @@ export const VoiceProvider = ({ children }) => {
       onRemoteStream: (peerSocketId, stream, kind) => {
         setRemoteStreams((prev) => {
           const current = prev[peerSocketId] || {};
-          // Clone the stream so React detects the change when new tracks are dynamically added
           const clonedStream = new MediaStream(stream.getTracks());
           if (kind === 'video') {
             return { ...prev, [peerSocketId]: { ...current, videoStream: clonedStream } };
+          } else if (kind === 'screenAudio') {
+            return { ...prev, [peerSocketId]: { ...current, screenAudioStream: clonedStream } };
           } else {
+            // Pure microphone audio stream - NEVER overwritten by screen share!
             return { ...prev, [peerSocketId]: { ...current, audioStream: clonedStream } };
           }
         });

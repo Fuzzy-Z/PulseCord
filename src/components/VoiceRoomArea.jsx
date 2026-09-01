@@ -138,10 +138,15 @@ export const VoiceRoomArea = () => {
     }
   }, [watchingPeerId, activeRemoteScreenShares, isConnectedToThisRoom]);
 
-  // Attach remote screen video stream
+  // Attach remote screen video stream (Combines screen video + screen audio)
   useEffect(() => {
     if (remoteVideoRef.current && watchingPeerId && remoteStreams[watchingPeerId]?.videoStream) {
-      remoteVideoRef.current.srcObject = remoteStreams[watchingPeerId].videoStream;
+      const vTracks = remoteStreams[watchingPeerId].videoStream.getVideoTracks();
+      const aTracks = remoteStreams[watchingPeerId].screenAudioStream
+        ? remoteStreams[watchingPeerId].screenAudioStream.getAudioTracks()
+        : remoteStreams[watchingPeerId].videoStream.getAudioTracks();
+      const combined = new MediaStream([...vTracks, ...aTracks]);
+      remoteVideoRef.current.srcObject = combined;
       remoteVideoRef.current.volume = screenVolume;
     }
   }, [watchingPeerId, remoteStreams, screenVolume]);
