@@ -38,6 +38,14 @@ export default {
       },
       fontFamily: {
         gg: ['"gg sans"', '"Noto Sans"', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
+      },
+      boxShadow: {
+        'sm': '0 2px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.02) inset',
+        'md': '0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.03) inset',
+        'lg': '0 10px 24px -4px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.04) inset',
+        'xl': '0 20px 40px -8px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset',
+        '2xl': '0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06) inset',
+        'inner': 'inset 0 2px 8px 0 rgba(0,0,0,0.25)',
       }
     },
   },

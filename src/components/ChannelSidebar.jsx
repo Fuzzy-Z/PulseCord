@@ -47,7 +47,8 @@ export const ChannelSidebar = () => {
     toggleMute,
     toggleDeafen,
     isScreenSharing,
-    musicPlayer
+    musicPlayer,
+    watchTogetherState
   } = useVoice();
 
   const [isServerMenuOpen, setIsServerMenuOpen] = useState(false);
@@ -248,31 +249,53 @@ export const ChannelSidebar = () => {
                         return (
                           <div
                             key={u.id}
-                            className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-sys-s2 text-xs text-sys-text transition"
+                            className="flex flex-col py-1 px-1.5 rounded-lg hover:bg-sys-s2 transition"
                           >
-                            <div className="flex items-center space-x-2 truncate">
-                              <div
-                                className={`w-5 h-5 rounded-full bg-sys-s3 text-sys-text flex items-center justify-center text-[9px] font-bold border transition-all ${
-                                  isSpeakingUser
-                                    ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] scale-105'
-                                    : 'border-transparent'
-                                }`}
-                              >
-                                {initials}
+                            <div className="flex items-center justify-between text-xs text-sys-text">
+                              <div className="flex items-center space-x-2 truncate">
+                                {u.avatarUrl ? (
+                                  <img
+                                    src={u.avatarUrl}
+                                    alt={u.username}
+                                    className={`w-5 h-5 rounded-full object-cover border transition-all ${
+                                      isSpeakingUser
+                                        ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] scale-105'
+                                        : 'border-transparent'
+                                    }`}
+                                  />
+                                ) : (
+                                  <div
+                                    className={`w-5 h-5 rounded-full bg-gradient-to-tr ${u.avatarColor || 'from-indigo-500 to-purple-600'} text-white flex items-center justify-center text-[9px] font-bold border transition-all ${
+                                      isSpeakingUser
+                                        ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] scale-105'
+                                        : 'border-transparent'
+                                    }`}
+                                  >
+                                    {initials}
+                                  </div>
+                                )}
+                                <span className="truncate font-medium text-[11px]">{u.displayName || u.username}</span>
                               </div>
-                              <span className="truncate font-medium text-[11px]">{u.username}</span>
-                            </div>
 
-                            {/* User status badges */}
-                            <div className="flex items-center space-x-1 flex-shrink-0">
-                              {u.isScreenSharing && (
-                                <span className="px-1.5 py-0.2 bg-sys-accent text-[8px] font-bold text-white rounded-full">
-                                  LIVE
-                                </span>
-                              )}
-                              {u.isMuted && <MicOff className="w-3 h-3 text-red-400" />}
-                              {u.isDeafened && <Headphones className="w-3 h-3 text-red-400" />}
+                              {/* User status badges */}
+                              <div className="flex items-center space-x-1 flex-shrink-0">
+                                {u.isScreenSharing && (
+                                  <span className="px-1.5 py-0.2 bg-sys-accent text-[8px] font-bold text-white rounded-full">
+                                    LIVE
+                                  </span>
+                                )}
+                                {u.isMuted && <MicOff className="w-3 h-3 text-red-400" />}
+                                {u.isDeafened && <Headphones className="w-3 h-3 text-red-400" />}
+                              </div>
                             </div>
+                            {/* Activity Indicator */}
+                            {watchTogetherState?.isActive && watchTogetherState?.participants?.includes(u.id) && (
+                              <div className="flex items-center mt-0.5 ml-7">
+                                <span className="text-[9px] font-semibold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded-sm truncate">
+                                  Assistindo YouTube
+                                </span>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -342,17 +365,27 @@ export const ChannelSidebar = () => {
           onClick={() => setIsUserSettingsOpen(true)}
           className="flex items-center space-x-2.5 p-1 rounded-xl hover:bg-sys-s3 cursor-pointer truncate mr-1 transition group"
         >
-          <div className="relative">
-            <div className="w-8 h-8 rounded-full bg-sys-accent flex items-center justify-center text-white font-bold text-xs shadow-sm">
-              {(currentUser?.username || 'User').substring(0, 2).toUpperCase()}
-            </div>
+          <div className="relative flex-shrink-0">
+            {currentUser?.avatarUrl ? (
+              <img 
+                src={currentUser.avatarUrl} 
+                alt="Avatar" 
+                className="w-8 h-8 rounded-full object-cover shadow-sm border border-white/10" 
+              />
+            ) : (
+              <div className={`w-8 h-8 rounded-full bg-gradient-to-tr ${currentUser?.avatarColor || 'from-indigo-500 to-purple-600'} flex items-center justify-center text-white font-bold text-xs shadow-sm`}>
+                {(currentUser?.avatar || currentUser?.displayName || currentUser?.username || 'U').substring(0, 2).toUpperCase()}
+              </div>
+            )}
             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-sys-s2" />
           </div>
           <div className="flex flex-col truncate">
             <span className="text-xs font-semibold text-sys-text truncate group-hover:text-sys-accent">
-              {currentUser?.username || 'Usuário'}
+              {currentUser?.displayName || currentUser?.username || 'Usuário'}
             </span>
-            <span className="text-[10px] text-sys-muted leading-none">Online</span>
+            <span className="text-[10px] text-sys-muted leading-none truncate">
+              {currentUser?.customStatus?.text ? `${currentUser.customStatus.emoji || ''} ${currentUser.customStatus.text}` : 'Online'}
+            </span>
           </div>
         </div>
 

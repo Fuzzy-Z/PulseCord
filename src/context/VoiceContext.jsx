@@ -21,9 +21,12 @@ export const VoiceProvider = ({ children }) => {
   // Watch Together & Listen Together
   const [watchTogetherState, setWatchTogetherState] = useState({
     isActive: false,
-    videoUrl: '',
+    url: '',
     isPlaying: false,
-    currentTime: 0
+    currentTime: 0,
+    queue: [],
+    participants: [],
+    hostId: null
   });
   const [listenTogetherPeer, setListenTogetherPeer] = useState(null);
 
@@ -338,6 +341,12 @@ export const VoiceProvider = ({ children }) => {
       }
     });
 
+    socket.on('watch-together-state-update', ({ channelId, state }) => {
+      if (channelId === activeVoiceChannelRef.current) {
+        setWatchTogetherState((prev) => ({ ...prev, ...state }));
+      }
+    });
+
     return () => {
       if (manager) {
         manager.closeAll();
@@ -350,6 +359,7 @@ export const VoiceProvider = ({ children }) => {
       socket.off('user-speaking');
       socket.off('user-voice-status-updated');
       socket.off('music-state-update');
+      socket.off('watch-together-state-update');
     };
   }, [socket]);
 
@@ -436,6 +446,9 @@ export const VoiceProvider = ({ children }) => {
           if (response.musicPlayer) {
             setMusicPlayer(response.musicPlayer);
           }
+          if (response.watchTogether) {
+            setWatchTogetherState(response.watchTogether);
+          }
 
           if (response.usersInRoom && webrtcManagerRef.current) {
             response.usersInRoom.forEach((peerUser) => {
@@ -452,6 +465,9 @@ export const VoiceProvider = ({ children }) => {
           setActiveVoiceChannel(channelId);
           setActiveServerId(serverId);
           setUsersInVoice(response.usersInRoom || []);
+          if (response.watchTogether) {
+            setWatchTogetherState(response.watchTogether);
+          }
         }
       });
     }
@@ -581,6 +597,7 @@ export const VoiceProvider = ({ children }) => {
 
       setLocalScreenStream(stream);
       setIsScreenSharing(true);
+      soundFX.play('screen-on');
 
       if (webrtcManagerRef.current) {
         webrtcManagerRef.current.setLocalScreenStream(stream);
@@ -604,6 +621,7 @@ export const VoiceProvider = ({ children }) => {
       setLocalScreenStream(null);
     }
     setIsScreenSharing(false);
+    soundFX.play('screen-off');
 
     if (webrtcManagerRef.current) {
       webrtcManagerRef.current.setLocalScreenStream(null);
@@ -625,10 +643,9 @@ export const VoiceProvider = ({ children }) => {
     });
   };
 
-  const syncWatchTogether = (state) => {
+  const dispatchWatchTogether = (action, payload = {}) => {
     if (!socket || !activeVoiceChannel) return;
-    setWatchTogetherState(prev => ({ ...prev, ...state }));
-    socket.emit('watch-together-sync', { channelId: activeVoiceChannel, state });
+    socket.emit('watch-together-action', { channelId: activeVoiceChannel, action, payload });
   };
 
   return (
@@ -672,7 +689,7 @@ export const VoiceProvider = ({ children }) => {
         sendMusicControl,
         watchTogetherState,
         setWatchTogetherState,
-        syncWatchTogether,
+        dispatchWatchTogether,
         listenTogetherPeer,
         setListenTogetherPeer
       }}

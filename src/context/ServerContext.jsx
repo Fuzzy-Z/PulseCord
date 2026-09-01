@@ -112,6 +112,16 @@ export const ServerProvider = ({ children }) => {
       });
     });
 
+    socket.on('user-profile-updated', ({ user }) => {
+      setOnlineMembers((prev) => {
+        const filtered = prev.filter((m) => m.id !== user.id);
+        if (user.status !== 'offline') {
+          return [...filtered, user];
+        }
+        return filtered;
+      });
+    });
+
     return () => {
       socket.off('server-created');
       socket.off('channel-created');
@@ -120,6 +130,7 @@ export const ServerProvider = ({ children }) => {
       socket.off('attachments-pruned');
       socket.off('voice-rooms-updated');
       socket.off('user-status-changed');
+      socket.off('user-profile-updated');
     };
   }, [socket, currentServerId, currentChannelId]);
 

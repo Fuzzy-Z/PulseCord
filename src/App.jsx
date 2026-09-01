@@ -48,12 +48,15 @@ const MainLayout = () => {
 };
 
 const AppContent = () => {
-  const { isAuthenticated, authLoading } = useSocket();
+  const { isAuthenticated, authLoading, currentUser } = useSocket();
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('pulsecord-theme') || 'theme-grafite';
+    let savedTheme = localStorage.getItem('pulsecord-theme') || 'theme-grafite';
+    if (currentUser?.appTheme) {
+      savedTheme = `theme-${currentUser.appTheme}`;
+    }
     document.body.className = savedTheme;
-  }, []);
+  }, [currentUser?.appTheme]);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-sys-base text-sys-text overflow-hidden relative font-sans">

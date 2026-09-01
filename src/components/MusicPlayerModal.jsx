@@ -14,11 +14,17 @@ import {
 } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
+import { useSocket } from '../context/SocketContext';
 
 export const MusicPlayerModal = () => {
   const { isMusicModalOpen, setIsMusicModalOpen } = useServer();
   const { musicPlayer, sendMusicControl, activeVoiceChannel } = useVoice();
+  const { socket } = useSocket();
+  
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   if (!isMusicModalOpen) return null;
 
@@ -63,8 +69,32 @@ export const MusicPlayerModal = () => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    sendMusicControl('play', searchQuery.trim());
+
+    if (searchQuery.includes('http://') || searchQuery.includes('https://')) {
+      sendMusicControl('play', searchQuery.trim());
+      setSearchQuery('');
+      setShowDropdown(false);
+      return;
+    }
+
+    if (!socket) return;
+    setIsSearching(true);
+    setShowDropdown(true);
+
+    socket.emit('music-search', { query: searchQuery.trim() }, (response) => {
+      setIsSearching(false);
+      if (response && response.success) {
+        setSearchResults(response.results);
+      } else {
+        setSearchResults([]);
+      }
+    });
+  };
+
+  const handlePlayResult = (url) => {
+    sendMusicControl('play', url);
     setSearchQuery('');
+    setShowDropdown(false);
   };
 
   const handlePlayPreset = (presetId) => {
@@ -100,26 +130,69 @@ export const MusicPlayerModal = () => {
         {/* Modal Body */}
         <div className="p-6 flex-1 overflow-y-auto space-y-6 thin-scrollbar">
           {/* Search / URL Input */}
-          <div className="space-y-2">
+          <div className="space-y-2 relative">
             <form onSubmit={handleSearchSubmit} className="flex space-x-2.5">
               <div className="flex-1 bg-sys-s1 border border-sys-border text-sys-text rounded-2xl flex items-center px-4">
                 <Search className="w-4 h-4 text-sys-muted mr-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (showDropdown) setShowDropdown(false);
+                  }}
                   placeholder="Cole links do YouTube, Spotify, SoundCloud ou busque qualquer música..."
                   className="w-full bg-transparent py-3 text-sys-text text-xs focus:outline-none placeholder-sys-muted/50"
                 />
               </div>
               <button
                 type="submit"
-                disabled={!searchQuery.trim()}
-                className="px-6 py-3 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-bold rounded-2xl text-xs transition shadow-lg btn-interactive"
+                disabled={!searchQuery.trim() || isSearching}
+                className="px-6 py-3 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-bold rounded-2xl text-xs transition shadow-lg btn-interactive flex items-center"
               >
-                Tocar
+                {isSearching ? <span className="animate-pulse">Buscando...</span> : 'Buscar'}
               </button>
             </form>
+
+            {/* Dropdown Menu */}
+            {showDropdown && (
+              <div className="absolute top-full mt-2 w-full bg-sys-s2 border border-sys-border rounded-2xl shadow-2xl z-50 overflow-hidden max-h-80 overflow-y-auto">
+                {isSearching ? (
+                  <div className="p-8 flex flex-col items-center justify-center text-sys-muted">
+                    <Disc3 className="w-8 h-8 animate-spin mb-3 text-amber-400/50" />
+                    <p className="text-sm font-semibold tracking-wide text-amber-400/80">Procurando músicas...</p>
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <ul className="divide-y divide-sys-border">
+                    {searchResults.map((track) => (
+                      <li key={track.id}>
+                        <button
+                          onClick={() => handlePlayResult(`${track.title} ${track.artist}`)}
+                          className="w-full text-left p-4 flex items-center space-x-4 hover:bg-sys-s1 transition btn-interactive"
+                        >
+                          <img
+                            src={track.cover}
+                            alt="Cover"
+                            className="w-12 h-12 rounded-xl object-cover shadow-sm bg-black"
+                          />
+                          <div className="flex-1 truncate">
+                            <h4 className="text-sm font-bold text-sys-text truncate">{track.title}</h4>
+                            <p className="text-xs text-sys-muted truncate mt-0.5">{track.artist}</p>
+                          </div>
+                          <div className="bg-amber-400/20 text-amber-300 px-3 py-1 rounded-lg text-[10px] font-bold">
+                            Tocar
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="p-8 text-center text-sys-muted">
+                    <p className="text-sm">Nenhum resultado encontrado para "{searchQuery}".</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center space-x-2 px-1 text-[11px] text-sys-muted">
               <span className="text-sys-muted/50">Suporte integrado:</span>
@@ -155,28 +228,47 @@ export const MusicPlayerModal = () => {
                   {musicPlayer.currentTrack.artist}
                 </p>
 
-                {/* Controls */}
-                <div className="flex items-center justify-center md:justify-start space-x-2.5 mt-3.5">
-                  <button
-                    onClick={() => sendMusicControl(musicPlayer.isPlaying ? 'pause' : 'resume')}
-                    className="p-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-bold transition shadow-lg btn-interactive"
-                  >
-                    {musicPlayer.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-                  </button>
-                  <button
-                    onClick={() => sendMusicControl('skip')}
-                    className="p-2.5 rounded-2xl glass-pill text-sys-muted hover:text-sys-text transition btn-interactive"
-                    title="Pular"
-                  >
-                    <SkipForward className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => sendMusicControl('stop')}
-                    className="p-2.5 rounded-2xl glass-pill hover:bg-rose-500/30 text-sys-muted hover:text-rose-400 transition btn-interactive"
-                    title="Parar"
-                  >
-                    <Square className="w-4 h-4" />
-                  </button>
+                {/* Controls & Volume */}
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3.5">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => sendMusicControl(musicPlayer.isPlaying ? 'pause' : 'resume')}
+                      className="p-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-bold transition shadow-lg btn-interactive"
+                    >
+                      {musicPlayer.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+                    </button>
+                    <button
+                      onClick={() => sendMusicControl('skip')}
+                      className="p-2.5 rounded-2xl glass-pill text-sys-muted hover:text-sys-text transition btn-interactive"
+                      title="Pular"
+                    >
+                      <SkipForward className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => sendMusicControl('stop')}
+                      className="p-2.5 rounded-2xl glass-pill hover:bg-rose-500/30 text-sys-muted hover:text-rose-400 transition btn-interactive"
+                      title="Parar"
+                    >
+                      <Square className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Volume Slider */}
+                  <div className="flex items-center space-x-2 bg-sys-s2 px-3 py-1.5 rounded-2xl border border-sys-border">
+                    <Volume2 className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={musicPlayer.volume ?? 70}
+                      onChange={(e) => sendMusicControl('volume', '', Number(e.target.value))}
+                      className="w-20 md:w-28 accent-amber-400 h-1.5 bg-sys-s1 rounded-lg cursor-pointer"
+                      title="Volume do Rádio"
+                    />
+                    <span className="text-[10px] font-bold text-sys-muted min-w-[28px] text-right">
+                      {musicPlayer.volume ?? 70}%
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

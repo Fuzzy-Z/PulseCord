@@ -58,7 +58,7 @@ export const AuthScreen = () => {
     .toUpperCase();
 
   return (
-    <div className="fixed inset-0 bg-[#090a0f] text-slate-100 flex items-center justify-center p-6 select-none relative overflow-hidden font-sans z-50">
+    <div className="flex flex-1 items-center justify-center p-6 select-none overflow-hidden font-sans z-50 w-full h-full">
       {/* Liquid Glass Background Orbs */}
       <div className="liquid-ambient-glow">
         <div className="liquid-orb-1" />

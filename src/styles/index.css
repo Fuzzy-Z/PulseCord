@@ -9,6 +9,7 @@
 
   body {
     background-color: var(--color-bg-base);
+    background-image: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 70%);
     color: var(--color-text-main);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -60,6 +61,11 @@
 /* ==========================================================================
    Clean UI Utilities
    ========================================================================== */
+
+/* Realistic Depth / Soft Bevels for all panels */
+.bg-sys-s1, .bg-sys-s2, .bg-sys-s3 {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
 
 .btn-interactive {
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
@@ -342,4 +348,28 @@
   --color-text-main: #18181B;
   --color-text-muted: #71717A;
   --color-border: #A1A1AA;
+}
+
+.theme-quartz-skin {
+  --color-bg-base: #E6C3B3;
+  --color-bg-surface-1: #EED0C2;
+  --color-bg-surface-2: #F5DCD0;
+  --color-bg-surface-3: #FAECE5;
+  --color-accent: #C19A8B;
+  --color-accent-hover: #A88273;
+  --color-text-main: #2E1C15;
+  --color-text-muted: #7D5D51;
+  --color-border: #D4B3A3;
+}
+
+.theme-petal-mist {
+  --color-bg-base: #FFF1F2;
+  --color-bg-surface-1: #FDE2E4;
+  --color-bg-surface-2: #F7CAC9;
+  --color-bg-surface-3: #F3B8B7;
+  --color-accent: #D9777F;
+  --color-accent-hover: #C96870;
+  --color-text-main: #381E24;
+  --color-text-muted: #855860;
+  --color-border: #F0C4C7;
 }

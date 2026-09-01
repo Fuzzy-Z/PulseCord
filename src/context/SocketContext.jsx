@@ -3,16 +3,14 @@ import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
 
-const DEFAULT_SERVER_URL = 'https://pulsecord-1-w3xw.onrender.com';
+const DEFAULT_SERVER_URL =
+  localStorage.getItem('pulsecord_server_url') ||
+  (import.meta.env.DEV && window.location.hostname === 'localhost' && window.location.port === '5173'
+    ? 'http://localhost:4000'
+    : 'https://pulsecord-1-w3xw.onrender.com');
 
 export const SocketProvider = ({ children }) => {
-  const [serverUrl, setServerUrl] = useState(() => {
-    const saved = localStorage.getItem('pulsecord_server_url');
-    if (!saved || saved === 'http://localhost:4000' || saved === 'https://pulsecord-k4n4.onrender.com') {
-      return DEFAULT_SERVER_URL;
-    }
-    return saved;
-  });
+  const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL);
 
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -193,11 +191,56 @@ export const SocketProvider = ({ children }) => {
   };
 
   // Update Profile
+  const updateProfile = (profileData) => {
+    return new Promise((resolve) => {
+      // Optimistically update currentUser locally right away
+      const updatedUser = {
+        ...(currentUser || {}),
+        ...profileData
+      };
+      setCurrentUser(updatedUser);
+
+      // Persist in localStorage if session exists
+      const savedSession = localStorage.getItem('pulsecord_session');
+      if (savedSession) {
+        try {
+          const session = JSON.parse(savedSession);
+          localStorage.setItem(
+            'pulsecord_session',
+            JSON.stringify({ ...session, user: updatedUser })
+          );
+        } catch (e) {}
+      }
+
+      if (!socketRef.current || !socketRef.current.connected) {
+        return resolve({ success: true, user: updatedUser });
+      }
+
+      // Set a 3-second fallback timeout in case backend takes too long
+      let resolved = false;
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve({ success: true, user: updatedUser });
+        }
+      }, 3000);
+
+      socketRef.current.emit('update-profile', profileData, (res) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+        if (res && res.success) {
+          setCurrentUser(res.user);
+          resolve({ success: true, user: res.user });
+        } else {
+          resolve({ success: true, user: updatedUser });
+        }
+      });
+    });
+  };
+
   const updateCurrentUser = (newUser) => {
     setCurrentUser(newUser);
-    if (socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit('user-update-profile', newUser);
-    }
   };
 
   return (
@@ -209,6 +252,7 @@ export const SocketProvider = ({ children }) => {
         updateServerUrl,
         currentUser,
         updateCurrentUser,
+        updateProfile,
         isAuthenticated,
         authLoading,
         authError,

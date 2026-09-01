@@ -13,9 +13,10 @@ import {
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
 import { useSocket } from '../context/SocketContext';
+import { UserProfileCard } from './UserProfileCard';
 
 export const ChatArea = () => {
-  const { currentChannel, currentServer, messages, sendMessage, setIsMusicModalOpen } = useServer();
+  const { currentChannel, currentServer, messages, sendMessage, setIsMusicModalOpen, onlineMembers } = useServer();
   const { sendMusicControl, activeVoiceChannel } = useVoice();
   const { currentUser } = useSocket();
 
@@ -23,6 +24,7 @@ export const ChatArea = () => {
   const [attachments, setAttachments] = useState([]);
   const [showSlashHints, setShowSlashHints] = useState(false);
   const [showMemberList, setShowMemberList] = useState(true);
+  const [selectedUserForCard, setSelectedUserForCard] = useState(null);
   
   const [compactMode, setCompactMode] = useState(() => {
     return localStorage.getItem('pulsecord_compact_mode') === 'true';
@@ -195,8 +197,18 @@ export const ChatArea = () => {
                 >
                   {/* Avatar */}
                   {!compactMode && (
-                    <div className="w-9 h-9 rounded-xl bg-sys-accent flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 border border-sys-border">
-                      {monogram}
+                    <div className="flex-shrink-0 mt-0.5">
+                      {msg.author.avatarUrl ? (
+                        <img 
+                          src={msg.author.avatarUrl} 
+                          alt={msg.author.username} 
+                          className="w-9 h-9 rounded-xl object-cover border border-sys-border shadow-sm" 
+                        />
+                      ) : (
+                        <div className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${msg.author.avatarColor || 'from-indigo-500 to-purple-600'} flex items-center justify-center text-xs font-bold text-white border border-sys-border shadow-sm`}>
+                          {monogram}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -379,57 +391,155 @@ export const ChatArea = () => {
 
         {/* Server Members List Sidebar */}
         {showMemberList && (
-          <div className="w-56 bg-sys-s1 p-3 overflow-y-auto hidden lg:block select-none border-l border-sys-border">
-            <div className="text-[10px] font-semibold text-sys-muted uppercase tracking-wider mb-2 px-1">
-              Membros
+          <div className="w-56 bg-sys-s1 p-3 overflow-y-auto hidden lg:block select-none border-l border-sys-border thin-scrollbar">
+            <div className="text-[10px] font-semibold text-sys-muted uppercase tracking-wider mb-2 px-1 flex items-center justify-between">
+              <span>Membros</span>
+              <span className="text-[9px] bg-sys-s2 px-1.5 py-0.5 rounded-full text-sys-muted font-bold">
+                {(() => {
+                  const uniqueIds = new Set();
+                  if (currentUser) uniqueIds.add(currentUser.id);
+                  (currentServer.members || []).forEach(m => uniqueIds.add(m.id));
+                  return uniqueIds.size;
+                })()}
+              </span>
             </div>
 
             {currentServer.roles?.map((role) => {
               const cleanRoleName = (role.name || '').replace(/[\uD800-\uDFFF].*/g, '').trim();
 
+              // Collect members for this role
+              const allMembersList = [...(currentServer.members || [])];
+              if (currentUser && !allMembersList.some(m => m.id === currentUser.id)) {
+                allMembersList.push(currentUser);
+              }
+
+              const membersInRole = allMembersList.filter((m) => {
+                const userRoleId = m.roleId || 'role-member';
+                if (role.id === 'role-member' || role.id === 'role-everyone') {
+                  return userRoleId === role.id || userRoleId === 'role-member' || userRoleId === 'role-everyone' || !userRoleId;
+                }
+                return userRoleId === role.id;
+              });
+
+              // Deduplicate members by id
+              const uniqueMembers = [];
+              const seen = new Set();
+              for (const m of membersInRole) {
+                if (!seen.has(m.id)) {
+                  seen.add(m.id);
+                  uniqueMembers.push(m);
+                }
+              }
+
+              // Sort: Online first, then offline, then alphabetical
+              uniqueMembers.sort((a, b) => {
+                const aOnline = onlineMembers.some(om => om.id === a.id) || (currentUser && currentUser.id === a.id) || a.status === 'online';
+                const bOnline = onlineMembers.some(om => om.id === b.id) || (currentUser && currentUser.id === b.id) || b.status === 'online';
+                if (aOnline && !bOnline) return -1;
+                if (!aOnline && bOnline) return 1;
+                return (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '');
+              });
+
+              const isVipWithBot = role.id === 'role-vip';
+              const totalCount = uniqueMembers.length + (isVipWithBot ? 1 : 0);
+
+              if (totalCount === 0) return null;
+
               return (
-                <div key={role.id} className="mb-3">
+                <div key={role.id} className="mb-4">
                   <div
-                    className="text-[10px] font-bold uppercase tracking-wider mb-1 px-1 flex items-center space-x-1"
+                    className="text-[10px] font-bold uppercase tracking-wider mb-1.5 px-1 flex items-center justify-between"
                     style={{ color: role.color }}
                   >
                     <span>{cleanRoleName || role.name}</span>
+                    <span className="text-[9px] opacity-70">({totalCount})</span>
                   </div>
 
                   <div className="space-y-1">
-                    {/* Current User in this role */}
-                    {currentUser?.roleId === role.id && (
-                      <div className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-sys-s2 cursor-pointer">
-                        <div className="relative">
-                          <div className="w-7 h-7 rounded-lg bg-sys-accent text-white flex items-center justify-center text-[10px] font-bold">
-                            {getMonogram(currentUser.username)}
-                          </div>
-                          {/* Keeping the active green dot just for presence, as discussed in the plan */}
-                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border-2 border-sys-s1" />
-                        </div>
-                        <div className="flex flex-col truncate">
-                          <span className="text-xs font-semibold text-sys-text truncate">
-                            {currentUser.username}
-                          </span>
-                          <span className="text-[9px] text-sys-muted">Você</span>
-                        </div>
-                      </div>
-                    )}
+                    {uniqueMembers.map((member) => {
+                      const isMe = currentUser?.id === member.id;
+                      const liveData = onlineMembers.find(om => om.id === member.id) || (isMe ? currentUser : null) || member;
+                      const isOnline = onlineMembers.some(om => om.id === member.id) || isMe || liveData.status === 'online';
+                      const displayName = liveData.displayName || liveData.username || 'Usuário';
 
-                    {role.id === 'role-vip' && (
-                      <div className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-sys-s2 cursor-pointer">
-                        <div className="relative">
-                          <div className="w-7 h-7 rounded-lg bg-sys-s3 text-sys-accent flex items-center justify-center text-xs">
+                      return (
+                        <div
+                          key={member.id}
+                          onClick={() => setSelectedUserForCard(liveData)}
+                          className={`flex items-center space-x-2.5 p-1.5 rounded-xl hover:bg-sys-s2 cursor-pointer transition group ${
+                            !isOnline ? 'opacity-50 hover:opacity-100' : ''
+                          }`}
+                        >
+                          <div className="relative flex-shrink-0">
+                            {liveData.avatarUrl ? (
+                              <img
+                                src={liveData.avatarUrl}
+                                alt={displayName}
+                                className="w-7 h-7 rounded-full object-cover border border-white/10"
+                              />
+                            ) : (
+                              <div
+                                className={`w-7 h-7 rounded-lg bg-gradient-to-tr ${
+                                  liveData.avatarColor || 'from-indigo-500 to-purple-600'
+                                } text-white flex items-center justify-center text-[10px] font-bold`}
+                              >
+                                {getMonogram(displayName)}
+                              </div>
+                            )}
+                            <div
+                              className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-sys-s1 ${
+                                isOnline ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-zinc-600'
+                              }`}
+                            />
+                          </div>
+
+                          <div className="flex flex-col truncate flex-1 min-w-0">
+                            <div className="flex items-center space-x-1">
+                              <span
+                                className="text-xs font-semibold truncate group-hover:text-white transition"
+                                style={{ color: role.color }}
+                              >
+                                {displayName}
+                              </span>
+                              {isMe && (
+                                <span className="bg-sys-s3 border border-sys-border text-sys-muted text-[8px] font-bold px-1 py-0.2 rounded">
+                                  Você
+                                </span>
+                              )}
+                            </div>
+                            {liveData.customStatus?.text ? (
+                              <span className="text-[9px] text-sys-muted truncate">
+                                {liveData.customStatus.emoji ? `${liveData.customStatus.emoji} ` : ''}
+                                {liveData.customStatus.text}
+                              </span>
+                            ) : liveData.gameStatus ? (
+                              <span className="text-[9px] text-emerald-400/80 truncate">
+                                Jogando {liveData.gameStatus}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-sys-muted/60 truncate">
+                                {isOnline ? 'Online' : 'Offline'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {isVipWithBot && (
+                      <div className="flex items-center space-x-2.5 p-1.5 rounded-xl hover:bg-sys-s2 cursor-pointer transition">
+                        <div className="relative flex-shrink-0">
+                          <div className="w-7 h-7 rounded-lg bg-sys-s3 text-amber-300 border border-amber-400/30 flex items-center justify-center text-xs">
                             <Disc3 className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} />
                           </div>
-                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border-2 border-sys-s1" />
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-sys-s1 shadow-sm shadow-emerald-500/50" />
                         </div>
                         <div className="flex flex-col truncate">
                           <div className="flex items-center space-x-1">
-                            <span className="text-xs font-semibold text-sys-text">
+                            <span className="text-xs font-semibold text-amber-300">
                               PulseRadio
                             </span>
-                            <span className="bg-sys-accent text-white text-[7px] font-bold px-1 rounded-full">
+                            <span className="bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[7px] font-bold px-1 rounded-full">
                               BOT
                             </span>
                           </div>
@@ -444,6 +554,13 @@ export const ChatArea = () => {
           </div>
         )}
       </div>
+
+      {selectedUserForCard && (
+        <UserProfileCard
+          user={selectedUserForCard}
+          onClose={() => setSelectedUserForCard(null)}
+        />
+      )}
     </div>
   );
 };

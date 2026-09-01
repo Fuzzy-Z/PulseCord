@@ -3,10 +3,12 @@ import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut
 import { useSocket } from '../context/SocketContext';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
+import { UserProfileCard } from './UserProfileCard';
+import Swal from 'sweetalert2';
 
 export const UserSettingsModal = () => {
   const { isUserSettingsOpen, setIsUserSettingsOpen } = useServer();
-  const { currentUser, updateCurrentUser, serverUrl, updateServerUrl, logout } = useSocket();
+  const { currentUser, updateCurrentUser, updateProfile, serverUrl, updateServerUrl, logout } = useSocket();
   const {
     krispEnabled,
     setKrispEnabled,
@@ -26,7 +28,17 @@ export const UserSettingsModal = () => {
   } = useVoice();
 
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'voice' | 'connection'
+  const [showPreview, setShowPreview] = useState(false);
   const [username, setUsername] = useState(currentUser?.username || '');
+  const [displayName, setDisplayName] = useState(currentUser?.displayName || currentUser?.username || '');
+  const [bio, setBio] = useState(currentUser?.bio || '');
+  const [pronouns, setPronouns] = useState(currentUser?.pronouns || '');
+  const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || '');
+  const [bannerUrl, setBannerUrl] = useState(currentUser?.bannerUrl || '');
+  const [customStatusText, setCustomStatusText] = useState(currentUser?.customStatus?.text || '');
+  const [customStatusEmoji, setCustomStatusEmoji] = useState(currentUser?.customStatus?.emoji || '');
+  const [gameStatus, setGameStatus] = useState(currentUser?.gameStatus || '');
+
   const [avatarInitials, setAvatarInitials] = useState(
     (currentUser?.avatar && currentUser.avatar.length <= 2 && !/[\uD800-\uDFFF]/.test(currentUser.avatar))
       ? currentUser.avatar
@@ -39,14 +51,12 @@ export const UserSettingsModal = () => {
   const [playingSoundTest, setPlayingSoundTest] = useState(false);
 
   const [compactMode, setCompactMode] = useState(() => {
+    if (currentUser?.compactMode !== undefined) return currentUser.compactMode;
     return localStorage.getItem('pulsecord_compact_mode') === 'true';
   });
 
-  const [isNitroActive, setIsNitroActive] = useState(() => {
-    return currentUser?.isNitro || false;
-  });
-  
   const [clipSettings, setClipSettings] = useState(() => {
+    if (currentUser?.clipSettings) return currentUser.clipSettings;
     try {
       return JSON.parse(localStorage.getItem('pulsecord_clip_settings')) || {
         keybind: 'Alt+C',
@@ -87,9 +97,12 @@ export const UserSettingsModal = () => {
     { id: 'dourado', name: 'Dourado', color: '#1A170A', accent: '#BDA646' },
     { id: 'ardosia', name: 'Ardósia', color: '#101317', accent: '#728399' },
     { id: 'marfim', name: 'Marfim', color: '#FAFAFA', accent: '#52525B' },
+    { id: 'quartz-skin', name: 'Quartz Skin', color: '#E6C3B3', accent: '#C19A8B' },
+    { id: 'petal-mist', name: 'Petal Mist', color: '#FFF1F2', accent: '#D9777F' },
   ];
 
   const [selectedAppTheme, setSelectedAppTheme] = useState(() => {
+    if (currentUser?.appTheme) return currentUser.appTheme;
     const saved = localStorage.getItem('pulsecord-theme');
     return saved ? saved.replace('theme-', '') : 'grafite';
   });
@@ -99,18 +112,22 @@ export const UserSettingsModal = () => {
     const themeClass = `theme-${themeId}`;
     localStorage.setItem('pulsecord-theme', themeClass);
     document.body.className = themeClass;
+    updateProfile({ appTheme: themeId });
   };
 
   const handleToggleCompactMode = () => {
     const newValue = !compactMode;
     setCompactMode(newValue);
     localStorage.setItem('pulsecord_compact_mode', newValue.toString());
-    window.location.reload(); // Reload to apply layout changes
+    updateProfile({ compactMode: newValue }).then(() => {
+      window.location.reload(); // Reload to apply layout changes
+    });
   };
 
   const handleSaveClipSettings = (newSettings) => {
     setClipSettings(newSettings);
     localStorage.setItem('pulsecord_clip_settings', JSON.stringify(newSettings));
+    updateProfile({ clipSettings: newSettings });
   };
 
   const handleTestAudioOutput = () => {
@@ -130,7 +147,7 @@ export const UserSettingsModal = () => {
       osc.stop(ctx.currentTime + 0.45);
       setPlayingSoundTest(true);
       setTimeout(() => setPlayingSoundTest(false), 500);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const gradientOptions = [
@@ -231,17 +248,85 @@ export const UserSettingsModal = () => {
 
   if (!isUserSettingsOpen) return null;
 
-  const handleSaveProfile = (e) => {
+  const handleImageUpload = (e, setter, isBanner) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      Swal.fire({
+        title: 'Arquivo muito grande!',
+        text: 'O tamanho limite para envio é 5MB.',
+        icon: 'error',
+        confirmButtonText: 'Entendi',
+        buttonsStyling: false,
+        background: 'var(--color-bg-base)',
+        color: 'var(--color-text-main)',
+        customClass: {
+          popup: 'border border-sys-border rounded-2xl shadow-2xl',
+          title: 'font-bold tracking-tight',
+          htmlContainer: 'text-sys-muted text-sm',
+          confirmButton: 'bg-sys-accent hover:opacity-80 text-white px-6 py-2.5 rounded-xl font-bold transition mt-4'
+        }
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+
+      // If it's a GIF, just pass it through without resizing to keep animation
+      if (file.type === 'image/gif') {
+        setter(dataUrl);
+        return;
+      }
+
+      // Otherwise, compress and resize it using Canvas
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const MAX_WIDTH = isBanner ? 800 : 250;
+
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height = Math.floor(height * (MAX_WIDTH / width));
+          width = MAX_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert back to base64 WebP for better compression
+        const webpDataUrl = canvas.toDataURL('image/webp', 0.85);
+        setter(webpDataUrl);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!username.trim()) return;
     const finalInitials = (avatarInitials.trim() || username.trim().substring(0, 2)).toUpperCase();
-    updateCurrentUser({
-      ...currentUser,
+
+    await updateProfile({
       username: username.trim(),
+      displayName: displayName.trim(),
+      bio: bio.trim(),
+      pronouns: pronouns.trim(),
+      avatarUrl: avatarUrl.trim(),
+      bannerUrl: bannerUrl.trim(),
+      customStatus: { text: customStatusText.trim(), emoji: customStatusEmoji.trim() },
+      gameStatus: gameStatus.trim(),
       avatar: finalInitials,
-      avatarColor: selectedGradient,
-      isNitro: isNitroActive
+      avatarColor: selectedGradient
     });
+
     setIsUserSettingsOpen(false);
   };
 
@@ -254,9 +339,9 @@ export const UserSettingsModal = () => {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6 select-none">
-      <div className="bg-sys-base w-full max-w-3xl h-[80vh] rounded-3xl shadow-2xl overflow-hidden border border-sys-border flex animate-modal">
+      <div className="bg-sys-base w-full max-w-5xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden border border-sys-border flex animate-modal">
         {/* Left Nav */}
-        <div className="w-56 bg-sys-s2 p-5 flex flex-col justify-between border-r border-sys-border">
+        <div className="w-56 bg-sys-s2 p-5 flex flex-col justify-between border-r border-sys-border flex-shrink-0">
           <div>
             <h3 className="text-[10px] font-bold text-sys-muted uppercase tracking-wider px-2 mb-3">
               Ajustes
@@ -264,11 +349,10 @@ export const UserSettingsModal = () => {
             <div className="space-y-1.5">
               <button
                 onClick={() => setActiveTab('profile')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
-                  activeTab === 'profile'
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'profile'
                     ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                }`}
+                  }`}
               >
                 <User className="w-4 h-4 text-sys-accent" />
                 <span>Perfil</span>
@@ -276,11 +360,10 @@ export const UserSettingsModal = () => {
 
               <button
                 onClick={() => setActiveTab('appearance')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
-                  activeTab === 'appearance'
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'appearance'
                     ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                }`}
+                  }`}
               >
                 <Palette className="w-4 h-4 text-sys-accent" />
                 <span>Aparência</span>
@@ -288,11 +371,10 @@ export const UserSettingsModal = () => {
 
               <button
                 onClick={() => setActiveTab('privacy')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
-                  activeTab === 'privacy'
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'privacy'
                     ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                }`}
+                  }`}
               >
                 <Lock className="w-4 h-4 text-rose-500" />
                 <span>Privacidade</span>
@@ -300,23 +382,21 @@ export const UserSettingsModal = () => {
 
               <button
                 onClick={() => setActiveTab('clips')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
-                  activeTab === 'clips'
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'clips'
                     ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                }`}
+                  }`}
               >
-                <Video className="w-4 h-4 text-purple-500" />
+                <Video className="w-4 h-4 text-fuchsia-400" />
                 <span>Clipes (Gravação)</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('voice')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
-                  activeTab === 'voice'
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'voice'
                     ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                }`}
+                  }`}
               >
                 <Mic className="w-4 h-4 text-green-500" />
                 <span>Voz & Áudio</span>
@@ -324,11 +404,10 @@ export const UserSettingsModal = () => {
 
               <button
                 onClick={() => setActiveTab('connection')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${
-                  activeTab === 'connection'
+                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'connection'
                     ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                }`}
+                  }`}
               >
                 <Server className="w-4 h-4 text-amber-500" />
                 <span>Servidor / Nuvem</span>
@@ -365,109 +444,142 @@ export const UserSettingsModal = () => {
         {/* Right Content */}
         <div className="flex-1 p-8 overflow-y-auto thin-scrollbar">
           {activeTab === 'profile' && (
-            <form onSubmit={handleSaveProfile} className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold text-sys-text tracking-tight">Perfil de Usuário</h2>
-                <p className="text-xs text-sys-muted mt-1">
-                  Personalize sua identidade e cores nos canais de texto e voz.
-                </p>
-              </div>
-
-              {/* Avatar Preview & Monogram */}
-              <div className="flex items-center space-x-5 p-4 rounded-2xl bg-sys-s3 border border-sys-border">
-                <div
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${selectedGradient} text-white flex items-center justify-center text-xl font-bold shadow-sm border border-sys-border`}
-                >
-                  {(avatarInitials || username || 'PC').substring(0, 2).toUpperCase()}
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+              {/* Left Form Column */}
+              <form onSubmit={handleSaveProfile} className="flex-1 space-y-6 w-full">
+                <div>
+                  <h2 className="text-xl font-bold text-sys-text tracking-tight">Perfil de Usuário</h2>
+                  <p className="text-xs text-sys-muted mt-1">
+                    Personalize sua identidade, avatar, banner e status.
+                  </p>
                 </div>
-                <div className="flex-1 space-y-1">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">
-                    Iniciais do Avatar (1-2 Letras)
+
+                {/* Banner & Avatar Row */}
+                <div className="flex space-x-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Banner (GIF/Img)</label>
+                      <label className="text-[10px] text-sys-accent hover:underline cursor-pointer">
+                        Fazer Upload
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setBannerUrl, true)} />
+                      </label>
+                    </div>
+                    <input type="text" placeholder="Ou cole a URL..." value={bannerUrl} onChange={(e) => setBannerUrl(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Avatar (GIF/Img)</label>
+                      <label className="text-[10px] text-sys-accent hover:underline cursor-pointer">
+                        Fazer Upload
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setAvatarUrl, false)} />
+                      </label>
+                    </div>
+                    <input type="text" placeholder="Ou cole a URL..." value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                  </div>
+                </div>
+
+                {/* Color Gradient Theme Picker */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2.5">
+                    Cor do Perfil (Gradiente)
                   </label>
-                  <input
-                    type="text"
-                    maxLength={2}
-                    value={avatarInitials}
-                    onChange={(e) => setAvatarInitials(e.target.value.toUpperCase())}
-                    placeholder="Ex: KY"
-                    className="w-24 bg-sys-s1 border border-sys-border text-sys-text px-3 py-1.5 rounded-xl text-center font-bold text-sm focus:outline-none focus:border-sys-accent/50 transition-colors"
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {gradientOptions.map((opt) => (
+                      <button
+                        key={opt.name}
+                        type="button"
+                        onClick={() => setSelectedGradient(opt.gradient)}
+                        className={`flex items-center space-x-2.5 p-2 rounded-xl border transition-colors ${selectedGradient === opt.gradient
+                            ? 'bg-sys-s3 border-sys-accent text-sys-text'
+                            : 'bg-sys-s1 border-transparent hover:bg-sys-s2 hover:border-sys-border text-sys-muted'
+                          }`}
+                      >
+                        <span className={`w-5 h-5 rounded-lg bg-gradient-to-tr ${opt.gradient} shadow-sm border border-black/10`} />
+                        <span className="text-xs font-medium truncate">{opt.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Identity Row */}
+                <div className="flex space-x-4">
+                  <div className="flex-1 space-y-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Nome de Exibição</label>
+                    <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Nome de Usuário (@)</label>
+                    <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                  </div>
+                  <div className="w-1/4 space-y-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Pronomes</label>
+                    <input type="text" placeholder="Ele/Dele" value={pronouns} onChange={(e) => setPronouns(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                  </div>
+                </div>
+
+                {/* Bio */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">Sobre Mim (Bio)</label>
+                  <textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-3 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors resize-none" placeholder="Conte um pouco sobre você..." />
+                </div>
+
+                {/* Status Row */}
+                <div className="flex space-x-4">
+                  <div className="w-1/3 space-y-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Emoji de Status</label>
+                    <input type="text" placeholder="🎮" value={customStatusEmoji} onChange={(e) => setCustomStatusEmoji(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none text-center focus:border-sys-accent/50 transition-colors" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Status Customizado</label>
+                    <input type="text" placeholder="Codando em Godot..." value={customStatusText} onChange={(e) => setCustomStatusText(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Atividade / Jogo</label>
+                    <input type="text" placeholder="Jogando Terraria" value={gameStatus} onChange={(e) => setGameStatus(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-2.5 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-sys-border flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-8 py-3 bg-sys-accent hover:bg-sys-accentHov text-white rounded-xl text-xs font-bold transition shadow-lg btn-interactive hover:scale-105 active:scale-95"
+                  >
+                    Salvar Perfil
+                  </button>
+                </div>
+              </form>
+
+              {/* Right Live Preview Column */}
+              <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col items-center">
+                <div className="w-full flex items-center justify-between mb-3 px-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-sys-muted">
+                    Prévia ao Vivo
+                  </span>
+                  <span className="text-[10px] text-green-500 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Em tempo real
+                  </span>
+                </div>
+                <div className="w-full sticky top-0 flex justify-center">
+                  <UserProfileCard
+                    inline={true}
+                    user={{
+                      displayName: displayName || username,
+                      username: username || 'usuario',
+                      avatarUrl,
+                      bannerUrl,
+                      avatar: avatarInitials.trim() || (username || 'PC').trim().substring(0, 2).toUpperCase(),
+                      avatarColor: selectedGradient,
+                      bio,
+                      pronouns,
+                      customStatus: { text: customStatusText, emoji: customStatusEmoji },
+                      gameStatus,
+                      status: 'online',
+                      badges: currentUser?.badges || []
+                    }}
                   />
                 </div>
               </div>
-
-              {/* Color Gradient Theme Picker */}
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2.5">
-                  Cor do Avatar (Gradiente)
-                </label>
-                <div className="grid grid-cols-3 gap-2.5">
-                  {gradientOptions.map((opt) => (
-                    <button
-                      key={opt.name}
-                      type="button"
-                      onClick={() => setSelectedGradient(opt.gradient)}
-                      className={`flex items-center space-x-2.5 p-2 rounded-xl border transition-colors ${
-                        selectedGradient === opt.gradient
-                          ? 'bg-sys-s3 border-sys-accent text-sys-text'
-                          : 'bg-sys-s1 border-transparent hover:bg-sys-s2 hover:border-sys-border text-sys-muted'
-                      }`}
-                    >
-                      <span className={`w-5 h-5 rounded-lg bg-gradient-to-tr ${opt.gradient} shadow-sm border border-black/10`} />
-                      <span className="text-xs font-medium truncate">{opt.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Username Input */}
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2">
-                  Nome de Usuário
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-sys-s1 border border-sys-border text-sys-text px-4 py-3 rounded-2xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors placeholder-sys-muted/50"
-                />
-              </div>
-
-              {/* Nitro Toggle */}
-              <div className="p-4 rounded-2xl bg-sys-s3 border border-sys-border flex items-center justify-between shadow-sm">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white shadow-md">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-sys-text">Assinatura Nitro</h3>
-                    <p className="text-[11px] text-sys-muted mt-0.5 max-w-sm">
-                      Ativa funcionalidades exclusivas (Arquivos Maiores, Clipes em 4K, Emojis Animados).
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsNitroActive(!isNitroActive)}
-                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${
-                    isNitroActive
-                      ? 'bg-purple-500 justify-end shadow-md'
-                      : 'bg-sys-s1 justify-start border border-sys-border'
-                  }`}
-                >
-                  <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
-                </button>
-              </div>
-
-              <div className="pt-4 border-t border-sys-border flex justify-end">
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-sys-accent hover:bg-sys-accentHov text-white rounded-xl text-xs font-semibold transition shadow-sm btn-interactive"
-                >
-                  Salvar Perfil
-                </button>
-              </div>
-            </form>
+            </div>
           )}
 
           {activeTab === 'appearance' && (
@@ -484,11 +596,10 @@ export const UserSettingsModal = () => {
                   <button
                     key={theme.id}
                     onClick={() => handleSetTheme(theme.id)}
-                    className={`flex flex-col items-start p-3 rounded-2xl border transition-all ${
-                      selectedAppTheme === theme.id
+                    className={`flex flex-col items-start p-3 rounded-2xl border transition-all ${selectedAppTheme === theme.id
                         ? 'bg-sys-s3 border-sys-accent'
                         : 'bg-sys-s1 border-transparent hover:bg-sys-s2 hover:border-sys-border'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center space-x-3 w-full mb-2">
                       <div
@@ -518,11 +629,10 @@ export const UserSettingsModal = () => {
                   <button
                     type="button"
                     onClick={handleToggleCompactMode}
-                    className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${
-                      compactMode
+                    className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${compactMode
                         ? 'bg-sys-accent justify-end shadow-sm'
                         : 'bg-sys-s1 justify-start border border-sys-border'
-                    }`}
+                      }`}
                   >
                     <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
                   </button>
@@ -728,11 +838,10 @@ export const UserSettingsModal = () => {
                 <button
                   type="button"
                   onClick={() => setKrispEnabled(!krispEnabled)}
-                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${
-                    krispEnabled
+                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${krispEnabled
                       ? 'bg-sys-accent justify-end shadow-sm'
                       : 'bg-sys-s1 justify-start border border-sys-border'
-                  }`}
+                    }`}
                 >
                   <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
                 </button>
@@ -794,11 +903,10 @@ export const UserSettingsModal = () => {
                   <button
                     type="button"
                     onClick={() => setMicTestActive(!micTestActive)}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition btn-interactive ${
-                      micTestActive
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition btn-interactive ${micTestActive
                         ? 'bg-red-500 text-white'
                         : 'bg-sys-accent hover:bg-sys-accentHov text-white shadow-sm'
-                    }`}
+                      }`}
                   >
                     {micTestActive ? 'Parar Teste' : 'Testar Microfone'}
                   </button>

@@ -27,10 +27,11 @@
     "play-dl": "^1.9.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-player": "^3.4.0",
+    "react-player": "^2.16.0",
     "redis": "^4.7.0",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "sweetalert2": "^11.26.25"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",

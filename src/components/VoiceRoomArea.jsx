@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import ReactPlayerModule from 'react-player';
-const ReactPlayer = ReactPlayerModule.default || ReactPlayerModule;
+import ReactPlayer from 'react-player';
+import Swal from 'sweetalert2';
 import {
   Mic,
   MicOff,
@@ -28,6 +28,8 @@ import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
 import { useSocket } from '../context/SocketContext';
 
+import { UserProfileCard } from './UserProfileCard';
+
 export const VoiceRoomArea = () => {
   const {
     activeVoiceChannel,
@@ -50,7 +52,7 @@ export const VoiceRoomArea = () => {
     userVolumes,
     setUserVolume,
     watchTogetherState,
-    syncWatchTogether
+    dispatchWatchTogether
   } = useVoice();
 
   const { currentServer, currentChannel, voiceRooms, setIsMusicModalOpen, setIsScreenModalOpen } = useServer();
@@ -59,7 +61,7 @@ export const VoiceRoomArea = () => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
-  // Selected remote peer socketId whose screen is being watched
+  const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [watchingPeerId, setWatchingPeerId] = useState(null);
 
   const [ytInput, setYtInput] = useState('');
@@ -72,15 +74,35 @@ export const VoiceRoomArea = () => {
     if (!ytInput.trim()) return;
 
     let videoId = ytInput.trim();
-    // Support youtube.com, youtu.be, embed, shorts, etc.
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|\/shorts\/)([^#&?]*).*/;
     const match = ytInput.match(regExp);
     if (match && match[2].length === 11) {
       videoId = match[2];
+    } else if (videoId.length !== 11) {
+      Swal.fire({
+        title: 'Link Inválido',
+        text: 'Por favor, insira um link válido do YouTube.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+        buttonsStyling: false,
+        background: 'var(--color-bg-base)',
+        color: 'var(--color-text-main)',
+        customClass: {
+          popup: 'border border-sys-border rounded-2xl shadow-2xl',
+          title: 'font-bold tracking-tight',
+          htmlContainer: 'text-sys-muted text-sm',
+          confirmButton: 'bg-sys-accent hover:opacity-80 text-white px-6 py-2.5 rounded-xl font-bold transition mt-4'
+        }
+      });
+      return;
     }
 
     if (videoId) {
-      syncWatchTogether({ url: videoId, isPlaying: true, isActive: true });
+      if (watchTogetherState.isActive) {
+        dispatchWatchTogether('enqueue', { url: videoId });
+      } else {
+        dispatchWatchTogether('start', { url: videoId });
+      }
       setYtInput('');
     }
   };
@@ -117,20 +139,22 @@ export const VoiceRoomArea = () => {
 
   // Sync Watch Together Current Time
   useEffect(() => {
-    if (ytPlayerRef.current && watchTogetherState.currentTime !== undefined) {
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function' && watchTogetherState.currentTime !== undefined) {
       const localTime = ytPlayerRef.current.getCurrentTime() || 0;
       if (Math.abs(localTime - watchTogetherState.currentTime) > 2) {
-        ytPlayerRef.current.seekTo(watchTogetherState.currentTime, 'seconds');
+        if (typeof ytPlayerRef.current.seekTo === 'function') {
+          ytPlayerRef.current.seekTo(watchTogetherState.currentTime, 'seconds');
+        }
       }
     }
   }, [watchTogetherState.currentTime, watchTogetherState.url]);
 
   const handleTogglePlaySync = () => {
     let currentT = watchTogetherState.currentTime;
-    if (ytPlayerRef.current) {
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function') {
       currentT = ytPlayerRef.current.getCurrentTime();
     }
-    syncWatchTogether({ 
+    dispatchWatchTogether('sync', { 
       isPlaying: !watchTogetherState.isPlaying,
       currentTime: currentT
     });
@@ -144,9 +168,13 @@ export const VoiceRoomArea = () => {
   const allParticipants = isConnectedToThisRoom
     ? [
       {
+        ...(currentUser || {}),
         id: currentUser?.id,
-        username: currentUser?.username + ' (Você)',
-        avatar: currentUser?.avatar || '👑',
+        username: (currentUser?.displayName || currentUser?.username || 'Você') + ' (Você)',
+        displayName: currentUser?.displayName || currentUser?.username,
+        avatar: currentUser?.avatar || (currentUser?.username || 'PC').substring(0, 2).toUpperCase(),
+        avatarUrl: currentUser?.avatarUrl || '',
+        avatarColor: currentUser?.avatarColor || 'from-indigo-500 to-purple-600',
         isLocal: true,
         isMuted: isMuted,
         isDeafened: isDeafened,
@@ -247,36 +275,90 @@ export const VoiceRoomArea = () => {
         )}
 
         {/* 2. Local Screen Share */}
-        {/* 1.5 Watch Together Player */}
-        {isConnectedToThisRoom && watchTogetherState.isActive && watchTogetherState.url ? (
+        {/* 1.5 Watch Together Player / Join Banner */}
+        {isConnectedToThisRoom && watchTogetherState.isActive ? (
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-black shadow-2xl border border-sys-border">
-            {(() => {
-              let safeId = watchTogetherState.url;
-              const match = safeId.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|\/shorts\/)([^#&?]*).*/);
-              if (match && match[2].length === 11) safeId = match[2];
+            {watchTogetherState.participants?.includes(currentUser?.id) ? (
+              watchTogetherState.url ? (
+                <>
+                  {(() => {
+                    let safeId = watchTogetherState.url;
+                    const match = safeId.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|\/shorts\/)([^#&?]*).*/);
+                    if (match && match[2].length === 11) safeId = match[2];
 
-              return (
-                <ReactPlayer
-                  ref={ytPlayerRef}
-                  url={`https://www.youtube.com/watch?v=${safeId}`}
-                  playing={watchTogetherState.isPlaying}
-                  volume={ytVolume}
-                  controls={true}
-                  width="100%"
-                  height="100%"
-                  onPlay={() => {
-                    if (!watchTogetherState.isPlaying) {
-                      handleTogglePlaySync();
-                    }
-                  }}
-                  onPause={() => {
-                    if (watchTogetherState.isPlaying) {
-                      handleTogglePlaySync();
-                    }
-                  }}
-                />
-              );
-            })()}
+                    return (
+                      <ReactPlayer
+                        ref={ytPlayerRef}
+                        url={`https://www.youtube.com/watch?v=${safeId}`}
+                        playing={watchTogetherState.isPlaying}
+                        volume={ytVolume}
+                        controls={true}
+                        width="100%"
+                        height="100%"
+                        config={{
+                          youtube: {
+                            playerVars: {
+                              host: 'https://www.youtube-nocookie.com',
+                              origin: window.location.origin
+                            }
+                          }
+                        }}
+                        onReady={() => console.log('[ReactPlayer] Ready!')}
+                        onError={(e) => console.error('[ReactPlayer] Error:', e)}
+                        onPlay={() => {
+                          if (!watchTogetherState.isPlaying) {
+                            handleTogglePlaySync();
+                          }
+                        }}
+                        onPause={() => {
+                          if (watchTogetherState.isPlaying) {
+                            handleTogglePlaySync();
+                          }
+                        }}
+                        onEnded={() => {
+                          if (watchTogetherState.hostId === currentUser?.id) {
+                            dispatchWatchTogether('next');
+                          }
+                        }}
+                      />
+                    );
+                  })()}
+                  {/* Fila (Queue) UI */}
+                  {watchTogetherState.queue?.length > 0 && (
+                    <div className="absolute top-4 right-4 bg-sys-s1/90 backdrop-blur-md p-4 rounded-xl shadow-lg border border-sys-border min-w-[200px] max-h-[300px] overflow-y-auto">
+                      <h4 className="text-sm font-bold text-sys-text mb-2 flex items-center gap-2">
+                        <MonitorPlay className="w-4 h-4 text-sys-accent" />
+                        Fila ({watchTogetherState.queue.length})
+                      </h4>
+                      <ul className="text-xs text-sys-text-muted space-y-2">
+                        {watchTogetherState.queue.map((qUrl, i) => (
+                          <li key={i} className="truncate max-w-[180px] bg-sys-s2 p-2 rounded-lg border border-sys-border">{qUrl}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-white flex flex-col items-center">
+                  <MonitorPlay className="w-12 h-12 text-sys-text-muted mb-4 animate-pulse" />
+                  <p className="text-sys-text-muted">A fila acabou.</p>
+                </div>
+              )
+            ) : (
+              <div className="text-center p-8 bg-sys-s1 rounded-2xl border border-sys-accent shadow-xl max-w-sm">
+                <MonitorPlay className="w-16 h-16 text-sys-accent mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">Watchparty em Andamento</h3>
+                <p className="text-sys-text-muted text-sm mb-6">
+                  Alguém iniciou uma Watchparty neste canal. Clique abaixo para entrar e assistir junto!
+                </p>
+                <button
+                  onClick={() => dispatchWatchTogether('join')}
+                  className="w-full py-3 bg-sys-accent hover:bg-sys-accent/80 text-white font-bold rounded-xl transition shadow-md btn-interactive"
+                >
+                  Entrar na Watchparty
+                </button>
+              </div>
+            )}
           </div>
         ) : isConnectedToThisRoom && isScreenSharing && localScreenStream ? (
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-sys-s3 shadow-md border border-sys-accent/40">
@@ -362,7 +444,7 @@ export const VoiceRoomArea = () => {
           </div>
         ) : (
           /* 5. Participant Cards Grid */
-          <div className="w-full max-w-5xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 auto-rows-fr items-center justify-center">
+          <div className="w-full max-w-5xl flex flex-wrap gap-5 items-center justify-center px-4">
             {allParticipants.map((participant, idx) => {
               const monogram = (participant.username || 'User').substring(0, 2).toUpperCase();
               const friendVolume = userVolumes[participant.id] ?? 100;
@@ -371,7 +453,7 @@ export const VoiceRoomArea = () => {
               return (
                 <div
                   key={participant.id || idx}
-                  className={`bg-sys-s3 border border-sys-border rounded-3xl p-5 flex flex-col items-center justify-between relative shadow-md min-h-[240px] transition-all hover:border-sys-accent/40 ${hasScreen ? 'border-red-500/40' : ''
+                  className={`w-full max-w-[280px] flex-shrink-0 bg-sys-s3 border border-sys-border rounded-3xl p-5 flex flex-col items-center justify-between relative shadow-md min-h-[240px] transition-all hover:border-sys-accent/40 ${hasScreen ? 'border-red-500/40' : ''
                     }`}
                 >
                   {/* Top Badges & Live indicator */}
@@ -401,16 +483,31 @@ export const VoiceRoomArea = () => {
                   </div>
 
                   {/* Avatar with Speaking Glow Ring */}
-                  <div className="flex flex-col items-center my-1">
+                  <div 
+                    className="flex flex-col items-center my-1 cursor-pointer group"
+                    onClick={() => setSelectedUserProfile(participant)}
+                    title="Ver Perfil"
+                  >
                     <div className="relative mb-2">
-                      <div
-                        className={`w-16 h-16 rounded-2xl bg-sys-accent text-white flex items-center justify-center text-lg font-bold shadow-sm border-2 transition-all duration-150 ${participant.isSpeaking
-                          ? 'border-green-500 scale-105'
-                          : 'border-transparent'
-                          }`}
-                      >
-                        {monogram}
-                      </div>
+                      {participant.avatarUrl ? (
+                         <img 
+                           src={participant.avatarUrl} 
+                           alt={participant.username}
+                           className={`w-16 h-16 rounded-2xl object-cover shadow-sm border-2 transition-all duration-150 group-hover:scale-105 ${participant.isSpeaking
+                             ? 'border-green-500 scale-105'
+                             : 'border-transparent'
+                           }`}
+                         />
+                      ) : (
+                        <div
+                          className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${participant.avatarColor || 'from-indigo-500 to-purple-600'} text-white flex items-center justify-center text-lg font-bold shadow-sm border-2 transition-all duration-150 group-hover:scale-105 ${participant.isSpeaking
+                            ? 'border-green-500 scale-105'
+                            : 'border-transparent'
+                            }`}
+                        >
+                          {monogram}
+                        </div>
+                      )}
 
                       {participant.isSpeaking && (
                         <div className="absolute -bottom-1 -right-1 bg-green-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase shadow-sm">
@@ -419,8 +516,8 @@ export const VoiceRoomArea = () => {
                       )}
                     </div>
 
-                    <span className="font-semibold text-sys-text text-xs truncate max-w-[160px] tracking-tight">
-                      {participant.username}
+                    <span className="font-semibold text-sys-text text-xs truncate max-w-[160px] tracking-tight group-hover:text-sys-accent transition-colors">
+                      {participant.displayName || participant.username}
                     </span>
                   </div>
 
@@ -536,7 +633,7 @@ export const VoiceRoomArea = () => {
               {watchTogetherState.isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
             </button>
             <button
-              onClick={() => syncWatchTogether({ isActive: false, url: '' })}
+              onClick={() => dispatchWatchTogether('end')}
               className="p-2 bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition"
               title="Fechar YouTube"
             >
@@ -641,9 +738,34 @@ export const VoiceRoomArea = () => {
             <button
               onClick={() => {
                 if (currentUser?.nitro) {
-                  alert('Soundboard aberto!');
+                  Swal.fire({
+                    title: 'Soundboard Aberto!',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    background: 'var(--color-bg-base)',
+                    color: 'var(--color-text-main)',
+                    customClass: {
+                      popup: 'border border-sys-border rounded-2xl shadow-2xl',
+                      title: 'font-bold tracking-tight',
+                    }
+                  });
                 } else {
-                  alert('O Soundboard é um recurso do Discord Nitro!');
+                  Swal.fire({
+                    title: 'Recurso Nitro',
+                    text: 'O Soundboard é um recurso exclusivo do Discord Nitro!',
+                    icon: 'warning',
+                    confirmButtonText: 'Entendi',
+                    buttonsStyling: false,
+                    background: 'var(--color-bg-base)',
+                    color: 'var(--color-text-main)',
+                    customClass: {
+                      popup: 'border border-sys-border rounded-2xl shadow-2xl',
+                      title: 'font-bold tracking-tight',
+                      htmlContainer: 'text-sys-muted text-sm',
+                      confirmButton: 'bg-sys-accent hover:opacity-80 text-white px-6 py-2.5 rounded-xl font-bold transition mt-4'
+                    }
+                  });
                 }
               }}
               className="p-3 rounded-xl transition-all duration-200 shadow-sm bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border"
@@ -655,7 +777,15 @@ export const VoiceRoomArea = () => {
             {/* Watch Together (YouTube) */}
             <button
               onClick={() => {
-                syncWatchTogether({ isActive: !watchTogetherState.isActive, isPlaying: true });
+                if (watchTogetherState.isActive) {
+                  if (watchTogetherState.participants?.includes(currentUser?.id)) {
+                    dispatchWatchTogether('leave');
+                  } else {
+                    dispatchWatchTogether('join');
+                  }
+                } else {
+                  dispatchWatchTogether('start', { url: '' });
+                }
               }}
               className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${watchTogetherState.isActive
                 ? 'bg-red-500 text-white'
@@ -678,6 +808,13 @@ export const VoiceRoomArea = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {selectedUserProfile && (
+        <UserProfileCard 
+          user={selectedUserProfile} 
+          onClose={() => setSelectedUserProfile(null)} 
+        />
       )}
     </div>
   );
