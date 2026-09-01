@@ -4,9 +4,6 @@ import { useVoice } from '../context/VoiceContext';
 
 const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice }) => {
   const audioRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const gainNodeRef = useRef(null);
-  const sourceNodeRef = useRef(null);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -16,53 +13,17 @@ const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice }) => {
       audio.srcObject = stream;
     }
 
+    audio.volume = Math.max(0, Math.min(1, volume));
+
     if (outputDevice && outputDevice !== 'default' && audio.setSinkId) {
       audio.setSinkId(outputDevice).catch(() => {});
-    }
-
-    // Initialize Web Audio API GainNode for true hardware amplification beyond 100% (up to 200%)
-    try {
-      if (!audioContextRef.current) {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) {
-          const ctx = new AudioCtx();
-          const source = ctx.createMediaStreamSource(stream);
-          const gainNode = ctx.createGain();
-
-          source.connect(gainNode);
-          // Connect to destination
-          gainNode.connect(ctx.destination);
-
-          audioContextRef.current = ctx;
-          gainNodeRef.current = gainNode;
-          sourceNodeRef.current = source;
-
-          // Mute native HTML audio element to avoid double playback (Web Audio handles output)
-          audio.muted = true;
-        }
-      }
-
-      if (gainNodeRef.current) {
-        gainNodeRef.current.gain.value = Math.max(0, volume);
-      } else {
-        audio.volume = Math.max(0, Math.min(1, volume));
-      }
-    } catch (e) {
-      // Fallback to native audio element volume
-      audio.muted = false;
-      audio.volume = Math.max(0, Math.min(1, volume));
+    } else if (audio.setSinkId) {
+      audio.setSinkId('').catch(() => {});
     }
 
     audio.play().catch((err) => {
       console.warn(`[WebRTC Audio Play ${socketId}]`, err.message);
     });
-
-    return () => {
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close().catch(() => {});
-        audioContextRef.current = null;
-      }
-    };
   }, [stream, volume, outputDevice, socketId]);
 
   return <audio ref={audioRef} autoPlay playsInline />;

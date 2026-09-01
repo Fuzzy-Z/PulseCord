@@ -29,6 +29,9 @@ import { useServer } from '../context/ServerContext';
 import { useSocket } from '../context/SocketContext';
 
 import { UserProfileCard } from './UserProfileCard';
+import { UserContextMenu } from './UserContextMenu';
+import { AudioVisualizerCanvas } from './AudioVisualizerCanvas';
+import { AvatarImage } from './AvatarImage';
 
 export const VoiceRoomArea = () => {
   const {
@@ -64,6 +67,7 @@ export const VoiceRoomArea = () => {
   const remoteVideoRef = useRef(null);
 
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
+  const [contextMenuUser, setContextMenuUser] = useState(null);
   const [watchingPeerId, setWatchingPeerId] = useState(null);
 
   const [ytInput, setYtInput] = useState('');
@@ -241,7 +245,7 @@ export const VoiceRoomArea = () => {
           {!isConnectedToThisRoom && (
             <button
               onClick={() => joinVoiceChannel(currentChannel?.id, currentServer?.id)}
-              className="flex items-center space-x-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-full text-xs font-bold shadow-md transition btn-interactive"
+              className="flex items-center space-x-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-xs font-bold shadow-md transition btn-interactive"
             >
               <PhoneCall className="w-3.5 h-3.5" />
               <span>Conectar à Voz</span>
@@ -253,7 +257,7 @@ export const VoiceRoomArea = () => {
             <button
               onClick={() => setWatchingPeerId(watchingPeerId ? null : activeRemoteScreenShares[0][0])}
               className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition btn-interactive ${watchingPeerId
-                ? 'bg-red-500/20 text-red-500 border border-red-500/40'
+                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm'
                 : 'bg-sys-s1 border border-sys-border text-sys-accent'
                 }`}
             >
@@ -264,9 +268,9 @@ export const VoiceRoomArea = () => {
 
           <button
             onClick={() => setIsMusicModalOpen(true)}
-            className="flex items-center space-x-1.5 px-3 py-1 bg-sys-s1 border border-sys-border text-sys-text rounded-full text-xs font-medium transition btn-interactive"
+            className="flex items-center space-x-1.5 px-3 py-1 bg-sys-s1 border border-sys-border text-sys-text rounded-full text-xs font-medium transition btn-interactive hover:border-sys-accent/40"
           >
-            <Disc3 className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} />
+            <Disc3 className="w-3.5 h-3.5 animate-spin text-amber-300" style={{ animationDuration: '8s' }} />
             <span>Player</span>
           </button>
         </div>
@@ -508,13 +512,23 @@ export const VoiceRoomArea = () => {
                   <div 
                     className="flex flex-col items-center my-1 cursor-pointer group"
                     onClick={() => setSelectedUserProfile(participant)}
-                    title="Ver Perfil"
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContextMenuUser({
+                        user: participant,
+                        x: e.clientX,
+                        y: e.clientY
+                      });
+                    }}
+                    title="Clique com botão esquerdo para perfil ou botão direito para opções"
                   >
                     <div className="relative mb-2">
                       {participant.avatarUrl ? (
-                         <img 
+                         <AvatarImage 
                            src={participant.avatarUrl} 
                            alt={participant.username}
+                           isSpeaking={participant.isSpeaking}
                            className={`w-16 h-16 rounded-2xl object-cover shadow-sm border-2 transition-all duration-150 group-hover:scale-105 ${participant.isSpeaking
                              ? 'border-green-500 scale-105'
                              : 'border-transparent'
@@ -845,6 +859,16 @@ export const VoiceRoomArea = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* User Context Menu (Right Click) */}
+      {contextMenuUser && (
+        <UserContextMenu
+          targetUser={contextMenuUser.user}
+          position={{ x: contextMenuUser.x, y: contextMenuUser.y }}
+          onClose={() => setContextMenuUser(null)}
+          onOpenProfile={(u) => setSelectedUserProfile(u)}
+        />
       )}
 
       {selectedUserProfile && (

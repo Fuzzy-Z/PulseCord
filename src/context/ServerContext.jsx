@@ -47,14 +47,58 @@ export const ServerProvider = ({ children }) => {
   }, [initialServersData, isAuthenticated]);
 
   const currentServer = servers.find((s) => s.id === currentServerId) || servers[0] || null;
+
+  const resolveDM = (dmId) => {
+    if (!dmId || !dmId.startsWith('dm-')) return null;
+    const existing = dms.find((d) => d.id === dmId);
+    if (existing && existing.recipient && existing.name && existing.name !== 'Mensagem Direta') {
+      return existing;
+    }
+
+    const parts = dmId.replace('dm-', '').split('_');
+    const myId = currentUser?.id;
+    const otherId = parts.find((id) => id !== myId) || parts[0];
+
+    // Find other user in onlineMembers or all server members
+    let otherUser = onlineMembers.find((m) => m.id === otherId);
+    if (!otherUser) {
+      for (const srv of servers) {
+        const found = (srv.members || []).find((m) => m.id === otherId);
+        if (found) {
+          otherUser = found;
+          break;
+        }
+      }
+    }
+
+    const name = otherUser?.displayName || otherUser?.username || existing?.name || 'Amigo';
+    return {
+      id: dmId,
+      type: 'dm',
+      name,
+      recipient: otherUser || { id: otherId, username: name, displayName: name },
+      participants: parts
+    };
+  };
+
+  const currentDM = resolveDM(currentChannelId);
   const currentChannel =
-    currentServer?.channels?.find((c) => c.id === currentChannelId) ||
-    currentServer?.channels?.[0] ||
-    null;
+    activeView === 'dms'
+      ? currentDM || (currentChannelId ? { id: currentChannelId, name: 'Conversa Direta', type: 'dm' } : null)
+      : currentServer?.channels?.find((c) => c.id === currentChannelId) ||
+        currentServer?.channels?.[0] ||
+        null;
 
   // Socket event listeners
   useEffect(() => {
     if (!socket) return;
+
+    // Load initial DMs
+    socket.emit('fetch-dms', (list) => {
+      if (list && Array.isArray(list)) {
+        setDms(list);
+      }
+    });
 
     socket.on('server-created', (newServer) => {
       setServers((prev) => {
@@ -88,9 +132,43 @@ export const ServerProvider = ({ children }) => {
 
     socket.on('new-message', (message) => {
       setMessages((prev) => [...prev, message]);
+      // If message is in a DM, refresh DM list
+      if (message.channelId?.startsWith('dm-')) {
+        socket.emit('fetch-dms', (list) => {
+          if (list && Array.isArray(list)) setDms(list);
+        });
+      }
     });
 
-    socket.on('attachments-pruned', () => {
+    socket.on('dm-received', (newDM) => {
+      setDms((prev) => {
+        if (prev.some((d) => d.id === newDM.id)) return prev;
+        return [newDM, ...prev];
+      });
+    });
+
+    socket.on('message-pinned', ({ channelId, messageId, message }) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, isPinned: true, pinnedAt: message.pinnedAt, pinnedBy: message.pinnedBy } : m))
+      );
+      setPinnedMessages((prev) => {
+        const list = prev[channelId] || [];
+        if (list.some((m) => m.id === messageId)) return prev;
+        return { ...prev, [channelId]: [...list, message] };
+      });
+    });
+
+    socket.on('message-unpinned', ({ channelId, messageId }) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, isPinned: false } : m))
+      );
+      setPinnedMessages((prev) => {
+        const list = prev[channelId] || [];
+        return { ...prev, [channelId]: list.filter((m) => m.id !== messageId) };
+      });
+    });
+
+    socket.on('messages-pruned', () => {
       if (currentChannelId) {
         socket.emit('fetch-messages', { channelId: currentChannelId }, (msgs) => {
           setMessages(msgs || []);
@@ -127,14 +205,17 @@ export const ServerProvider = ({ children }) => {
       socket.off('channel-created');
       socket.off('server-roles-updated');
       socket.off('new-message');
-      socket.off('attachments-pruned');
+      socket.off('dm-received');
+      socket.off('message-pinned');
+      socket.off('message-unpinned');
+      socket.off('messages-pruned');
       socket.off('voice-rooms-updated');
       socket.off('user-status-changed');
       socket.off('user-profile-updated');
     };
   }, [socket, currentServerId, currentChannelId]);
 
-  // Fetch messages when changing channel
+  // Fetch messages when changing channel or DM
   useEffect(() => {
     if (!socket || !currentChannelId) return;
 
@@ -144,6 +225,7 @@ export const ServerProvider = ({ children }) => {
   }, [socket, currentChannelId]);
 
   const selectServer = (serverId) => {
+    setActiveView('server');
     setCurrentServerId(serverId);
     const s = servers.find((srv) => srv.id === serverId);
     if (s && s.channels?.length > 0) {
@@ -161,8 +243,55 @@ export const ServerProvider = ({ children }) => {
     setCurrentChannelId(dmId);
   };
 
+  const openDM = (targetUserId, targetUserData) => {
+    const rawId = typeof targetUserId === 'object' ? (targetUserId.id || targetUserId.userId) : targetUserId;
+    if (!rawId) return;
+
+    const myId = currentUser?.id || 'usr-local';
+    const sortedIds = [myId, rawId].sort();
+    const dmId = `dm-${sortedIds[0]}_${sortedIds[1]}`;
+
+    const fallbackUser = typeof targetUserId === 'object' ? targetUserId : (targetUserData || { id: rawId, username: 'Usuário', displayName: 'Usuário' });
+
+    const localDM = {
+      id: dmId,
+      type: 'dm',
+      name: fallbackUser.displayName || fallbackUser.username || 'Usuário',
+      recipient: fallbackUser,
+      participants: [myId, rawId]
+    };
+
+    setDms((prev) => {
+      const exists = prev.find((d) => d.id === dmId);
+      if (exists) return prev;
+      return [localDM, ...prev];
+    });
+
+    setActiveView('dms');
+    setCurrentChannelId(dmId);
+
+    if (socket) {
+      socket.emit('open-or-create-dm', { targetUserId: rawId }, (res) => {
+        if (res && res.success && res.dm) {
+          setDms((prev) => {
+            const index = prev.findIndex((d) => d.id === res.dm.id);
+            if (index >= 0) {
+              const updated = [...prev];
+              updated[index] = res.dm;
+              return updated;
+            }
+            return [res.dm, ...prev];
+          });
+        }
+      });
+      socket.emit('fetch-messages', { channelId: dmId }, (msgs) => {
+        setMessages(msgs || []);
+      });
+    }
+  };
+
   const toggleMuteServer = (serverId, duration) => {
-    setMutedServers(prev => {
+    setMutedServers((prev) => {
       const copy = { ...prev };
       if (copy[serverId]) delete copy[serverId];
       else copy[serverId] = duration === 'forever' ? -1 : Date.now() + duration;
@@ -171,7 +300,7 @@ export const ServerProvider = ({ children }) => {
   };
 
   const toggleMuteChannel = (channelId, duration) => {
-    setMutedChannels(prev => {
+    setMutedChannels((prev) => {
       const copy = { ...prev };
       if (copy[channelId]) delete copy[channelId];
       else copy[channelId] = duration === 'forever' ? -1 : Date.now() + duration;
@@ -180,18 +309,32 @@ export const ServerProvider = ({ children }) => {
   };
 
   const pinMessage = (channelId, msg) => {
-    setPinnedMessages(prev => {
-      const current = prev[channelId] || [];
-      if (current.find(m => m.id === msg.id)) return prev;
-      return { ...prev, [channelId]: [...current, msg] };
+    if (!channelId || !msg?.id) return;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === msg.id ? { ...m, isPinned: true } : m))
+    );
+    setPinnedMessages((prev) => {
+      const list = prev[channelId] || [];
+      if (list.some((m) => m.id === msg.id)) return prev;
+      return { ...prev, [channelId]: [{ ...msg, isPinned: true }, ...list] };
     });
+    if (socket) {
+      socket.emit('pin-message', { channelId, messageId: msg.id });
+    }
   };
 
   const unpinMessage = (channelId, msgId) => {
-    setPinnedMessages(prev => {
-      const current = prev[channelId] || [];
-      return { ...prev, [channelId]: current.filter(m => m.id !== msgId) };
+    if (!channelId || !msgId) return;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === msgId ? { ...m, isPinned: false } : m))
+    );
+    setPinnedMessages((prev) => {
+      const list = prev[channelId] || [];
+      return { ...prev, [channelId]: list.filter((m) => m.id !== msgId) };
     });
+    if (socket) {
+      socket.emit('unpin-message', { channelId, messageId: msgId });
+    }
   };
 
   const sendMessage = (content, attachments = []) => {
@@ -264,6 +407,7 @@ export const ServerProvider = ({ children }) => {
         dms,
         setDms,
         selectDM,
+        openDM,
         pinnedMessages,
         pinMessage,
         unpinMessage,

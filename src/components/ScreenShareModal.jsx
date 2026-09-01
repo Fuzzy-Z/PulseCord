@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Tv, Monitor, AppWindow, X, Check, Volume2, VolumeX } from 'lucide-react';
+import { Tv, Monitor, AppWindow, X, Check, Volume2, VolumeX, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
 
 export const ScreenShareModal = () => {
   const { isScreenModalOpen, setIsScreenModalOpen } = useServer();
-  const { startScreenShare } = useVoice();
+  const { startScreenShare, selectedOutputDevice, outputDevices } = useVoice();
+
+  const voiceOnSeparateDevice = selectedOutputDevice && selectedOutputDevice !== 'default';
+  const outputDeviceName = voiceOnSeparateDevice
+    ? (outputDevices.find(d => d.deviceId === selectedOutputDevice)?.label || 'Dispositivo Secundário')
+    : null;
 
   const [activeTab, setActiveTab] = useState('screens'); // 'screens' or 'windows'
   const [sources, setSources] = useState([]);
@@ -189,6 +194,19 @@ export const ScreenShareModal = () => {
               />
             </button>
           </div>
+
+          {/* Anti-Echo Loopback Status Banner */}
+          {shareAudio && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl flex items-start space-x-2.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] font-bold text-emerald-400">Proteção Anti-Eco Automática Ativa</p>
+                <p className="text-[10px] text-emerald-400/80 mt-0.5 leading-relaxed">
+                  O áudio de jogos e programas será transmitido com clareza. As vozes da chamada são filtradas digitalmente em tempo real para não gerar eco ou retorno aos espectadores.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Stream Quality Settings */}
           <div className="grid grid-cols-2 gap-4 pt-1">

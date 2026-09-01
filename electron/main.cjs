@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, session, globalShortcut, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, session, globalShortcut, dialog, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -234,21 +234,70 @@ function createWindow() {
   const preloadPath = fs.existsSync(path.join(__dirname, 'preload.cjs'))
     ? path.join(__dirname, 'preload.cjs')
     : path.join(__dirname, 'preload.js');
+  const appIcoPath = path.join(__dirname, '../public/icon.ico');
+  const appPngPath = path.join(__dirname, '../public/icon.png');
+  const iconToUse = process.platform === 'win32' && fs.existsSync(appIcoPath) ? appIcoPath : appPngPath;
+  const appIcon = nativeImage.createFromPath(iconToUse);
 
   mainWindow = new BrowserWindow({
-    width: 1280,
+    title: 'Voxel',
+    width: 1200,
     height: 780,
     minWidth: 940,
     minHeight: 600,
     frame: false,
     backgroundColor: '#090a0f',
-    icon: path.join(__dirname, '../public/icon.png'),
+    icon: iconToUse,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true
     }
+  });
+
+  if (!appIcon.isEmpty()) {
+    mainWindow.setIcon(appIcon);
+  }
+
+  // Handle sleek popups for Google OAuth & external logins (No ugly menu bar, perfect dimensions)
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.includes('accounts.google.com') || url.includes('google.com/o/oauth2')) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          title: 'Voxel - Entrar com o Google',
+          width: 500,
+          height: 640,
+          minWidth: 450,
+          minHeight: 580,
+          resizable: true,
+          fullscreenable: false,
+          autoHideMenuBar: true,
+          icon: iconToUse,
+          parent: mainWindow,
+          modal: true,
+          center: true,
+          backgroundColor: '#ffffff',
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+          }
+        }
+      };
+    }
+    return { action: 'allow' };
+  });
+
+  // Remove default File/Edit/View menu and apply icon for all spawned child windows
+  mainWindow.webContents.on('did-create-window', (childWindow) => {
+    try {
+      childWindow.setMenu(null);
+      childWindow.setAutoHideMenuBar(true);
+      if (!appIcon.isEmpty()) {
+        childWindow.setIcon(appIcon);
+      }
+    } catch (e) {}
   });
 
   // Handle maximized state updates
@@ -354,6 +403,10 @@ ipcMain.handle('save-clip', async (event, clipData) => {
 });
 
 app.whenReady().then(async () => {
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.voxel.app');
+  }
+
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
     callback(true);
   });

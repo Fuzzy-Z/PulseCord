@@ -13,11 +13,15 @@ import {
   Radio,
   UserPlus,
   Shield,
-  Disc3
+  Disc3,
+  Move
 } from 'lucide-react';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
 import { useSocket } from '../context/SocketContext';
+import { UserContextMenu } from './UserContextMenu';
+import { UserProfileCard } from './UserProfileCard';
+import { AvatarImage } from './AvatarImage';
 
 export const ChannelSidebar = () => {
   const {
@@ -48,11 +52,27 @@ export const ChannelSidebar = () => {
     toggleDeafen,
     isScreenSharing,
     musicPlayer,
-    watchTogetherState
+    watchTogetherState,
+    moveVoiceUser,
+    disconnectVoiceUser
   } = useVoice();
 
   const [isServerMenuOpen, setIsServerMenuOpen] = useState(false);
   const [contextMenuChannel, setContextMenuChannel] = useState(null);
+  const [contextMenuUser, setContextMenuUser] = useState(null);
+  const [selectedUserForCard, setSelectedUserForCard] = useState(null);
+  const [dragOverChannelId, setDragOverChannelId] = useState(null);
+
+  // Permission to move members (Owner, Admin, Mod)
+  const isOwner = currentServer?.ownerId === currentUser?.id;
+  const isHigherRole =
+    currentUser?.roleId === 'role-admin' ||
+    currentUser?.roleId === 'role-mod' ||
+    currentUser?.id === 'usr-admin' ||
+    currentServer?.roles?.find((r) => r.id === currentUser?.roleId)?.permissions?.includes('ADMIN') ||
+    currentServer?.roles?.find((r) => r.id === currentUser?.roleId)?.permissions?.includes('MOVE_MEMBERS');
+
+  const canMoveMembers = isOwner || isHigherRole;
 
   if (!currentServer) {
     return (
@@ -152,16 +172,16 @@ export const ChannelSidebar = () => {
                       e.preventDefault();
                       setContextMenuChannel(contextMenuChannel === channel.id ? null : channel.id);
                     }}
-                    className={`w-full flex items-center px-2.5 py-1.5 rounded-xl text-xs transition-all group ${
+                    className={`w-full flex items-center px-2.5 py-1.5 rounded-lg text-xs transition-colors group ${
                       isSelected
-                        ? 'bg-sys-accent/20 text-sys-text font-medium shadow-sm border border-sys-accent/30 backdrop-blur-md'
+                        ? 'bg-white/[0.08] text-white font-semibold'
                         : isMutedChan 
-                          ? 'text-sys-muted/50 hover:bg-sys-s2 hover:text-sys-muted'
-                          : 'text-sys-muted hover:bg-sys-s2 hover:text-sys-text'
+                          ? 'text-sys-muted/50 hover:bg-white/[0.04] hover:text-sys-muted'
+                          : 'text-sys-muted hover:bg-white/[0.04] hover:text-sys-text'
                     }`}
                   >
-                    <Hash className={`w-3.5 h-3.5 mr-2 flex-shrink-0 transition-colors ${
-                      isSelected ? 'text-sys-accent' : isMutedChan ? 'text-sys-muted/50' : 'text-sys-muted group-hover:text-sys-text'
+                    <Hash className={`w-4 h-4 mr-2 flex-shrink-0 transition-colors ${
+                      isSelected ? 'text-white' : isMutedChan ? 'text-sys-muted/50' : 'text-sys-muted group-hover:text-sys-text'
                     }`} />
                     <span className={`truncate ${isMutedChan && !isSelected ? 'line-through decoration-sys-muted/50' : ''}`}>{channel.name}</span>
                   </button>
@@ -185,7 +205,7 @@ export const ChannelSidebar = () => {
 
         {/* Voice Channels Header */}
         <div>
-          <div className="flex items-center justify-between px-2 text-[10px] font-semibold text-sys-muted uppercase tracking-wider mb-1">
+          <div className="flex items-center justify-between px-2 text-[10px] font-bold text-sys-muted uppercase tracking-wider mb-1">
             <span className="cursor-default">Canais de Voz</span>
             <button
               onClick={() => {
@@ -203,9 +223,44 @@ export const ChannelSidebar = () => {
             {voiceChannels.map((channel) => {
               const isConnectedHere = activeVoiceChannel === channel.id;
               const usersInThisChannel = voiceRooms[channel.id] || [];
+              const isDropTarget = dragOverChannelId === channel.id;
 
               return (
-                <div key={channel.id} className="space-y-0.5">
+                <div
+                  key={channel.id}
+                  onDragOver={(e) => {
+                    if (canMoveMembers) {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    }
+                  }}
+                  onDragEnter={() => {
+                    if (canMoveMembers) setDragOverChannelId(channel.id);
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                      setDragOverChannelId(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverChannelId(null);
+                    if (!canMoveMembers) return;
+                    try {
+                      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                      if (data.userId) {
+                        moveVoiceUser(data.userId, channel.id, currentServer.id);
+                      }
+                    } catch (err) {
+                      console.error('Error on voice drop:', err);
+                    }
+                  }}
+                  className={`space-y-0.5 rounded-xl transition-all ${
+                    isDropTarget
+                      ? 'bg-sys-accent/15 ring-2 ring-sys-accent/60 shadow-lg'
+                      : ''
+                  }`}
+                >
                   <button
                     onClick={() => {
                       if (!isConnectedHere) {
@@ -213,34 +268,36 @@ export const ChannelSidebar = () => {
                       }
                       selectChannel(channel.id);
                     }}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-all group ${
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors group ${
                       isConnectedHere
-                        ? 'bg-sys-accent/20 text-sys-accent font-semibold border border-sys-accent/30 shadow-sm'
-                        : 'text-sys-muted hover:bg-sys-s2 hover:text-sys-text'
+                        ? 'bg-white/[0.08] text-white font-semibold'
+                        : 'text-sys-muted hover:bg-white/[0.04] hover:text-sys-text'
                     }`}
                   >
                     <div className="flex items-center truncate">
                       <Volume2
-                        className={`w-3.5 h-3.5 mr-2 flex-shrink-0 transition-colors ${
-                          isConnectedHere ? 'text-sys-accent' : 'text-sys-muted group-hover:text-sys-text'
+                        className={`w-4 h-4 mr-2 flex-shrink-0 transition-colors ${
+                          isConnectedHere ? 'text-white' : 'text-sys-muted group-hover:text-sys-text'
                         }`}
                       />
                       <span className="truncate">{channel.name}</span>
                     </div>
 
-                    {isConnectedHere && (
-                      <div className="flex items-center space-x-1">
-                        <span className="flex h-1.5 w-1.5 relative">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sys-accent opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sys-accent"></span>
+                    <div className="flex items-center space-x-1.5">
+                      {isDropTarget && (
+                        <span className="text-[9px] font-bold text-sys-accent bg-sys-accent/20 px-1 rounded animate-pulse">
+                          Soltar aqui
                         </span>
-                      </div>
-                    )}
+                      )}
+                      {isConnectedHere && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+                      )}
+                    </div>
                   </button>
 
                   {/* Users inside this voice channel */}
                   {usersInThisChannel.length > 0 && (
-                    <div className="pl-5 pr-2 py-1 space-y-1">
+                    <div className="pl-4 pr-2 py-1 space-y-1">
                       {usersInThisChannel.map((u) => {
                         const isSpeakingUser =
                           u.id === currentUser?.id ? isSpeaking : speakingUsers.has(u.socketId);
@@ -248,54 +305,73 @@ export const ChannelSidebar = () => {
 
                         return (
                           <div
-                            key={u.id}
-                            className="flex flex-col py-1 px-1.5 rounded-lg hover:bg-sys-s2 transition"
+                            key={u.socketId || u.id}
+                            draggable={canMoveMembers}
+                            onDragStart={(e) => {
+                              e.stopPropagation();
+                              e.dataTransfer.setData(
+                                'text/plain',
+                                JSON.stringify({ userId: u.id, socketId: u.socketId, fromChannelId: channel.id })
+                              );
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setContextMenuUser({
+                                user: u,
+                                x: e.clientX,
+                                y: e.clientY
+                              });
+                            }}
+                            onClick={() => setSelectedUserForCard(u)}
+                            className={`h-7 flex items-center justify-between px-2 rounded-lg text-[11px] font-medium transition-colors border border-transparent group ${
+                              canMoveMembers ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                            } ${
+                              isSpeakingUser
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : 'text-sys-muted/80 hover:text-sys-text hover:bg-white/[0.04]'
+                            }`}
+                            title={canMoveMembers ? 'Clique com botão direito ou arraste para outra call' : 'Clique para ver o perfil'}
                           >
-                            <div className="flex items-center justify-between text-xs text-sys-text">
-                              <div className="flex items-center space-x-2 truncate">
+                            <div className="flex items-center space-x-2 truncate min-w-0">
+                              <div className="relative flex-shrink-0 w-5 h-5">
                                 {u.avatarUrl ? (
-                                  <img
+                                  <AvatarImage
                                     src={u.avatarUrl}
-                                    alt={u.username}
-                                    className={`w-5 h-5 rounded-full object-cover border transition-all ${
-                                      isSpeakingUser
-                                        ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] scale-105'
-                                        : 'border-transparent'
-                                    }`}
+                                    alt="Avatar"
+                                    isSpeaking={isSpeakingUser}
+                                    className="w-5 h-5 rounded-full object-cover ring-1 ring-white/10"
                                   />
                                 ) : (
                                   <div
-                                    className={`w-5 h-5 rounded-full bg-gradient-to-tr ${u.avatarColor || 'from-indigo-500 to-purple-600'} text-white flex items-center justify-center text-[9px] font-bold border transition-all ${
-                                      isSpeakingUser
-                                        ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] scale-105'
-                                        : 'border-transparent'
-                                    }`}
+                                    className={`w-5 h-5 rounded-full bg-gradient-to-tr ${
+                                      u.avatarColor || 'from-indigo-500 to-purple-600'
+                                    } flex items-center justify-center text-[9px] text-white font-bold ring-1 ring-white/10`}
                                   >
                                     {initials}
                                   </div>
                                 )}
-                                <span className="truncate font-medium text-[11px]">{u.displayName || u.username}</span>
                               </div>
-
-                              {/* User status badges */}
-                              <div className="flex items-center space-x-1 flex-shrink-0">
-                                {u.isScreenSharing && (
-                                  <span className="px-1.5 py-0.2 bg-sys-accent text-[8px] font-bold text-white rounded-full">
-                                    LIVE
-                                  </span>
-                                )}
-                                {u.isMuted && <MicOff className="w-3 h-3 text-red-400" />}
-                                {u.isDeafened && <Headphones className="w-3 h-3 text-red-400" />}
-                              </div>
+                              <span className={`truncate font-medium text-[11px] transition-colors group-hover:underline ${
+                                isSpeakingUser ? 'text-emerald-400 font-semibold' : 'text-sys-text/90'
+                              }`}>
+                                {u.displayName || u.username}
+                              </span>
                             </div>
-                            {/* Activity Indicator */}
-                            {watchTogetherState?.isActive && watchTogetherState?.participants?.includes(u.id) && (
-                              <div className="flex items-center mt-0.5 ml-7">
-                                <span className="text-[9px] font-semibold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded-sm truncate">
-                                  Assistindo YouTube
-                                </span>
-                              </div>
-                            )}
+
+                            <div className="flex items-center space-x-1.5 flex-shrink-0">
+                              {/* Speaking Animated Equalizer Bars */}
+                              {isSpeakingUser && (
+                                <div className="flex items-center space-x-0.5 h-3 px-1">
+                                  <span className="w-0.5 bg-emerald-400 rounded-full audio-bar-1" />
+                                  <span className="w-0.5 bg-emerald-400 rounded-full audio-bar-2" />
+                                  <span className="w-0.5 bg-emerald-400 rounded-full audio-bar-3" />
+                                </div>
+                              )}
+                              {u.isMuted && <MicOff className="w-3 h-3 text-rose-400/80" />}
+                              {u.isDeafened && <Headphones className="w-3 h-3 text-rose-400/80" />}
+                            </div>
                           </div>
                         );
                       })}
@@ -367,9 +443,10 @@ export const ChannelSidebar = () => {
         >
           <div className="relative flex-shrink-0">
             {currentUser?.avatarUrl ? (
-              <img 
+              <AvatarImage 
                 src={currentUser.avatarUrl} 
                 alt="Avatar" 
+                isSpeaking={isSpeaking}
                 className="w-8 h-8 rounded-full object-cover shadow-sm border border-white/10" 
               />
             ) : (
@@ -420,6 +497,24 @@ export const ChannelSidebar = () => {
           </button>
         </div>
       </div>
+
+      {/* User Context Menu (Right Click on Voice Users) */}
+      {contextMenuUser && (
+        <UserContextMenu
+          targetUser={contextMenuUser.user}
+          position={{ x: contextMenuUser.x, y: contextMenuUser.y }}
+          onClose={() => setContextMenuUser(null)}
+          onOpenProfile={(u) => setSelectedUserForCard(u)}
+        />
+      )}
+
+      {/* User Profile Card Modal */}
+      {selectedUserForCard && (
+        <UserProfileCard
+          user={selectedUserForCard}
+          onClose={() => setSelectedUserForCard(null)}
+        />
+      )}
     </div>
   );
 };

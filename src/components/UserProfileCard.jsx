@@ -1,10 +1,17 @@
 import React from 'react';
-import { X, Gamepad2, BadgeCheck, Sparkles } from 'lucide-react';
+import { X, Gamepad2, BadgeCheck, Sparkles, MessageSquare } from 'lucide-react';
+import { useServer } from '../context/ServerContext';
+import { useSocket } from '../context/SocketContext';
+import { AvatarImage } from './AvatarImage';
 
 export const UserProfileCard = ({ user, onClose, inline = false }) => {
   if (!user) return null;
 
+  const { openDM } = useServer();
+  const { currentUser } = useSocket();
+
   const {
+    id,
     displayName,
     username,
     avatarUrl,
@@ -17,17 +24,23 @@ export const UserProfileCard = ({ user, onClose, inline = false }) => {
     gameStatus,
   } = user;
 
+  const isMe = Boolean(currentUser?.id && id && currentUser.id === id);
   const defaultGradient = avatarColor || 'from-indigo-500 to-purple-600';
-  const nameToDisplay = displayName || username;
+  const nameToDisplay = displayName || username || 'Usuário';
 
   // Render Badges
   const renderBadges = () => {
     const userBadges = [];
-    if (user.id === 'usr-admin' || user.id?.includes('owner')) {
+    if (user?.id === 'usr-admin' || (typeof user?.id === 'string' && user.id.includes('owner'))) {
       userBadges.push({ id: 'staff', icon: <BadgeCheck className="w-4 h-4 text-emerald-400" />, tooltip: 'Staff' });
     }
-    if (user.createdAt && new Date(user.createdAt).getFullYear() < 2025) {
-      userBadges.push({ id: 'early', icon: <Sparkles className="w-4 h-4 text-amber-400" />, tooltip: 'Early Supporter' });
+    if (user?.createdAt) {
+      try {
+        const d = new Date(user.createdAt);
+        if (!isNaN(d.getTime()) && d.getFullYear() < 2025) {
+          userBadges.push({ id: 'early', icon: <Sparkles className="w-4 h-4 text-amber-400" />, tooltip: 'Early Supporter' });
+        }
+      } catch (e) {}
     }
     if (userBadges.length === 0) {
       userBadges.push({ id: 'hype', icon: <Sparkles className="w-4 h-4 text-fuchsia-400" />, tooltip: 'HypeSquad' });
@@ -73,7 +86,7 @@ export const UserProfileCard = ({ user, onClose, inline = false }) => {
       <div className="relative px-4 pb-4">
         <div className="absolute -top-10 left-4 p-1.5 bg-[#111214] rounded-full">
           {avatarUrl ? (
-            <img src={avatarUrl} alt={nameToDisplay} className="w-20 h-20 rounded-full object-cover shadow-lg" />
+            <AvatarImage src={avatarUrl} alt={nameToDisplay} className="w-20 h-20 rounded-full object-cover shadow-lg" />
           ) : (
             <div className={`w-20 h-20 rounded-full bg-gradient-to-tr ${defaultGradient} flex items-center justify-center text-2xl font-bold text-white shadow-lg`}>
               {(avatar || nameToDisplay || 'U').substring(0, 2).toUpperCase()}
@@ -112,6 +125,22 @@ export const UserProfileCard = ({ user, onClose, inline = false }) => {
           </div>
 
           <div className="bg-[#1E1F22] p-3.5 rounded-xl border border-white/5 space-y-4">
+            {/* Action Buttons (Send DM) */}
+            {!inline && !isMe && (
+              <button
+                type="button"
+                onClick={() => {
+                  const targetId = id || user.id || user.userId || user.authorId || user._id;
+                  openDM(targetId || user, user);
+                  if (onClose) onClose();
+                }}
+                className="w-full py-2.5 px-3 bg-sys-accent hover:bg-sys-accentHov text-white text-xs font-bold rounded-xl flex items-center justify-center space-x-2 transition shadow-sm btn-interactive"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Enviar Mensagem Direta</span>
+              </button>
+            )}
+
             {/* Bio */}
             {bio ? (
               <div>
@@ -145,9 +174,18 @@ export const UserProfileCard = ({ user, onClose, inline = false }) => {
 
             {/* Member Since (Mock) */}
             <div>
-              <h3 className="text-[10px] font-bold text-sys-muted uppercase tracking-wider mb-1">Membro do PulseCord desde</h3>
+              <h3 className="text-[10px] font-bold text-sys-muted uppercase tracking-wider mb-1">Membro do Voxel desde</h3>
               <p className="text-xs font-medium text-gray-400">
-                {user.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : 'Ago 2026'}
+                {(() => {
+                  try {
+                    if (!user.createdAt) return 'Ago 2026';
+                    const d = new Date(user.createdAt);
+                    if (isNaN(d.getTime())) return 'Ago 2026';
+                    return d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+                  } catch {
+                    return 'Ago 2026';
+                  }
+                })()}
               </p>
             </div>
           </div>

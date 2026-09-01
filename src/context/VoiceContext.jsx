@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useSocket } from './SocketContext';
 import { WebRTCManager } from '../services/webrtc';
-import { KrispAudioProcessor } from '../services/audioUtils';
+import { KrispAudioProcessor, CleanScreenAudioProcessor } from '../services/audioUtils';
 import { soundFX } from '../services/soundEffects';
 
 const VoiceContext = createContext(null);
@@ -53,13 +53,30 @@ export const VoiceProvider = ({ children }) => {
     const saved = localStorage.getItem('pulsecord_mic_gain');
     return saved !== null ? Number(saved) : 100;
   });
-  const [micLiveLevel, setMicLiveLevel] = useState(0);
-  const [isGateOpen, setIsGateOpen] = useState(false);
 
   // Per-User Friend Volume Sliders (0% to 200%)
   const [userVolumes, setUserVolumes] = useState(() => {
     try {
       const saved = localStorage.getItem('pulsecord_user_volumes');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Per-User Mute & Deafen settings (Persisted)
+  const [userMutes, setUserMutes] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pulsecord_user_mutes');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [userDeafens, setUserDeafens] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pulsecord_user_deafens');
       return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
@@ -95,8 +112,14 @@ export const VoiceProvider = ({ children }) => {
 
   const webrtcManagerRef = useRef(null);
   const krispProcessorRef = useRef(null);
+  const screenAudioProcessorRef = useRef(null);
   const musicAudioRef = useRef(null);
   const remoteAudioElementsRef = useRef(new Map()); // socketId -> HTMLAudioElement
+  const remoteStreamsRef = useRef({});
+
+  useEffect(() => {
+    remoteStreamsRef.current = remoteStreams;
+  }, [remoteStreams]);
 
   // Refresh audio input & output devices
   const refreshAudioDevices = async () => {
@@ -150,10 +173,6 @@ export const VoiceProvider = ({ children }) => {
           sensitivity: micSensitivity,
           inputGain: micGain / 100,
           krispEnabled,
-          onLevelChange: (level, gateOpen) => {
-            setMicLiveLevel(level);
-            setIsGateOpen(gateOpen);
-          },
           onSpeakingChange: (speaking) => {
             setIsSpeaking(speaking);
             if (socket) socket.emit('speaking-state', { isSpeaking: speaking });
@@ -244,6 +263,41 @@ export const VoiceProvider = ({ children }) => {
       return updated;
     });
   };
+
+  const toggleUserMute = (userId) => {
+    if (!userId) return;
+    setUserMutes((prev) => {
+      const isCurrentlyMuted = !!prev[userId];
+      const nextMuted = !isCurrentlyMuted;
+      const updated = { ...prev, [userId]: nextMuted };
+      localStorage.setItem('pulsecord_user_mutes', JSON.stringify(updated));
+
+      // Mute active HTMLAudioElement for this user
+      usersInVoice.forEach((u) => {
+        if (u.id === userId && u.socketId) {
+          const audioEl = remoteAudioElementsRef.current.get(u.socketId);
+          if (audioEl) {
+            audioEl.muted = nextMuted;
+          }
+        }
+      });
+
+      return updated;
+    });
+  };
+
+  const toggleUserDeafen = (userId) => {
+    if (!userId) return;
+    setUserDeafens((prev) => {
+      const nextDeafened = !prev[userId];
+      const updated = { ...prev, [userId]: nextDeafened };
+      localStorage.setItem('pulsecord_user_deafens', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const isUserMuted = (userId) => !!userMutes[userId];
+  const isUserDeafened = (userId) => !!userDeafens[userId];
 
   // Manage Remote Audio Playback Globally (Handled by GlobalAudioEngine)
   
@@ -382,6 +436,16 @@ export const VoiceProvider = ({ children }) => {
       }
     });
 
+    socket.on('moved-to-voice-channel', ({ channelId, serverId }) => {
+      soundFX.play('user-join');
+      joinVoiceChannel(channelId, serverId);
+    });
+
+    socket.on('force-disconnected-from-voice', () => {
+      soundFX.play('user-leave');
+      leaveVoiceChannel();
+    });
+
     return () => {
       if (manager) {
         manager.closeAll();
@@ -395,6 +459,8 @@ export const VoiceProvider = ({ children }) => {
       socket.off('user-voice-status-updated');
       socket.off('music-state-update');
       socket.off('watch-together-state-update');
+      socket.off('moved-to-voice-channel');
+      socket.off('force-disconnected-from-voice');
     };
   }, [socket]);
 
@@ -454,10 +520,6 @@ export const VoiceProvider = ({ children }) => {
         sensitivity: micSensitivity,
         inputGain: micGain / 100,
         krispEnabled,
-        onLevelChange: (level, gateOpen) => {
-          setMicLiveLevel(level);
-          setIsGateOpen(gateOpen);
-        },
         onSpeakingChange: (speaking) => {
           setIsSpeaking(speaking);
           socket.emit('speaking-state', { isSpeaking: speaking });
@@ -656,12 +718,24 @@ export const VoiceProvider = ({ children }) => {
 
       const hasAudio = stream.getAudioTracks().length > 0;
       setIsScreenAudioEnabled(shouldCaptureAudio && hasAudio);
-      setLocalScreenStream(stream);
+
+      // Automated Software-Level Audio Cleaner for Screen Sharing
+      let streamToTransmit = stream;
+      if (shouldCaptureAudio && hasAudio) {
+        if (screenAudioProcessorRef.current) {
+          screenAudioProcessorRef.current.stop();
+        }
+        const cleaner = new CleanScreenAudioProcessor(stream, () => remoteStreamsRef.current);
+        screenAudioProcessorRef.current = cleaner;
+        streamToTransmit = cleaner.getCleanStream();
+      }
+
+      setLocalScreenStream(streamToTransmit);
       setIsScreenSharing(true);
       soundFX.play('screen-on');
 
       if (webrtcManagerRef.current) {
-        webrtcManagerRef.current.setLocalScreenStream(stream);
+        webrtcManagerRef.current.setLocalScreenStream(streamToTransmit);
       }
 
       if (socket) {
@@ -687,6 +761,10 @@ export const VoiceProvider = ({ children }) => {
   };
 
   const stopScreenShare = () => {
+    if (screenAudioProcessorRef.current) {
+      screenAudioProcessorRef.current.stop();
+      screenAudioProcessorRef.current = null;
+    }
     if (localScreenStream) {
       localScreenStream.getTracks().forEach((t) => t.stop());
       setLocalScreenStream(null);
@@ -720,6 +798,16 @@ export const VoiceProvider = ({ children }) => {
     socket.emit('watch-together-action', { channelId: activeVoiceChannel, action, payload });
   };
 
+  const moveVoiceUser = (targetUserId, targetChannelId, serverId) => {
+    if (!socket || !targetUserId || !targetChannelId) return;
+    socket.emit('move-voice-user', { targetUserId, targetChannelId, serverId });
+  };
+
+  const disconnectVoiceUser = (targetUserId, serverId) => {
+    if (!socket || !targetUserId) return;
+    socket.emit('disconnect-voice-user', { targetUserId, serverId });
+  };
+
   return (
     <VoiceContext.Provider
       value={{
@@ -743,8 +831,6 @@ export const VoiceProvider = ({ children }) => {
         setMicSensitivity,
         micGain,
         setMicGain,
-        micLiveLevel,
-        isGateOpen,
         userVolumes,
         setUserVolume,
         inputDevices,
@@ -766,8 +852,14 @@ export const VoiceProvider = ({ children }) => {
         watchTogetherState,
         setWatchTogetherState,
         dispatchWatchTogether,
-        listenTogetherPeer,
-        setListenTogetherPeer
+        moveVoiceUser,
+        disconnectVoiceUser,
+        userMutes,
+        userDeafens,
+        toggleUserMute,
+        toggleUserDeafen,
+        isUserMuted,
+        isUserDeafened
       }}
     >
       {children}

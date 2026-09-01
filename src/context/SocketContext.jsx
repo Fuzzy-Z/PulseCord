@@ -203,12 +203,64 @@ export const SocketProvider = ({ children }) => {
     });
   };
 
+  // Google OAuth Login Method
+  const loginGoogle = (googlePayload) => {
+    return new Promise((resolve) => {
+      if (!socketRef.current) return resolve({ success: false, error: 'Servidor desconectado.' });
+      setAuthError(null);
+
+      const timer = setTimeout(() => {
+        setAuthError('Tempo limite esgotado ao autenticar com o servidor.');
+        resolve({ success: false, error: 'Tempo limite esgotado.' });
+      }, 10000);
+
+      socketRef.current.emit('auth-google', googlePayload, (res) => {
+        clearTimeout(timer);
+        if (res && res.success) {
+          setCurrentUser(res.user);
+          setIsAuthenticated(true);
+          if (res.servers) setInitialServersData(res.servers);
+          localStorage.setItem(
+            'pulsecord_session',
+            JSON.stringify({ token: res.user.token, userId: res.user.id, email: res.user.email })
+          );
+          resolve({ success: true, user: res.user });
+        } else if (res && res.needOnboarding) {
+          resolve({ success: false, needOnboarding: true, googleUser: res });
+        } else {
+          const errMsg = res?.error || 'Erro ao autenticar com o Google.';
+          setAuthError(errMsg);
+          resolve({ success: false, error: errMsg });
+        }
+      });
+    });
+  };
+
   // Logout Method
   const logout = () => {
     localStorage.removeItem('pulsecord_session');
     setIsAuthenticated(false);
     setCurrentUser(null);
     setInitialServersData([]);
+  };
+
+  // Delete Account Permanently (Purge all user data)
+  const deleteAccount = (confirmUsername) => {
+    return new Promise((resolve) => {
+      if (!socketRef.current) return resolve({ success: false, error: 'Servidor desconectado.' });
+
+      socketRef.current.emit('delete-account', { confirmUsername }, (res) => {
+        if (res && res.success) {
+          localStorage.removeItem('pulsecord_session');
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+          setInitialServersData([]);
+          resolve({ success: true });
+        } else {
+          resolve({ success: false, error: res?.error || 'Erro ao excluir conta.' });
+        }
+      });
+    });
   };
 
   // Update Profile
@@ -280,8 +332,10 @@ export const SocketProvider = ({ children }) => {
         setAuthError,
         login,
         loginGuest,
+        loginGoogle,
         register,
         logout,
+        deleteAccount,
         initialServersData
       }}
     >

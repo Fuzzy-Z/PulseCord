@@ -15,6 +15,7 @@ import {
 import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
 import { useSocket } from '../context/SocketContext';
+import { AudioVisualizerCanvas } from './AudioVisualizerCanvas';
 
 export const MusicPlayerModal = () => {
   const { isMusicModalOpen, setIsMusicModalOpen } = useServer();
@@ -218,8 +219,14 @@ export const MusicPlayerModal = () => {
               </div>
 
               <div className="flex-1 text-center md:text-left truncate">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                  Reproduzindo Agora
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    <span>Reproduzindo Agora</span>
+                  </div>
+                  <div className="w-24 h-4 hidden sm:block">
+                    <AudioVisualizerCanvas isActive={musicPlayer.isPlaying} amplitude={1.0} className="w-full h-full" />
+                  </div>
                 </div>
                 <h3 className="text-base font-bold text-sys-text truncate mt-0.5">
                   {musicPlayer.currentTrack.title}

@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers, Palette, Lock, Video, Upload } from 'lucide-react';
+import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers, Palette, Lock, Video, Upload, Trash2, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
 import { UserProfileCard } from './UserProfileCard';
+import { AvatarImage } from './AvatarImage';
 import Swal from 'sweetalert2';
 
 export const UserSettingsModal = () => {
   const { isUserSettingsOpen, setIsUserSettingsOpen } = useServer();
-  const { currentUser, updateCurrentUser, updateProfile, serverUrl, updateServerUrl, logout } = useSocket();
+  const { currentUser, updateCurrentUser, updateProfile, serverUrl, updateServerUrl, logout, deleteAccount } = useSocket();
   const {
     krispEnabled,
     setKrispEnabled,
@@ -16,8 +17,6 @@ export const UserSettingsModal = () => {
     setMicSensitivity,
     micGain,
     setMicGain,
-    micLiveLevel,
-    isGateOpen,
     inputDevices,
     outputDevices,
     selectedInputDevice,
@@ -49,6 +48,31 @@ export const UserSettingsModal = () => {
   const [micTestActive, setMicTestActive] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const [playingSoundTest, setPlayingSoundTest] = useState(false);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  useEffect(() => {
+    if (isUserSettingsOpen && currentUser) {
+      setUsername(currentUser.username || '');
+      setDisplayName(currentUser.displayName || currentUser.username || '');
+      setBio(currentUser.bio || '');
+      setPronouns(currentUser.pronouns || '');
+      setAvatarUrl(currentUser.avatarUrl || '');
+      setBannerUrl(currentUser.bannerUrl || '');
+      setCustomStatusText(currentUser.customStatus?.text || '');
+      setCustomStatusEmoji(currentUser.customStatus?.emoji || '');
+      setGameStatus(currentUser.gameStatus || '');
+      setSelectedGradient(currentUser.avatarColor || 'from-indigo-500 to-purple-600');
+      setAvatarInitials(
+        (currentUser.avatar && currentUser.avatar.length <= 2 && !/[\uD800-\uDFFF]/.test(currentUser.avatar))
+          ? currentUser.avatar
+          : (currentUser.username || 'PC').substring(0, 2).toUpperCase()
+      );
+    }
+  }, [isUserSettingsOpen, currentUser]);
 
   const [compactMode, setCompactMode] = useState(() => {
     if (currentUser?.compactMode !== undefined) return currentUser.compactMode;
@@ -225,15 +249,19 @@ export const UserSettingsModal = () => {
           source.connect(analyser);
 
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
-          const update = () => {
-            analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-            const avg = (sum / dataArray.length / 255) * 100;
-            setMicLevel(Math.min(100, Math.round(avg * 2.5)));
+          let lastUpdate = 0;
+          const update = (timestamp) => {
+            if (timestamp - lastUpdate >= 35) {
+              lastUpdate = timestamp;
+              analyser.getByteFrequencyData(dataArray);
+              let sum = 0;
+              for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+              const avg = (sum / dataArray.length / 255) * 100;
+              setMicLevel(Math.min(100, Math.round(avg * 2.5)));
+            }
             animId = requestAnimationFrame(update);
           };
-          update();
+          animId = requestAnimationFrame(update);
         })
         .catch((err) => console.warn('Mic test error:', err));
     }
@@ -309,22 +337,51 @@ export const UserSettingsModal = () => {
     reader.readAsDataURL(file);
   };
 
+  const handleConfirmDeleteAccount = async (e) => {
+    if (e) e.preventDefault();
+    if (!deleteConfirmText.trim() || deleteConfirmText.trim() !== currentUser?.username) {
+      setDeleteError(`O nome digitado não confere. Digite exatamente "${currentUser?.username}".`);
+      return;
+    }
+
+    setDeletingAccount(true);
+    setDeleteError(null);
+
+    const res = await deleteAccount(deleteConfirmText.trim());
+    if (res && res.success) {
+      setIsDeleteModalOpen(false);
+      setIsUserSettingsOpen(false);
+      Swal.fire({
+        title: 'Conta Excluída',
+        text: 'Sua conta e todos os dados vinculados foram permanentemente removidos.',
+        icon: 'success',
+        background: '#13151c',
+        color: '#fff',
+        confirmButtonColor: '#6366f1'
+      });
+    } else {
+      setDeleteError(res?.error || 'Erro ao excluir conta.');
+    }
+    setDeletingAccount(false);
+  };
+
   const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    if (!username.trim()) return;
-    const finalInitials = (avatarInitials.trim() || username.trim().substring(0, 2)).toUpperCase();
+    if (e) e.preventDefault();
+    const cleanUsername = ((username || currentUser?.username || 'usuario') + '').trim();
+    if (!cleanUsername) return;
+    const finalInitials = (((avatarInitials || cleanUsername) + '').trim().substring(0, 2)).toUpperCase();
 
     await updateProfile({
-      username: username.trim(),
-      displayName: displayName.trim(),
-      bio: bio.trim(),
-      pronouns: pronouns.trim(),
-      avatarUrl: avatarUrl.trim(),
-      bannerUrl: bannerUrl.trim(),
-      customStatus: { text: customStatusText.trim(), emoji: customStatusEmoji.trim() },
-      gameStatus: gameStatus.trim(),
+      username: cleanUsername,
+      displayName: ((displayName || cleanUsername) + '').trim(),
+      bio: ((bio || '') + '').trim(),
+      pronouns: ((pronouns || '') + '').trim(),
+      avatarUrl: ((avatarUrl || '') + '').trim(),
+      bannerUrl: ((bannerUrl || '') + '').trim(),
+      customStatus: { text: ((customStatusText || '') + '').trim(), emoji: ((customStatusEmoji || '') + '').trim() },
+      gameStatus: ((gameStatus || '') + '').trim(),
       avatar: finalInitials,
-      avatarColor: selectedGradient
+      avatarColor: selectedGradient || 'from-indigo-500 to-purple-600'
     });
 
     setIsUserSettingsOpen(false);
@@ -337,22 +394,25 @@ export const UserSettingsModal = () => {
     setIsUserSettingsOpen(false);
   };
 
+  if (!isUserSettingsOpen) return null;
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6 select-none">
-      <div className="bg-sys-base w-full max-w-5xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden border border-sys-border flex animate-modal">
-        {/* Left Nav */}
-        <div className="w-56 bg-sys-s2 p-5 flex flex-col justify-between border-r border-sys-border flex-shrink-0">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 sm:p-6 select-none animate-fadeIn">
+      <div className="bg-sys-base w-full max-w-5xl h-[88vh] rounded-2xl shadow-2xl overflow-hidden border border-sys-border flex animate-modal">
+        {/* Left Sidebar */}
+        <div className="w-60 bg-sys-s2 p-4 flex flex-col justify-between border-r border-sys-border flex-shrink-0">
           <div>
-            <h3 className="text-[10px] font-bold text-sys-muted uppercase tracking-wider px-2 mb-3">
-              Ajustes
-            </h3>
-            <div className="space-y-1.5">
+            <div className="px-3 py-2 text-[11px] font-bold text-sys-muted uppercase tracking-wider">
+              Ajustes do Usuário
+            </div>
+            <div className="space-y-1 mt-1">
               <button
                 onClick={() => setActiveTab('profile')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'profile'
-                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                  activeTab === 'profile'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-white/10'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                  }`}
+                }`}
               >
                 <User className="w-4 h-4 text-sys-accent" />
                 <span>Perfil</span>
@@ -360,69 +420,74 @@ export const UserSettingsModal = () => {
 
               <button
                 onClick={() => setActiveTab('appearance')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'appearance'
-                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                  activeTab === 'appearance'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-white/10'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                  }`}
+                }`}
               >
-                <Palette className="w-4 h-4 text-sys-accent" />
+                <Palette className="w-4 h-4 text-sys-muted group-hover:text-sys-text" />
                 <span>Aparência</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('privacy')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'privacy'
-                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                  activeTab === 'privacy'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-white/10'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                  }`}
+                }`}
               >
-                <Lock className="w-4 h-4 text-rose-500" />
+                <Lock className="w-4 h-4 text-sys-muted" />
                 <span>Privacidade</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('clips')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'clips'
-                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                  activeTab === 'clips'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-white/10'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                  }`}
+                }`}
               >
-                <Video className="w-4 h-4 text-fuchsia-400" />
+                <Video className="w-4 h-4 text-sys-muted" />
                 <span>Clipes (Gravação)</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('voice')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'voice'
-                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                  activeTab === 'voice'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-white/10'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                  }`}
+                }`}
               >
-                <Mic className="w-4 h-4 text-green-500" />
+                <Mic className="w-4 h-4 text-sys-muted" />
                 <span>Voz & Áudio</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('connection')}
-                className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition ${activeTab === 'connection'
-                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-sys-border'
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                  activeTab === 'connection'
+                    ? 'bg-sys-s3 text-sys-text shadow-sm border border-white/10'
                     : 'text-sys-muted hover:bg-sys-s1 hover:text-sys-text'
-                  }`}
+                }`}
               >
-                <Server className="w-4 h-4 text-amber-500" />
+                <Server className="w-4 h-4 text-sys-muted" />
                 <span>Servidor / Nuvem</span>
               </button>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-sys-border space-y-2">
+          <div className="pt-3 border-t border-sys-border space-y-1">
             <button
               onClick={() => {
                 setMicTestActive(false);
                 setIsUserSettingsOpen(false);
                 logout();
               }}
-              className="flex items-center space-x-2 text-red-500 hover:text-red-400 text-xs font-semibold px-2 py-1.5 rounded-xl hover:bg-red-500/10 w-full transition"
+              className="flex items-center space-x-2.5 text-sys-muted hover:text-sys-text text-xs font-semibold px-3 py-2 rounded-xl hover:bg-sys-s1 w-full transition"
             >
               <LogOut className="w-4 h-4" />
               <span>Sair da Conta</span>
@@ -430,10 +495,22 @@ export const UserSettingsModal = () => {
 
             <button
               onClick={() => {
+                setDeleteConfirmText('');
+                setDeleteError(null);
+                setIsDeleteModalOpen(true);
+              }}
+              className="flex items-center space-x-2.5 text-rose-400/90 hover:text-rose-300 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-rose-500/10 w-full transition"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Excluir Conta</span>
+            </button>
+
+            <button
+              onClick={() => {
                 setMicTestActive(false);
                 setIsUserSettingsOpen(false);
               }}
-              className="flex items-center space-x-2 text-sys-muted hover:text-sys-text text-xs font-semibold px-2 py-1.5 rounded-xl hover:bg-sys-s1 w-full transition"
+              className="flex items-center space-x-2.5 text-sys-muted hover:text-sys-text text-xs font-semibold px-3 py-2 rounded-xl hover:bg-sys-s1 w-full transition"
             >
               <X className="w-4 h-4" />
               <span>Fechar</span>
@@ -441,143 +518,218 @@ export const UserSettingsModal = () => {
           </div>
         </div>
 
-        {/* Right Content */}
-        <div className="flex-1 p-8 overflow-y-auto thin-scrollbar">
+        {/* Right Content Area */}
+        <div className="flex-1 p-6 md:p-8 overflow-y-auto thin-scrollbar">
           {activeTab === 'profile' && (
-            <div className="flex flex-col lg:flex-row gap-8 items-start">
-              {/* Left Form Column */}
-              <form onSubmit={handleSaveProfile} className="flex-1 space-y-6 w-full">
+            <div className="flex flex-col xl:flex-row gap-8 items-start">
+              {/* Form Column */}
+              <form onSubmit={handleSaveProfile} className="flex-1 space-y-5 w-full">
                 <div>
-                  <h2 className="text-xl font-bold text-sys-text tracking-tight">Perfil de Usuário</h2>
+                  <h2 className="text-xl font-extrabold text-sys-text tracking-tight">Perfil de Usuário</h2>
                   <p className="text-xs text-sys-muted mt-1">
-                    Personalize sua identidade, avatar, banner e status.
+                    Personalize sua identidade, avatar, banner e status no servidor.
                   </p>
                 </div>
 
-                {/* Banner & Avatar Row */}
+                {/* Banner & Avatar Upload Cards (Full card backgrounds with centered buttons) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Banner Card */}
-                  <div className="p-3.5 bg-sys-s2 border border-sys-border rounded-2xl space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-sys-muted">Banner do Perfil</span>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-0.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-sys-muted">Banner do Perfil</span>
                       {bannerUrl && (
                         <button
                           type="button"
                           onClick={() => setBannerUrl('')}
-                          className="text-[10px] text-rose-400 hover:underline"
+                          className="text-[11px] text-rose-400 hover:text-rose-300 font-medium hover:underline"
                         >
                           Remover
                         </button>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    
+                    <div className="relative h-28 w-full rounded-xl overflow-hidden border border-sys-border flex items-center justify-center group shadow-sm bg-sys-s1">
+                      {/* Background Banner */}
                       {bannerUrl ? (
-                        <img src={bannerUrl} alt="Banner" className="w-14 h-8 rounded-lg object-cover border border-sys-border flex-shrink-0" />
+                        <img src={bannerUrl} alt="Banner" className="absolute inset-0 w-full h-full object-cover" />
                       ) : (
-                        <div className="w-14 h-8 rounded-lg bg-sys-s1 border border-dashed border-sys-border flex items-center justify-center text-[10px] text-sys-muted flex-shrink-0">
-                          Vazio
-                        </div>
+                        <div className={`absolute inset-0 w-full h-full bg-gradient-to-tr ${selectedGradient}`} />
                       )}
-                      <label className="flex-1 py-2 px-3 bg-sys-s1 hover:bg-sys-s3 border border-sys-border text-sys-text text-center rounded-xl text-xs font-semibold cursor-pointer transition flex items-center justify-center gap-1.5">
-                        <Upload className="w-3.5 h-3.5 text-sys-accent" />
-                        <span>{bannerUrl ? 'Trocar Banner' : 'Enviar Banner (GIF/Img)'}</span>
+                      <div className="absolute inset-0 bg-black/35" />
+                      
+                      {/* Centered Upload Button */}
+                      <label className="relative z-10 px-4 py-2 bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white text-xs font-semibold rounded-lg cursor-pointer transition flex items-center justify-center gap-1.5 shadow-md btn-interactive">
+                        <Upload className="w-3.5 h-3.5 text-white/80" />
+                        <span>{bannerUrl ? 'Trocar Banner' : 'Enviar Banner'}</span>
                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setBannerUrl, true)} />
                       </label>
                     </div>
                   </div>
 
-                  {/* Avatar Card */}
-                  <div className="p-3.5 bg-sys-s2 border border-sys-border rounded-2xl space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-sys-muted">Avatar Customizado</span>
+                  {/* Avatar Card with Strong Blur */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-0.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-sys-muted">Avatar de Perfil</span>
                       {avatarUrl && (
                         <button
                           type="button"
                           onClick={() => setAvatarUrl('')}
-                          className="text-[10px] text-rose-400 hover:underline"
+                          className="text-[11px] text-rose-400 hover:text-rose-300 font-medium hover:underline"
                         >
                           Remover
                         </button>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    
+                    <div className="relative h-28 w-full rounded-xl overflow-hidden border border-sys-border flex items-center justify-center group shadow-sm bg-sys-s1">
+                      {/* Background Avatar with Strong Blur */}
                       {avatarUrl ? (
-                        <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full object-cover border border-sys-border flex-shrink-0" />
+                        <AvatarImage src={avatarUrl} alt="Avatar Blur" className="absolute inset-0 w-full h-full object-cover filter blur-lg scale-110" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-sys-s1 border border-dashed border-sys-border flex items-center justify-center text-[10px] text-sys-muted flex-shrink-0">
-                          Padrão
-                        </div>
+                        <div className={`absolute inset-0 w-full h-full bg-gradient-to-tr ${selectedGradient} filter blur-lg scale-110`} />
                       )}
-                      <label className="flex-1 py-2 px-3 bg-sys-s1 hover:bg-sys-s3 border border-sys-border text-sys-text text-center rounded-xl text-xs font-semibold cursor-pointer transition flex items-center justify-center gap-1.5">
-                        <Upload className="w-3.5 h-3.5 text-sys-accent" />
-                        <span>{avatarUrl ? 'Trocar Foto' : 'Enviar Foto / GIF'}</span>
+                      <div className="absolute inset-0 bg-black/45" />
+                      
+                      {/* Centered Upload Button */}
+                      <label className="relative z-10 px-4 py-2 bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white text-xs font-semibold rounded-lg cursor-pointer transition flex items-center justify-center gap-1.5 shadow-md btn-interactive">
+                        <Upload className="w-3.5 h-3.5 text-white/80" />
+                        <span>{avatarUrl ? 'Trocar Avatar' : 'Enviar Avatar'}</span>
                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, setAvatarUrl, false)} />
                       </label>
                     </div>
                   </div>
                 </div>
 
-                {/* Color Gradient Theme Picker */}
+                {/* Color Gradient Theme Picker (Clean 3-col grid, no text cut-off) */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-2.5">
-                    Cor do Perfil (Gradiente)
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted mb-2">
+                    Cor de Destaque / Gradiente
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {gradientOptions.map((opt) => (
-                      <button
-                        key={opt.name}
-                        type="button"
-                        onClick={() => setSelectedGradient(opt.gradient)}
-                        className={`flex items-center space-x-2.5 p-2 rounded-xl border transition-colors ${selectedGradient === opt.gradient
-                            ? 'bg-sys-s3 border-sys-accent text-sys-text'
-                            : 'bg-sys-s1 border-transparent hover:bg-sys-s2 hover:border-sys-border text-sys-muted'
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {gradientOptions.map((opt) => {
+                      const isSelected = selectedGradient === opt.gradient;
+                      return (
+                        <button
+                          key={opt.name}
+                          type="button"
+                          onClick={() => setSelectedGradient(opt.gradient)}
+                          className={`flex items-center space-x-2.5 px-3 py-2 rounded-xl border text-left transition-all ${
+                            isSelected
+                              ? 'bg-sys-s3 border-sys-accent text-sys-text font-semibold ring-1 ring-sys-accent'
+                              : 'bg-sys-s2 border-sys-border/60 hover:bg-sys-s3 hover:border-sys-border text-sys-muted'
                           }`}
-                      >
-                        <span className={`w-5 h-5 rounded-lg bg-gradient-to-tr ${opt.gradient} shadow-sm border border-black/10`} />
-                        <span className="text-xs font-medium truncate">{opt.name}</span>
-                      </button>
-                    ))}
+                        >
+                          <span className={`w-4 h-4 rounded-full bg-gradient-to-tr ${opt.gradient} flex-shrink-0 shadow-sm`} />
+                          <span className="text-xs truncate">{opt.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Identity Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                {/* Identity Form Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Nome de Exibição</label>
-                    <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Seu apelido" className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted">Nome de Exibição</label>
+                    <input 
+                      type="text" 
+                      value={displayName} 
+                      onChange={(e) => setDisplayName(e.target.value)} 
+                      placeholder="Seu apelido" 
+                      className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent transition" 
+                    />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Nome de Usuário (@)</label>
-                    <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="usuario" className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted">Nome de Usuário (@)</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={username} 
+                      onChange={(e) => setUsername(e.target.value)} 
+                      placeholder="usuario" 
+                      className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent transition" 
+                    />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Pronomes</label>
-                    <input type="text" placeholder="Ele/Dele" value={pronouns} onChange={(e) => setPronouns(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
-                  </div>
+                </div>
+
+                {/* Pronouns */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted">Pronomes</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: Ele/Dele, Ela/Dela" 
+                    value={pronouns} 
+                    onChange={(e) => setPronouns(e.target.value)} 
+                    className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent transition" 
+                  />
                 </div>
 
                 {/* Bio */}
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Sobre Mim (Bio)</label>
-                  <textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors resize-none" placeholder="Conte um pouco sobre você..." />
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted">Sobre Mim (Biografia)</label>
+                  <textarea 
+                    rows={3} 
+                    value={bio} 
+                    onChange={(e) => setBio(e.target.value)} 
+                    className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent transition resize-none" 
+                    placeholder="Conte um pouco sobre você..." 
+                  />
                 </div>
 
                 {/* Status & Activity Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Status Customizado</label>
-                    <input type="text" placeholder="Ex: Programando em React..." value={customStatusText} onChange={(e) => setCustomStatusText(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted">Status Customizado</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ex: Programando em React..." 
+                      value={customStatusText} 
+                      onChange={(e) => setCustomStatusText(e.target.value)} 
+                      className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent transition" 
+                    />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted">Atividade / Jogo</label>
-                    <input type="text" placeholder="Ex: Jogando Terraria" value={gameStatus} onChange={(e) => setGameStatus(e.target.value)} className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent/50 transition-colors" />
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted">Atividade / Jogo</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ex: Jogando Terraria" 
+                      value={gameStatus} 
+                      onChange={(e) => setGameStatus(e.target.value)} 
+                      className="w-full bg-sys-s1 border border-sys-border text-sys-text px-3.5 py-2.5 rounded-xl text-xs focus:outline-none focus:border-sys-accent transition" 
+                    />
                   </div>
                 </div>
 
+                {/* Danger Zone: Delete Account */}
+                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Zona de Perigo: Excluir Conta
+                    </h4>
+                    <p className="text-[11px] text-sys-muted mt-0.5">
+                      Apaga permanentemente sua conta, servidores criados, mídias e todas as mensagens do banco de dados.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteConfirmText('');
+                      setDeleteError(null);
+                      setIsDeleteModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5 flex-shrink-0 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Excluir Conta</span>
+                  </button>
+                </div>
+
+                {/* Submit button bar */}
                 <div className="pt-4 border-t border-sys-border flex justify-end">
                   <button
                     type="submit"
-                    className="px-8 py-3 bg-sys-accent hover:bg-sys-accentHov text-white rounded-xl text-xs font-bold transition shadow-lg btn-interactive hover:scale-105 active:scale-95"
+                    className="px-6 py-2.5 bg-sys-accent hover:bg-sys-accentHov text-white rounded-xl text-xs font-bold transition shadow-sm btn-interactive"
                   >
                     Salvar Perfil
                   </button>
@@ -585,31 +737,35 @@ export const UserSettingsModal = () => {
               </form>
 
               {/* Right Live Preview Column */}
-              <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col items-center">
+              <div className="w-full xl:w-[320px] flex-shrink-0 flex flex-col items-center">
                 <div className="w-full flex items-center justify-between mb-3 px-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-sys-muted">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-sys-muted">
                     Prévia ao Vivo
                   </span>
-                  <span className="text-[10px] text-green-500 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Em tempo real
-                  </span>
+                  <div className="flex items-center space-x-1.5 text-[11px] text-emerald-400 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>Em tempo real</span>
+                  </div>
                 </div>
+                
                 <div className="w-full sticky top-0 flex justify-center">
                   <UserProfileCard
                     inline={true}
                     user={{
-                      displayName: displayName || username,
-                      username: username || 'usuario',
-                      avatarUrl,
-                      bannerUrl,
-                      avatar: avatarInitials.trim() || (username || 'PC').trim().substring(0, 2).toUpperCase(),
-                      avatarColor: selectedGradient,
-                      bio,
-                      pronouns,
-                      customStatus: { text: customStatusText, emoji: customStatusEmoji },
-                      gameStatus,
+                      id: currentUser?.id || 'me',
+                      displayName: (displayName || username || 'Usuário'),
+                      username: (username || 'usuario'),
+                      avatarUrl: avatarUrl || '',
+                      bannerUrl: bannerUrl || '',
+                      avatar: ((avatarInitials || username || 'PC') + '').trim().substring(0, 2).toUpperCase(),
+                      avatarColor: selectedGradient || 'from-indigo-500 to-purple-600',
+                      bio: bio || '',
+                      pronouns: pronouns || '',
+                      customStatus: { text: customStatusText || '', emoji: customStatusEmoji || '' },
+                      gameStatus: gameStatus || '',
                       status: 'online',
-                      badges: currentUser?.badges || []
+                      badges: currentUser?.badges || [],
+                      createdAt: currentUser?.createdAt || new Date().toISOString()
                     }}
                   />
                 </div>
@@ -622,7 +778,7 @@ export const UserSettingsModal = () => {
               <div>
                 <h2 className="text-xl font-bold text-sys-text tracking-tight">Aparência do Aplicativo</h2>
                 <p className="text-xs text-sys-muted mt-1">
-                  Mude o tema de cores principal do PulseCord.
+                  Mude o tema de cores principal do Voxel.
                 </p>
               </div>
 
@@ -721,9 +877,9 @@ export const UserSettingsModal = () => {
           {activeTab === 'clips' && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-sys-text tracking-tight">Clipes (Gravação em Segundo Plano)</h2>
+                <h2 className="text-xl font-bold text-sys-text tracking-tight">Clipes & Gravações</h2>
                 <p className="text-xs text-sys-muted mt-1">
-                  Grave os melhores momentos das suas partidas diretamente pelo PulseCord.
+                  Grave os melhores momentos das suas partidas diretamente pelo Voxel.
                 </p>
               </div>
 
@@ -911,8 +1067,8 @@ export const UserSettingsModal = () => {
                 <div className="space-y-1.5 pt-1">
                   <div className="flex items-center justify-between text-[10px] text-sys-muted">
                     <span>Nível do Sinal</span>
-                    <span className={`font-semibold ${isGateOpen || micLevel >= micSensitivity ? 'text-green-500' : 'text-sys-muted'}`}>
-                      {isGateOpen || micLevel >= micSensitivity ? 'Transmitindo Voz' : 'Bloqueando Ruído'}
+                    <span className={`font-semibold ${micLevel >= micSensitivity ? 'text-green-500' : 'text-sys-muted'}`}>
+                      {micLevel >= micSensitivity ? 'Transmitindo Voz' : (micTestActive ? 'Bloqueando Ruído' : 'Aguardando Teste')}
                     </span>
                   </div>
 
@@ -920,7 +1076,7 @@ export const UserSettingsModal = () => {
                     {/* Live signal level */}
                     <div
                       className="h-full bg-sys-accent transition-all duration-75"
-                      style={{ width: `${micTestActive ? micLevel : (micLiveLevel || micLevel)}%` }}
+                      style={{ width: `${micLevel}%` }}
                     />
                     {/* Threshold marker pin */}
                     <div
@@ -1016,7 +1172,7 @@ export const UserSettingsModal = () => {
                       <Sparkles className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-sys-text">Atualizações do PulseCord</h4>
+                      <h4 className="text-xs font-bold text-sys-text">Atualizações do Voxel</h4>
                       <p className="text-[11px] text-sys-muted font-mono">Versão Atual: v{appVersion}</p>
                     </div>
                   </div>
@@ -1090,7 +1246,7 @@ export const UserSettingsModal = () => {
                     ) : (
                       <p className="text-sys-muted text-[11px] flex items-center gap-1.5">
                         <Check className="w-3.5 h-3.5 text-green-500" />
-                        Você já está usando a versão mais recente do PulseCord (v{appVersion}).
+                        Você já está usando a versão mais recente do Voxel (v{appVersion}).
                       </p>
                     )}
                   </div>
@@ -1109,6 +1265,85 @@ export const UserSettingsModal = () => {
           )}
         </div>
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 select-none animate-fadeIn">
+          <div className="bg-sys-s2 w-full max-w-md rounded-3xl p-6 shadow-2xl border border-rose-500/30 animate-modal text-left space-y-4 relative">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30 flex-shrink-0">
+                <AlertOctagon className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-white">Excluir Conta Permanentemente?</h3>
+                <p className="text-xs text-rose-300/80 mt-1 leading-relaxed">
+                  Esta ação é <strong>irreversível</strong>. Todos os seus servidores criados, mensagens enviadas, arquivos de mídia e conversas serão apagados definitivamente do banco de dados.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-sys-s1 border border-sys-border space-y-2">
+              <label className="block text-[11px] font-medium text-sys-muted">
+                Para confirmar a exclusão, digite exatamente o seu nome de usuário:
+              </label>
+              <div className="px-3 py-1 rounded-xl bg-sys-s3 border border-sys-border text-center font-mono text-xs font-bold text-white select-all">
+                {currentUser?.username}
+              </div>
+              <input
+                type="text"
+                autoFocus
+                value={deleteConfirmText}
+                onChange={(e) => {
+                  setDeleteConfirmText(e.target.value);
+                  setDeleteError(null);
+                }}
+                placeholder="Digite seu nome exato aqui..."
+                className="w-full bg-sys-s2 border border-sys-border focus:border-rose-500 text-white px-3.5 py-2.5 rounded-xl text-xs focus:outline-none transition"
+              />
+            </div>
+
+            {deleteError && (
+              <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs text-center font-medium animate-fadeIn">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setDeleteConfirmText('');
+                  setDeleteError(null);
+                }}
+                disabled={deletingAccount}
+                className="flex-1 py-3 rounded-2xl bg-sys-s1 hover:bg-sys-s3 text-sys-text text-xs font-semibold transition border border-sys-border cursor-pointer"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDeleteAccount}
+                disabled={deletingAccount || deleteConfirmText.trim() !== currentUser?.username}
+                className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:hover:bg-rose-600 text-white text-xs font-bold transition shadow-lg shadow-rose-600/20 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {deletingAccount ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Excluindo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Excluir Definitivamente</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

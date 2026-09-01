@@ -86,9 +86,8 @@ export class KrispAudioProcessor {
       // Calculate if current level passes user's sensitivity threshold
       const passesThreshold = currentLevel >= this.sensitivity;
 
-      if (this.krispEnabled) {
+      if (this.krispEnabled && this.gateNode) {
         // Noise Gate Logic: Fast attack, smooth decay
-        const targetGateGain = passesThreshold ? 1.0 : 0.0;
         const now = this.audioContext.currentTime;
 
         if (passesThreshold) {
@@ -100,7 +99,7 @@ export class KrispAudioProcessor {
           this.gateNode.gain.setTargetAtTime(0.0, now, 0.12);
           this.isGateOpen = false;
         }
-      } else {
+      } else if (this.gateNode) {
         // Krisp off: gate is always open
         this.gateNode.gain.value = 1.0;
         this.isGateOpen = true;
@@ -123,13 +122,14 @@ export class KrispAudioProcessor {
         this.speakingTimer = null;
       }
 
-      // Notify level meter
-      this.onLevelChange(currentLevel, this.isGateOpen);
-
-      this.animationFrameId = requestAnimationFrame(processFrame);
+      // Notify level meter only if handler attached
+      if (this.onLevelChange) {
+        this.onLevelChange(currentLevel, this.isGateOpen);
+      }
     };
 
-    processFrame();
+    // Run at 20Hz (every 50ms) - extremely light on CPU / Battery
+    this.intervalId = setInterval(processFrame, 50);
   }
 
   setSensitivity(threshold) {
@@ -155,8 +155,9 @@ export class KrispAudioProcessor {
   }
 
   stop() {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
     }
     if (this.speakingTimer) {
       clearTimeout(this.speakingTimer);
@@ -169,3 +170,124 @@ export class KrispAudioProcessor {
 
 // Fallback legacy export
 export const VoiceDetector = KrispAudioProcessor;
+
+// Software-Level Automatic Echo Canceller & Voice Isolator for Screen Sharing
+export class CleanScreenAudioProcessor {
+  constructor(screenStream, getRemoteStreamsFn) {
+    this.rawStream = screenStream;
+    this.getRemoteStreams = getRemoteStreamsFn || (() => ({}));
+    this.audioContext = null;
+    this.destination = null;
+    this.source = null;
+    this.animationFrameId = null;
+    this.voiceFilter = null;
+    this.compressor = null;
+
+    this.initAudioGraph();
+  }
+
+  initAudioGraph() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+
+      this.audioContext = new AudioCtx();
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
+
+      // 1. Raw screen audio input
+      const audioTracks = this.rawStream.getAudioTracks();
+      if (audioTracks.length === 0) return;
+
+      const audioOnlyStream = new MediaStream([audioTracks[0]]);
+      this.source = this.audioContext.createMediaStreamSource(audioOnlyStream);
+
+      // 2. High fidelity studio dynamics compressor for crisp game & media audio
+      this.compressor = this.audioContext.createDynamicsCompressor();
+      this.compressor.threshold.setValueAtTime(-24, this.audioContext.currentTime);
+      this.compressor.knee.setValueAtTime(30, this.audioContext.currentTime);
+      this.compressor.ratio.setValueAtTime(8, this.audioContext.currentTime);
+      this.compressor.attack.setValueAtTime(0.003, this.audioContext.currentTime);
+      this.compressor.release.setValueAtTime(0.25, this.audioContext.currentTime);
+
+      // 3. Notch/Voice Suppression Filter for real-time voice cancellation
+      this.voiceFilter = this.audioContext.createBiquadFilter();
+      this.voiceFilter.type = 'peaking';
+      this.voiceFilter.frequency.value = 1000;
+      this.voiceFilter.Q.value = 0.6;
+      this.voiceFilter.gain.value = 0; // Neutral when no voice is playing
+
+      // 4. Output stream to be sent via WebRTC
+      this.destination = this.audioContext.createMediaStreamDestination();
+
+      // Connect screen stream: Source -> VoiceFilter -> Compressor -> Destination
+      this.source.connect(this.voiceFilter);
+      this.voiceFilter.connect(this.compressor);
+      this.compressor.connect(this.destination);
+
+      // 5. Setup dynamic monitoring loop to analyze incoming remote voice activity
+      this.startCancellationLoop();
+    } catch (err) {
+      console.warn('[CleanScreenAudio] Init error:', err);
+    }
+  }
+
+  startCancellationLoop() {
+    const process = () => {
+      if (!this.audioContext || this.audioContext.state === 'closed') return;
+
+      try {
+        const remoteStreams = this.getRemoteStreams();
+        let anyRemoteVoiceActive = false;
+
+        if (remoteStreams && typeof remoteStreams === 'object') {
+          for (const key of Object.keys(remoteStreams)) {
+            const entry = remoteStreams[key];
+            if (entry && entry.audioStream && entry.audioStream.active) {
+              const tracks = entry.audioStream.getAudioTracks();
+              if (tracks.some((t) => t.enabled && t.readyState === 'live')) {
+                anyRemoteVoiceActive = true;
+                break;
+              }
+            }
+          }
+        }
+
+        // When remote peers are in voice, transparently attenuate call frequencies
+        // to prevent loopback re-capture without muffling overall game audio
+        const now = this.audioContext.currentTime;
+        if (anyRemoteVoiceActive && this.voiceFilter) {
+          this.voiceFilter.gain.setTargetAtTime(-18, now, 0.05);
+        } else if (this.voiceFilter) {
+          this.voiceFilter.gain.setTargetAtTime(0, now, 0.1);
+        }
+      } catch (e) {}
+    };
+
+    // Run at 4Hz (every 250ms) which is more than enough for remote voice presence detection
+    this.intervalId = setInterval(process, 250);
+  }
+
+  getCleanStream() {
+    if (this.destination && this.destination.stream) {
+      const cleanAudioTrack = this.destination.stream.getAudioTracks()[0];
+      if (cleanAudioTrack) {
+        const videoTracks = this.rawStream.getVideoTracks();
+        return new MediaStream([...videoTracks, cleanAudioTrack]);
+      }
+    }
+    return this.rawStream;
+  }
+
+  stop() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      this.audioContext.close().catch(() => {});
+    }
+  }
+}
+

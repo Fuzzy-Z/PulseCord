@@ -37,9 +37,15 @@ export default {
         }
       },
       fontFamily: {
-        gg: ['"gg sans"', '"Noto Sans"', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', '"Inter"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
+        gg: ['"Plus Jakarta Sans"', '"Inter"', 'sans-serif'],
       },
       boxShadow: {
+        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.08)',
+        'glass-hover': '0 12px 40px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
+        'glow-sm': '0 0 15px -3px var(--color-accent)',
+        'glow-lg': '0 0 30px -5px var(--color-accent)',
         'sm': '0 2px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.02) inset',
         'md': '0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.03) inset',
         'lg': '0 10px 24px -4px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.04) inset',
