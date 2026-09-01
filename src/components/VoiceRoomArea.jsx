@@ -48,6 +48,8 @@ export const VoiceRoomArea = () => {
     isScreenSharing,
     startScreenShare,
     stopScreenShare,
+    isScreenAudioEnabled,
+    toggleScreenShareAudio,
     sendMusicControl,
     userVolumes,
     setUserVolume,
@@ -733,6 +735,21 @@ export const VoiceRoomArea = () => {
             >
               <Tv className="w-4 h-4" />
             </button>
+
+            {/* In-Stream Audio Toggle (When Sharing with Audio) */}
+            {isScreenSharing && localScreenStream?.getAudioTracks().length > 0 && (
+              <button
+                onClick={toggleScreenShareAudio}
+                className={`p-3 rounded-xl transition-all duration-200 shadow-sm ${
+                  isScreenAudioEnabled
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                }`}
+                title={isScreenAudioEnabled ? 'Mutar Áudio da Transmissão' : 'Desmutar Áudio da Transmissão'}
+              >
+                {isScreenAudioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+            )}
 
             {/* Soundboard (Nitro Feature) */}
             <button

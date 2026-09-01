@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Tv, Monitor, AppWindow, X, Check } from 'lucide-react';
+import { Tv, Monitor, AppWindow, X, Check, Volume2, VolumeX } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
 
@@ -12,6 +12,7 @@ export const ScreenShareModal = () => {
   const [selectedSourceId, setSelectedSourceId] = useState(null);
   const [frameRate, setFrameRate] = useState(60);
   const [resolution, setResolution] = useState('1080p');
+  const [shareAudio, setShareAudio] = useState(false);
 
   useEffect(() => {
     if (!isScreenModalOpen) return;
@@ -41,7 +42,7 @@ export const ScreenShareModal = () => {
   const displayedSources = activeTab === 'screens' ? screens : windows;
 
   const handleConfirmShare = () => {
-    startScreenShare(selectedSourceId, { resolution, frameRate });
+    startScreenShare(selectedSourceId, { resolution, frameRate, shareAudio });
     setIsScreenModalOpen(false);
   };
 
@@ -147,8 +148,50 @@ export const ScreenShareModal = () => {
             </div>
           )}
 
+          {/* Audio Sharing Toggle */}
+          <div className="p-4 bg-sys-s2 border border-sys-border rounded-2xl flex items-center justify-between">
+            <div className="flex items-center space-x-3 pr-2">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition flex-shrink-0 ${
+                shareAudio 
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                  : 'bg-sys-s3 text-sys-muted border border-sys-border'
+              }`}>
+                {shareAudio ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </div>
+              <div>
+                <div className="text-xs font-bold text-sys-text flex items-center space-x-2">
+                  <span>Compartilhar Áudio</span>
+                  {shareAudio ? (
+                    <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-bold px-1.5 py-0.5 rounded">Ativado</span>
+                  ) : (
+                    <span className="bg-sys-s3 text-sys-muted text-[9px] font-bold px-1.5 py-0.5 rounded">Desativado</span>
+                  )}
+                </div>
+                <p className="text-[11px] text-sys-muted mt-0.5">
+                  {shareAudio 
+                    ? 'Transmite o áudio do jogo ou aplicativo.' 
+                    : 'Transmite apenas o vídeo (evita que outros ouçam o eco da própria voz).'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShareAudio(!shareAudio)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0 ${
+                shareAudio ? 'bg-emerald-500' : 'bg-zinc-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  shareAudio ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* Stream Quality Settings */}
-          <div className="grid grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-2 gap-4 pt-1">
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-sys-muted mb-1.5">
                 Resolução

@@ -69,6 +69,7 @@ export const VoiceProvider = ({ children }) => {
   // Streams
   const [localAudioStream, setLocalAudioStream] = useState(null);
   const [localScreenStream, setLocalScreenStream] = useState(null);
+  const [isScreenAudioEnabled, setIsScreenAudioEnabled] = useState(false);
   // Map of socketId -> { audioStream, videoStream }
   const [remoteStreams, setRemoteStreams] = useState({});
 
@@ -541,37 +542,56 @@ export const VoiceProvider = ({ children }) => {
   };
 
   // Screen Share
-  const startScreenShare = async (sourceId = null, options = { resolution: '1080p', frameRate: 60 }) => {
+  const startScreenShare = async (sourceId = null, options = { resolution: '1080p', frameRate: 60, shareAudio: false }) => {
     try {
       let stream;
       
       const targetWidth = options.resolution === '1080p' ? 1920 : 1280;
       const targetHeight = options.resolution === '1080p' ? 1080 : 720;
       const targetFps = options.frameRate || 60;
+      const shouldCaptureAudio = options.shareAudio === true;
 
       if (window.electronAPI?.isElectron && sourceId) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              mandatory: {
-                chromeMediaSource: 'desktop',
+        if (shouldCaptureAudio) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                }
+              },
+              video: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: sourceId,
+                  minWidth: 1280,
+                  maxWidth: targetWidth,
+                  minHeight: 720,
+                  maxHeight: targetHeight,
+                  minFrameRate: 30,
+                  maxFrameRate: targetFps
+                }
               }
-            },
-            video: {
-              mandatory: {
-                chromeMediaSource: 'desktop',
-                chromeMediaSourceId: sourceId,
-                minWidth: 1280,
-                maxWidth: targetWidth,
-                minHeight: 720,
-                maxHeight: targetHeight,
-                minFrameRate: 30,
-                maxFrameRate: targetFps
+            });
+          } catch (e) {
+            console.warn('Failed to capture desktop audio in Electron, falling back to video only:', e);
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: sourceId,
+                  minWidth: 1280,
+                  maxWidth: targetWidth,
+                  minHeight: 720,
+                  maxHeight: targetHeight,
+                  minFrameRate: 30,
+                  maxFrameRate: targetFps
+                }
               }
-            }
-          });
-        } catch (e) {
-          console.warn('Failed to capture desktop audio in Electron, falling back to video only:', e);
+            });
+          }
+        } else {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: {
@@ -590,11 +610,18 @@ export const VoiceProvider = ({ children }) => {
         }
       } else {
         stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { frameRate: { ideal: 60, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-          audio: true
+          video: { frameRate: { ideal: targetFps, max: targetFps }, width: { ideal: targetWidth }, height: { ideal: targetHeight } },
+          audio: shouldCaptureAudio ? {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: false,
+            suppressLocalAudioPlayback: true
+          } : false
         });
       }
 
+      const hasAudio = stream.getAudioTracks().length > 0;
+      setIsScreenAudioEnabled(shouldCaptureAudio && hasAudio);
       setLocalScreenStream(stream);
       setIsScreenSharing(true);
       soundFX.play('screen-on');
@@ -615,12 +642,23 @@ export const VoiceProvider = ({ children }) => {
     }
   };
 
+  const toggleScreenShareAudio = () => {
+    if (!localScreenStream) return;
+    const audioTracks = localScreenStream.getAudioTracks();
+    if (audioTracks.length === 0) return;
+    
+    const newState = !isScreenAudioEnabled;
+    audioTracks.forEach(t => { t.enabled = newState; });
+    setIsScreenAudioEnabled(newState);
+  };
+
   const stopScreenShare = () => {
     if (localScreenStream) {
       localScreenStream.getTracks().forEach((t) => t.stop());
       setLocalScreenStream(null);
     }
     setIsScreenSharing(false);
+    setIsScreenAudioEnabled(false);
     soundFX.play('screen-off');
 
     if (webrtcManagerRef.current) {
@@ -686,6 +724,8 @@ export const VoiceProvider = ({ children }) => {
         toggleDeafen,
         startScreenShare,
         stopScreenShare,
+        isScreenAudioEnabled,
+        toggleScreenShareAudio,
         sendMusicControl,
         watchTogetherState,
         setWatchTogetherState,
