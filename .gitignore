@@ -7,3 +7,5 @@ dist
 *.zip
 dist-electron-temp
 data/
+.agents
+.gemini
