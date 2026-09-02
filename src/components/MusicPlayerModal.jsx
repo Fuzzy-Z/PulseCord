@@ -33,7 +33,7 @@ export const MusicPlayerModal = () => {
     {
       id: 'lofi',
       title: 'Lofi Chill Study Beats',
-      artist: 'PulseCord Music Bot',
+      artist: 'Voxel Music Bot',
       cover: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&h=300&fit=crop',
       genre: 'Lofi / Chill'
     },

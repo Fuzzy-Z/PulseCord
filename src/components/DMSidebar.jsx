@@ -6,7 +6,7 @@ import { MessageSquare, Users, Plus, Mic, MicOff, Headphones, Settings, Search, 
 import { AvatarImage } from './AvatarImage';
 
 export const DMSidebar = () => {
-  const { dms, selectDM, openDM, currentChannelId, onlineMembers, setIsUserSettingsOpen } = useServer();
+  const { dms, selectDM, openDM, currentChannelId, onlineMembers, setIsUserSettingsOpen, unread } = useServer();
   const { currentUser } = useSocket();
   const { isMuted, isDeafened, toggleMute, toggleDeafen } = useVoice();
 
@@ -26,9 +26,9 @@ export const DMSidebar = () => {
   );
 
   return (
-    <div className="w-60 bg-sys-s1 flex flex-col flex-shrink-0 select-none relative z-10 border-r border-sys-border">
+    <div className="w-[280px] voxel-nav-panel flex flex-col flex-shrink-0 select-none relative z-10">
       {/* Search Header */}
-      <div className="h-12 border-b border-sys-border px-3 flex items-center">
+      <div className="h-11 border-b border-sys-border px-3 flex items-center">
         <div className="relative w-full">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-sys-muted" />
           <input
@@ -131,6 +131,17 @@ export const DMSidebar = () => {
                         )}
                       </div>
                     </div>
+                    {/* Unread badge */}
+                    {(() => {
+                      const dmUnread = unread?.[dm.id];
+                      const count = dmUnread?.count || 0;
+                      if (!count || isSelected) return null;
+                      return (
+                        <span className="voxel-dm-badge flex-shrink-0">
+                          {count > 99 ? '99+' : count}
+                        </span>
+                      );
+                    })()}
                   </button>
                 );
               })
@@ -225,7 +236,7 @@ export const DMSidebar = () => {
       )}
 
       {/* Bottom Profile Bar */}
-      <div className="h-[52px] bg-sys-s2 px-3 flex items-center justify-between border-t border-sys-border flex-shrink-0">
+      <div className="h-[52px] bg-sys-s2/50 px-3 flex items-center justify-between border-t border-sys-border flex-shrink-0">
         <div
           onClick={() => setIsUserSettingsOpen(true)}
           className="flex items-center space-x-2 p-1 -ml-1 rounded-lg hover:bg-sys-s1 cursor-pointer transition truncate mr-1"

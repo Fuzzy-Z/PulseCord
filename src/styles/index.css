@@ -7,14 +7,35 @@
     box-sizing: border-box;
   }
 
+  html {
+    background-color: #000 !important; /* fallback when no wallpaper loads */
+  }
+
   body {
-    background-color: var(--color-bg-base);
+    background-color: transparent !important;
+    background-image: none !important;
+    isolation: isolate; /* creates stacking context so ::before z-index:-1 stays visible */
+    position: relative;
     color: var(--color-text-main);
     font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     user-select: none;
     overflow: hidden;
+  }
+
+  :root {
+    --op-base: 70%;
+    --op-s1: 85%;
+    --op-s2: 85%;
+    --op-s3: 95%;
+  }
+
+  .ui-style-liquid {
+    --op-base: 30%;
+    --op-s1: 45%;
+    --op-s2: 45%;
+    --op-s3: 55%;
   }
 
   ::selection {
@@ -101,6 +122,107 @@
   transform: scale(0.98);
 }
 
+/* ==========================================================================
+   Voxel Studio Layout — distinct from Discord 3-column rail
+   ========================================================================== */
+
+.voxel-titlebar {
+  height: 44px;
+  background: color-mix(in srgb, var(--color-bg-surface-2) 75%, transparent) !important;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.voxel-app-shell {
+  padding: 8px;
+  gap: 8px;
+  background: transparent !important;
+}
+
+.voxel-nav-panel {
+  background: color-mix(in srgb, var(--color-bg-surface-1) 85%, transparent) !important;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.35);
+}
+
+.voxel-workspace {
+  background-color: color-mix(in srgb, var(--color-bg-surface-2) 65%, transparent) !important;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px) !important;
+  background-size: 32px 32px !important;
+  background-position: 0 0 !important;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 24px -4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.voxel-workspace-inner {
+  background: transparent !important;
+}
+
+/* Server dock in title bar */
+.voxel-dock-item {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--color-bg-surface-3);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.voxel-dock-item:hover {
+  color: var(--color-text-main);
+  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--color-bg-surface-1);
+}
+
+.voxel-dock-item--active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.voxel-dock-item--add {
+  color: #34d399;
+  border-style: dashed;
+  border-color: rgba(52, 211, 153, 0.35);
+  background: transparent;
+}
+
+.voxel-dock-item--add:hover {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: #34d399;
+  color: #34d399;
+}
+
+/* Nav channel items — pill style */
+.voxel-nav-item {
+  border-radius: 8px;
+  border-left: 2px solid transparent;
+  transition: all 0.12s ease;
+}
+
+.voxel-nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.voxel-nav-item--active {
+  background: rgba(255, 255, 255, 0.07);
+  border-left-color: var(--color-accent);
+  color: var(--color-text-main);
+  font-weight: 600;
+}
+
 .apple-squircle {
   border-radius: 16px;
   transition: all 0.2s ease;
@@ -140,19 +262,223 @@
 .audio-bar-4 { animation: wave-bar-pulse 0.7s ease-in-out infinite 0.2s; }
 
 /* ==========================================================================
+   UI STYLE SYSTEM — soft / aggressive / liquid
+   Each class is applied to <html> and <body> by appearance.js
+   ========================================================================== */
+
+/* ── SOFT (default) ─────────────────────────────────────────────────────────
+   Rounded corners, gentle shadows. No extra rules needed — this is the base.
+   --------------------------------------------------------------------------- */
+.ui-style-soft .glass-panel,
+.ui-style-soft .glass-card,
+.ui-style-soft .glass-input,
+.ui-style-soft .voxel-nav-panel,
+.ui-style-soft .voxel-workspace,
+.ui-style-soft .apple-squircle {
+  /* base styles already handle soft — nothing to override */
+}
+
+/* ── AGGRESSIVE ──────────────────────────────────────────────────────────────
+   Sharp mechanical edges, tactile box-shadows, no blur.
+   --------------------------------------------------------------------------- */
+.ui-style-aggressive .voxel-titlebar {
+  backdrop-filter: none;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.ui-style-aggressive .voxel-nav-panel {
+  border-radius: 3px !important;
+  border: 1px solid var(--color-border);
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.7) !important;
+}
+
+.ui-style-aggressive .voxel-workspace {
+  border-radius: 3px !important;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.7) !important;
+}
+
+.ui-style-aggressive .glass-panel {
+  border-radius: 4px !important;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.65) !important;
+}
+
+.ui-style-aggressive .glass-card {
+  border-radius: 3px !important;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.6) !important;
+}
+
+.ui-style-aggressive .glass-input {
+  border-radius: 3px !important;
+}
+
+.ui-style-aggressive .apple-squircle,
+.ui-style-aggressive .apple-squircle:hover {
+  border-radius: 3px !important;
+}
+
+/* ── LIQUID GLASS ────────────────────────────────────────────────────────────
+   Translucent frosted-glass panels with backdrop-blur.
+   Surfaces become semi-transparent — the background bleeds through.
+   --------------------------------------------------------------------------- */
+
+/* Force the app shell to allow backdrop-filter to work visually */
+.ui-style-liquid .bg-sys-base,
+.ui-style-liquid .voxel-grid-bg {
+  background-color: color-mix(in srgb, var(--color-bg-base) 40%, transparent) !important;
+}
+
+/* Titlebar — frosted */
+.ui-style-liquid .voxel-titlebar {
+  background: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Nav panel — glass sheet */
+.ui-style-liquid .voxel-nav-panel {
+  background: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Workspace — glass sheet */
+.ui-style-liquid .voxel-workspace {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* bg-sys-s1, s2, s3 equivalents via glass-* utilities */
+.ui-style-liquid .glass-panel {
+  background: rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+.ui-style-liquid .glass-card {
+  background: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+.ui-style-liquid .glass-card:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.ui-style-liquid .glass-input {
+  background: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Inline bg-sys-* overrides for panels inside the modal */
+.ui-style-liquid .bg-sys-s1 {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.ui-style-liquid .bg-sys-s2 {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.ui-style-liquid .bg-sys-s3 {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.ui-style-liquid .bg-sys-base {
+  background-color: var(--color-bg-base) !important;
+}
+
+/* Borders become lighter/shinier in liquid mode */
+.ui-style-liquid .border-sys-border {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Modals get heavy glass treatment */
+.ui-style-liquid .animate-modal:not(.auth-card) {
+  background: rgba(20, 22, 30, 0.85) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Auth card is always clean, solid, and without background bleed or blur */
+.auth-card {
+  background-color: var(--color-bg-surface-2) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Buttons in liquid mode */
+.ui-style-liquid button:not(.switch-toggle-btn):not(.avatar-btn) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ==========================================================================
+   DYNAMIC BACKGROUND SYSTEM (WALLPAPERS & BLUR)
+   ========================================================================== */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-image: var(--app-bg, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
+  filter: none !important;
+  opacity: var(--bg-opacity, 1);
+  pointer-events: none;
+}
+
+/* Make all app panels globally translucent to show wallpaper */
+.bg-sys-base { background-color: color-mix(in srgb, var(--color-bg-base) var(--op-base), transparent) !important; }
+.bg-sys-s1 { background-color: color-mix(in srgb, var(--color-bg-surface-1) var(--op-s1), transparent) !important; }
+.bg-sys-s2 { background-color: color-mix(in srgb, var(--color-bg-surface-2) var(--op-s2), transparent) !important; }
+.bg-sys-s3 { background-color: color-mix(in srgb, var(--color-bg-surface-3) var(--op-s3), transparent) !important; }
+
+
+
+
+/* ==========================================================================
    MONOCHROMATIC THEMES (CSS VARIABLES)
    ========================================================================== */
 
-:root, .theme-grafite {
-  --color-bg-base: #0D0E12;
-  --color-bg-surface-1: #14151B;
-  --color-bg-surface-2: #1C1D26;
-  --color-bg-surface-3: #262833;
-  --color-accent: #7077A1;
-  --color-accent-hover: #848BB6;
-  --color-text-main: #F0F0F0;
-  --color-text-muted: #8E95AF;
-  --color-border: #2D303D;
+:root, .theme-grafite, .theme-voxel {
+  --color-bg-base: #0a0c0e;
+  --color-bg-surface-1: #14181f;
+  --color-bg-surface-2: #181d26;
+  --color-bg-surface-3: #1e2430;
+  --color-accent: #64748b;
+  --color-accent-hover: #94a3b8;
+  --color-text-main: #f1f5f9;
+  --color-text-muted: #8492a6;
+  --color-border: #202733;
 }
 
 .theme-porcelana {
@@ -180,6 +506,18 @@
 }
 
 .theme-floresta {
+  --color-bg-base: #0B140E;
+  --color-bg-surface-1: #112015;
+  --color-bg-surface-2: #182D1D;
+  --color-bg-surface-3: #213C27;
+  --color-accent: #5A9468;
+  --color-accent-hover: #6EA67B;
+  --color-text-main: #E8F3EB;
+  --color-text-muted: #8AA993;
+  --color-border: rgba(45, 79, 53, 0.65);
+}
+
+.theme-floresta {
   --color-bg-base: rgba(11, 20, 14, 0.35);
   --color-bg-surface-1: rgba(17, 32, 21, 0.68);
   --color-bg-surface-2: rgba(24, 45, 29, 0.68);
@@ -189,41 +527,6 @@
   --color-text-main: #E8F3EB;
   --color-text-muted: #8AA993;
   --color-border: rgba(45, 79, 53, 0.65);
-}
-
-.theme-floresta,
-.theme-floresta body,
-.theme-floresta #root {
-  background-image: url('/themes/floresta-bg.jpg') !important;
-  background-size: cover !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-  background-attachment: fixed !important;
-}
-
-.theme-floresta .bg-sys-base {
-  background-color: rgba(11, 20, 14, 0.30) !important;
-  backdrop-filter: blur(2px) !important;
-  -webkit-backdrop-filter: blur(2px) !important;
-}
-
-.theme-floresta .bg-sys-s1 {
-  background-color: rgba(17, 32, 21, 0.70) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-}
-
-.theme-floresta .bg-sys-s2 {
-  background-color: rgba(24, 45, 29, 0.68) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
-}
-
-.theme-floresta .bg-sys-s3 {
-  background-color: rgba(33, 60, 39, 0.75) !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
 }
 
 .theme-arenito {
@@ -263,15 +566,15 @@
 }
 
 .theme-cobre {
-  --color-bg-base: #1A0E08;
-  --color-bg-surface-1: #26140D;
-  --color-bg-surface-2: #381E12;
-  --color-bg-surface-3: #4A2818;
-  --color-accent: #C46D41;
-  --color-accent-hover: #D68257;
-  --color-text-main: #F8E9E1;
-  --color-text-muted: #AD7862;
-  --color-border: #603521;
+  --color-bg-base: #12100e;
+  --color-bg-surface-1: #1a1715;
+  --color-bg-surface-2: #24201c;
+  --color-bg-surface-3: #302b26;
+  --color-accent: #8c7b70;
+  --color-accent-hover: #a18f83;
+  --color-text-main: #f5f0eb;
+  --color-text-muted: #8c8178;
+  --color-border: #38312b;
 }
 
 .theme-cobalto {
@@ -431,10 +734,10 @@
 }
 
 .theme-petal-mist {
-  --color-bg-base: rgba(255, 241, 242, 0.35);
-  --color-bg-surface-1: rgba(253, 226, 228, 0.65);
-  --color-bg-surface-2: rgba(247, 202, 201, 0.65);
-  --color-bg-surface-3: rgba(255, 241, 242, 0.72);
+  --color-bg-base: #FFF1F2;
+  --color-bg-surface-1: #FDE2E4;
+  --color-bg-surface-2: #F7CAC9;
+  --color-bg-surface-3: #FFF1F2;
   --color-accent: #D9777F;
   --color-accent-hover: #C96870;
   --color-text-main: #381E24;
@@ -442,37 +745,178 @@
   --color-border: rgba(240, 196, 199, 0.60);
 }
 
-.theme-petal-mist,
-.theme-petal-mist body,
-.theme-petal-mist #root {
-  background-image: url('/themes/petal-mist-bg.jpg') !important;
-  background-size: cover !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-  background-attachment: fixed !important;
+
+
+/* Architectural Voxel Grid Mesh — translucent tint + subtle grid */
+.voxel-grid-bg {
+  background-color: color-mix(in srgb, var(--color-bg-base) 50%, transparent) !important;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px) !important;
+  background-size: 32px 32px !important;
+  background-position: 0 0 !important;
 }
 
-.theme-petal-mist .bg-sys-base {
-  background-color: rgba(255, 241, 242, 0.30) !important;
-  backdrop-filter: blur(2px) !important;
-  -webkit-backdrop-filter: blur(2px) !important;
+
+/* ==========================================================================
+   AGGRESSIVE / TACTILE MECHANICAL BUTTON SYSTEM (DEFAULT)
+   ========================================================================== */
+
+:root {
+  --radius-aggressive: 3px;
+  --radius-modal-aggressive: 6px;
+  --shadow-button-aggressive: 2px 2px 0px rgba(0, 0, 0, 0.75);
+  --shadow-button-pressed: 1px 1px 0px rgba(0, 0, 0, 0.85);
 }
 
-.theme-petal-mist .bg-sys-s1 {
-  background-color: rgba(253, 226, 228, 0.68) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
+/* Default Aggressive Mode: Sharp mechanical corners & tactical button shadows */
+body:not(.rounded-mode) button:not(.switch-toggle-btn):not(.avatar-btn),
+body:not(.rounded-mode) .btn-interactive,
+body:not(.rounded-mode) .btn-tactile {
+  border-radius: var(--radius-aggressive) !important;
 }
 
-.theme-petal-mist .bg-sys-s2 {
-  background-color: rgba(247, 202, 201, 0.65) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
+body:not(.rounded-mode) button:not(.switch-toggle-btn):not(.avatar-btn):not(.no-tactile-shadow),
+body:not(.rounded-mode) .btn-interactive:not(.no-tactile-shadow) {
+  box-shadow: var(--shadow-button-aggressive);
+  transition: transform 0.08s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.08s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.theme-petal-mist .bg-sys-s3 {
-  background-color: rgba(255, 241, 242, 0.72) !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
-  box-shadow: 0 4px 20px rgba(217, 119, 127, 0.12) !important;
+body:not(.rounded-mode) button:not(.switch-toggle-btn):not(.avatar-btn):not(.no-tactile-shadow):active,
+body:not(.rounded-mode) .btn-interactive:not(.no-tactile-shadow):active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: var(--shadow-button-pressed) !important;
+}
+
+body:not(.rounded-mode) .glass-card,
+body:not(.rounded-mode) .glass-input,
+body:not(.rounded-mode) .apple-squircle {
+  border-radius: var(--radius-aggressive) !important;
+}
+
+body:not(.rounded-mode) .glass-panel {
+  border-radius: var(--radius-modal-aggressive) !important;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.65) !important;
+}
+
+/* Switch toggle styling */
+.switch-toggle-btn {
+  border-radius: 9999px !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* ==========================================================================
+   UNREAD BADGE SYSTEM
+   ========================================================================== */
+
+.voxel-badge {
+  position: absolute;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 9999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+  border: 2px solid var(--color-bg-surface-2);
+  top: -4px;
+  right: -4px;
+}
+
+.voxel-badge--dot {
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  line-height: 14px;
+  font-size: 8px;
+  border: 2px solid var(--color-bg-surface-2);
+}
+
+.voxel-dm-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   MOBILE / RESPONSIVE LAYOUT
+   ========================================================================== */
+
+/* Hide the mobile burger on desktop */
+.voxel-mobile-only {
+  display: none;
+}
+
+/* On mobile, the nav panels become full-height drawers */
+@media (max-width: 768px) {
+  .voxel-mobile-only {
+    display: flex;
+  }
+
+  .voxel-app-shell {
+    padding: 0;
+    gap: 0;
+    border-radius: 0;
+  }
+
+  .voxel-nav-panel {
+    position: fixed;
+    top: 44px;
+    bottom: 0;
+    left: -110%;
+    width: 280px;
+    z-index: 40;
+    border-radius: 0;
+    border: none;
+    border-right: 1px solid var(--color-border);
+    transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+
+  .voxel-nav-panel.is-open {
+    left: 0;
+  }
+
+  .voxel-workspace {
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  /* Backdrop overlay behind the open nav */
+  .voxel-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: 44px;
+    z-index: 39;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    cursor: pointer;
+    border: none;
+  }
+}
+
+/* On desktop — backdrop is invisible/inert */
+@media (min-width: 769px) {
+  .voxel-nav-backdrop {
+    display: none;
+  }
 }

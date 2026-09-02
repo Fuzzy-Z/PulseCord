@@ -74,6 +74,25 @@ export const UserSettingsModal = () => {
     }
   }, [isUserSettingsOpen, currentUser]);
 
+  const [roundedButtons, setRoundedButtons] = useState(() => {
+    if (currentUser?.roundedButtons !== undefined) return currentUser.roundedButtons;
+    return localStorage.getItem('pulsecord_rounded_buttons') === 'true';
+  });
+
+  const handleToggleRoundedButtons = () => {
+    const newValue = !roundedButtons;
+    setRoundedButtons(newValue);
+    localStorage.setItem('pulsecord_rounded_buttons', newValue.toString());
+    if (newValue) {
+      document.documentElement.classList.add('rounded-mode');
+      document.body.classList.add('rounded-mode');
+    } else {
+      document.documentElement.classList.remove('rounded-mode');
+      document.body.classList.remove('rounded-mode');
+    }
+    updateProfile({ roundedButtons: newValue });
+  };
+
   const [compactMode, setCompactMode] = useState(() => {
     if (currentUser?.compactMode !== undefined) return currentUser.compactMode;
     return localStorage.getItem('pulsecord_compact_mode') === 'true';
@@ -85,10 +104,10 @@ export const UserSettingsModal = () => {
       return JSON.parse(localStorage.getItem('pulsecord_clip_settings')) || {
         keybind: 'Alt+C',
         quality: '1080p',
-        saveLocation: 'Downloads/PulseCord Clips'
+        saveLocation: 'Downloads/Voxel Clips'
       };
     } catch {
-      return { keybind: 'Alt+C', quality: '1080p', saveLocation: 'Downloads/PulseCord Clips' };
+      return { keybind: 'Alt+C', quality: '1080p', saveLocation: 'Downloads/Voxel Clips' };
     }
   });
 
@@ -101,14 +120,14 @@ export const UserSettingsModal = () => {
   const [updateReady, setUpdateReady] = useState(false);
 
   const appThemes = [
-    { id: 'grafite', name: 'Grafite', color: '#0D0E12', accent: '#7077A1' },
+    { id: 'grafite', name: 'Voxel (Padrão)', color: '#0A0C0E', accent: '#64748B' },
     { id: 'porcelana', name: 'Porcelana', color: '#E2E0D8', accent: '#8C8576' },
     { id: 'marinho', name: 'Marinho', color: '#0A111F', accent: '#4B77C2' },
     { id: 'floresta', name: 'Floresta', color: '#0B140E', accent: '#5A9468' },
     { id: 'arenito', name: 'Arenito', color: '#1C1613', accent: '#B38B71' },
     { id: 'rosewood', name: 'Rosewood', color: '#1A0C10', accent: '#B86A81' },
     { id: 'lavanda', name: 'Lavanda', color: '#110D17', accent: '#9071BD' },
-    { id: 'cobre', name: 'Cobre', color: '#1A0E08', accent: '#C46D41' },
+    { id: 'cobre', name: 'Bronze', color: '#12100E', accent: '#8C7B70' },
     { id: 'cobalto', name: 'Cobalto', color: '#080F1F', accent: '#3C70D6' },
     { id: 'oliva', name: 'Oliva', color: '#15170D', accent: '#8F9C62' },
     { id: 'petroleo', name: 'Petróleo', color: '#081717', accent: '#46A3A3' },
@@ -127,16 +146,81 @@ export const UserSettingsModal = () => {
 
   const [selectedAppTheme, setSelectedAppTheme] = useState(() => {
     if (currentUser?.appTheme) return currentUser.appTheme;
-    const saved = localStorage.getItem('pulsecord-theme');
+    const saved =
+      localStorage.getItem('voxel-theme') ||
+      localStorage.getItem('pulsecord-theme');
     return saved ? saved.replace('theme-', '') : 'grafite';
+  });
+
+  // UI Style state — soft (default), aggressive, liquid
+  const [selectedUiStyle, setSelectedUiStyle] = useState(() => {
+    if (currentUser?.uiStyle) return currentUser.uiStyle;
+    const s = localStorage.getItem('pulsecord_ui_style');
+    return (s === 'aggressive' || s === 'liquid') ? s : 'soft';
+  });
+
+  const [bgBlur, setBgBlur] = useState(() => {
+    const saved = localStorage.getItem('voxel_bg_blur');
+    return saved !== null ? parseInt(saved, 10) : 0;
   });
 
   const handleSetTheme = (themeId) => {
     setSelectedAppTheme(themeId);
     const themeClass = `theme-${themeId}`;
-    localStorage.setItem('pulsecord-theme', themeClass);
-    document.body.className = themeClass;
+    localStorage.setItem('voxel-theme', themeClass);
+    localStorage.setItem('pulsecord-theme', themeClass); // legacy compat
+
+    // Remove only theme-* classes, preserve ui-style-* and rounded-mode
+    Array.from(document.body.classList)
+      .filter((c) => c.startsWith('theme-'))
+      .forEach((c) => document.body.classList.remove(c));
+    document.body.classList.add(themeClass);
+
+    // Set wallpaper
+    document.body.style.setProperty('--app-bg', `url('/themes/${themeId}.jpg')`);
+
+    // Re-apply blur settings (default 0px)
+    let savedBlur = localStorage.getItem('voxel_bg_blur');
+    if (!savedBlur || savedBlur === '15' || savedBlur === '5' || savedBlur === '10' || savedBlur === '20') {
+      savedBlur = '0';
+      localStorage.setItem('voxel_bg_blur', '0');
+    }
+    document.body.style.setProperty('--bg-blur', `${savedBlur || '0'}px`);
+    document.body.style.setProperty('--bg-opacity', '1');
+
     updateProfile({ appTheme: themeId });
+  };
+
+  const handleSetUiStyle = (style) => {
+    setSelectedUiStyle(style);
+    // Apply via DOM manipulation (same logic as appearance.js)
+    const STYLE_CLASSES = ['ui-style-soft', 'ui-style-aggressive', 'ui-style-liquid'];
+    const targets = [document.documentElement, document.body];
+    targets.forEach((el) => {
+      STYLE_CLASSES.forEach((cls) => el.classList.remove(cls));
+      el.classList.remove('rounded-mode');
+      el.classList.add(`ui-style-${style}`);
+      if (style !== 'aggressive') el.classList.add('rounded-mode');
+    });
+    localStorage.setItem('pulsecord_ui_style', style);
+    localStorage.setItem('pulsecord_rounded_buttons', style !== 'aggressive' ? 'true' : 'false');
+    
+    // Auto-adjust blur when changing styles
+    const newBlur = style === 'liquid' ? 0 : 0;
+    if (localStorage.getItem('voxel_bg_blur') === null) {
+      setBgBlur(newBlur);
+      document.body.style.setProperty('--bg-blur', `${newBlur}px`);
+    }
+    document.body.style.setProperty('--bg-opacity', '1');
+
+    updateProfile({ uiStyle: style });
+  };
+
+  const handleSetBgBlur = (e) => {
+    const val = parseInt(e.target.value, 10);
+    setBgBlur(val);
+    localStorage.setItem('voxel_bg_blur', val.toString());
+    document.body.style.setProperty('--bg-blur', `${val}px`);
   };
 
   const handleToggleCompactMode = () => {
@@ -774,58 +858,212 @@ export const UserSettingsModal = () => {
           )}
 
           {activeTab === 'appearance' && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div>
-                <h2 className="text-xl font-bold text-sys-text tracking-tight">Aparência do Aplicativo</h2>
+                <h2 className="text-xl font-extrabold text-sys-text tracking-tight">Aparência</h2>
                 <p className="text-xs text-sys-muted mt-1">
-                  Mude o tema de cores principal do Voxel.
+                  Personalize o visual do Voxel — estilo, tema de cores e densidade. Tudo salvo por conta.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {appThemes.map((theme) => (
+              {/* ── UI Style ────────────────────────────────── */}
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-bold text-sys-text">Estilo Visual</h3>
+                  <p className="text-[11px] text-sys-muted mt-0.5">Controla cantos, sombras e o feeling geral dos botões e painéis.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Suave */}
                   <button
-                    key={theme.id}
-                    onClick={() => handleSetTheme(theme.id)}
-                    className={`flex flex-col items-start p-3 rounded-2xl border transition-all ${selectedAppTheme === theme.id
-                        ? 'bg-sys-s3 border-sys-accent'
-                        : 'bg-sys-s1 border-transparent hover:bg-sys-s2 hover:border-sys-border'
-                      }`}
+                    type="button"
+                    onClick={() => handleSetUiStyle('soft')}
+                    className={`relative flex flex-col items-start gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
+                      selectedUiStyle === 'soft'
+                        ? 'border-sys-accent bg-sys-s3 shadow-md'
+                        : 'border-transparent bg-sys-s1 hover:bg-sys-s2 hover:border-sys-border'
+                    }`}
                   >
-                    <div className="flex items-center space-x-3 w-full mb-2">
-                      <div
-                        className="w-8 h-8 rounded-full border border-black/20 flex-shrink-0"
-                        style={{ backgroundColor: theme.color }}
-                      />
-                      <div
-                        className="w-4 h-4 rounded-full border border-black/20 flex-shrink-0"
-                        style={{ backgroundColor: theme.accent }}
-                      />
+                    {selectedUiStyle === 'soft' && (
+                      <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-sys-accent flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </span>
+                    )}
+                    {/* Preview mockup */}
+                    <div className="w-full flex gap-2">
+                      <div className="flex-1 h-8 rounded-xl bg-sys-s3 border border-sys-border" />
+                      <div className="w-12 h-8 rounded-xl bg-sys-accent/70" />
                     </div>
-                    <span className={`text-xs font-semibold ${selectedAppTheme === theme.id ? 'text-sys-text' : 'text-sys-muted'}`}>
-                      {theme.name}
-                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-sys-text">Suave</p>
+                      <p className="text-[10px] text-sys-muted mt-0.5 leading-relaxed">Cantos arredondados, sombras suaves. Visual padrão do Voxel.</p>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">Padrão</span>
                   </button>
-                ))}
+
+                  {/* Agressivo */}
+                  <button
+                    type="button"
+                    onClick={() => handleSetUiStyle('aggressive')}
+                    className={`relative flex flex-col items-start gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
+                      selectedUiStyle === 'aggressive'
+                        ? 'border-sys-accent bg-sys-s3 shadow-md'
+                        : 'border-transparent bg-sys-s1 hover:bg-sys-s2 hover:border-sys-border'
+                    }`}
+                  >
+                    {selectedUiStyle === 'aggressive' && (
+                      <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-sys-accent flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </span>
+                    )}
+                    <div className="w-full flex gap-2">
+                      <div className="flex-1 h-8 rounded-sm bg-sys-s3 border border-sys-border" style={{ boxShadow: '2px 2px 0px rgba(0,0,0,0.6)' }} />
+                      <div className="w-12 h-8 rounded-sm bg-sys-accent/70" style={{ boxShadow: '2px 2px 0px rgba(0,0,0,0.6)' }} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-sys-text">Agressivo</p>
+                      <p className="text-[10px] text-sys-muted mt-0.5 leading-relaxed">Cantos duros, botões táteis com sombra mecânica. Feeling hardcore.</p>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm bg-sys-s3 text-sys-muted border border-sys-border">Tático</span>
+                  </button>
+
+                  {/* Liquid Glass */}
+                  <button
+                    type="button"
+                    onClick={() => handleSetUiStyle('liquid')}
+                    className={`relative flex flex-col items-start gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
+                      selectedUiStyle === 'liquid'
+                        ? 'border-sys-accent bg-sys-s3 shadow-md'
+                        : 'border-transparent bg-sys-s1 hover:bg-sys-s2 hover:border-sys-border'
+                    }`}
+                  >
+                    {selectedUiStyle === 'liquid' && (
+                      <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-sys-accent flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </span>
+                    )}
+                    <div className="w-full flex gap-2">
+                      <div className="flex-1 h-8 rounded-xl border border-white/20" style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(6px)' }} />
+                      <div className="w-12 h-8 rounded-xl" style={{ background: 'rgba(var(--color-accent-rgb, 100,116,139), 0.4)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.15)' }} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-sys-text">Liquid Glass</p>
+                      <p className="text-[10px] text-sys-muted mt-0.5 leading-relaxed">Painéis translúcidos, blur e reflexos — como vidro líquido.</p>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/25">Translúcido</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="pt-6 border-t border-sys-border">
+              {/* ── Color Theme ──────────────────────────────── */}
+              <div className="space-y-3 pt-4 border-t border-sys-border">
+                <div>
+                  <h3 className="text-sm font-bold text-sys-text">Tema de Cores</h3>
+                  <p className="text-[11px] text-sys-muted mt-0.5">Paleta de cores do aplicativo. Aplicado instantaneamente.</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                  {appThemes.map((theme) => (
+                    <button
+                      key={theme.id}
+                      onClick={() => handleSetTheme(theme.id)}
+                      className={`group flex items-center gap-2.5 p-2.5 rounded-xl border transition-all ${
+                        selectedAppTheme === theme.id
+                          ? 'bg-sys-s3 border-sys-accent ring-1 ring-sys-accent'
+                          : 'bg-sys-s1 border-transparent hover:bg-sys-s2 hover:border-sys-border'
+                      }`}
+                    >
+                      {/* Color swatch pair */}
+                      <div className="relative flex-shrink-0">
+                        <div
+                          className="w-7 h-7 rounded-full border border-black/20 shadow-sm"
+                          style={{ backgroundColor: theme.color }}
+                        />
+                        <div
+                          className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-sys-s1"
+                          style={{ backgroundColor: theme.accent }}
+                        />
+                      </div>
+                      <span className={`text-[11px] font-semibold truncate ${
+                        selectedAppTheme === theme.id ? 'text-sys-text' : 'text-sys-muted group-hover:text-sys-text'
+                      }`}>
+                        {theme.name}
+                      </span>
+                      {selectedAppTheme === theme.id && (
+                        <Check className="w-3 h-3 text-sys-accent ml-auto flex-shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Layout & Background ────────────────────────────────────── */}
+              <div className="space-y-3 pt-4 border-t border-sys-border">
+                <div>
+                  <h3 className="text-sm font-bold text-sys-text">Layout e Fundo</h3>
+                  <p className="text-[11px] text-sys-muted mt-0.5">Ajuste a densidade do layout e desfoque do papel de parede.</p>
+                </div>
+                
+                {/* Wallpaper Blur Slider */}
+                <div className="flex flex-col gap-2 p-4 rounded-2xl bg-sys-s3 border border-sys-border">
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <h4 className="text-xs font-bold text-sys-text">Desfoque do Fundo</h4>
+                      <p className="text-[11px] text-sys-muted mt-0.5 max-w-sm">
+                        Deixa o papel de parede mais nítido ou mais fosco.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono text-sys-muted bg-sys-s1 px-2 py-0.5 rounded-md border border-sys-border">{bgBlur}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="40"
+                    value={bgBlur}
+                    onChange={handleSetBgBlur}
+                    className="w-full mt-2 h-1.5 bg-sys-s1 rounded-lg appearance-none cursor-pointer accent-sys-accent"
+                  />
+                  <div className="flex justify-between text-[9px] text-sys-muted px-1 font-semibold uppercase tracking-wider">
+                    <span>Nítido</span>
+                    <span>Fosco</span>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between p-4 rounded-2xl bg-sys-s3 border border-sys-border">
                   <div>
-                    <h3 className="text-sm font-bold text-sys-text">Modo Compacto</h3>
+                    <h4 className="text-xs font-bold text-sys-text">Modo Compacto</h4>
                     <p className="text-[11px] text-sys-muted mt-0.5 max-w-sm">
-                      Oculta avatares no chat de texto para exibir mais mensagens na tela simultaneamente. (Requer reinício)
+                      Oculta avatares no chat para exibir mais mensagens simultaneamente. (Requer reinício)
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleToggleCompactMode}
-                    className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 ${compactMode
+                    className={`w-12 h-6 flex items-center rounded-full p-1 transition-all duration-200 switch-toggle-btn ${
+                      compactMode
                         ? 'bg-sys-accent justify-end shadow-sm'
                         : 'bg-sys-s1 justify-start border border-sys-border'
-                      }`}
+                    }`}
                   >
                     <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                  </button>
+                </div>
+
+                {/* Reset tour */}
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-sys-s3 border border-sys-border">
+                  <div>
+                    <h4 className="text-xs font-bold text-sys-text">Reiniciar Tour de Boas-vindas</h4>
+                    <p className="text-[11px] text-sys-muted mt-0.5">
+                      Exibe novamente o tour de apresentação na próxima vez que abrir o app.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem('voxel_onboarded');
+                      setIsUserSettingsOpen(false);
+                    }}
+                    className="px-3 py-2 bg-sys-s1 border border-sys-border rounded-xl text-xs font-semibold text-sys-muted hover:text-sys-text hover:border-sys-accent/50 transition btn-interactive"
+                  >
+                    Reiniciar
                   </button>
                 </div>
               </div>

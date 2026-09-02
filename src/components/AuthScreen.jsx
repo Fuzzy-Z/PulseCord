@@ -141,13 +141,18 @@ export const AuthScreen = () => {
     setLoading(false);
   };
 
+  React.useEffect(() => {
+    document.body.style.setProperty('--bg-blur', '0px');
+    localStorage.setItem('voxel_bg_blur', '0');
+  }, []);
+
   const previewInitials = (username.trim() || (email ? email.split('@')[0] : 'PC'))
     .substring(0, 2)
     .toUpperCase();
 
   return (
     <div className="flex flex-1 items-center justify-center p-4 sm:p-6 select-none overflow-hidden font-sans z-50 w-full h-full relative">
-      <div className="w-full max-w-[420px] rounded-3xl p-7 sm:p-8 relative z-10 animate-modal bg-sys-s2/90 backdrop-blur-xl border border-white/10 shadow-[0_24px_50px_-12px_rgba(0,0,0,0.6)]">
+      <div className="w-full max-w-[420px] rounded-3xl p-7 sm:p-8 relative z-10 auth-card animate-modal bg-sys-s2 border border-white/10 shadow-[0_24px_50px_-12px_rgba(0,0,0,0.6)]">
         {/* Brand Header */}
         <div className="text-center mb-6">
           <div className="w-16 h-16 rounded-2xl bg-sys-s1 mx-auto flex items-center justify-center text-white shadow-lg mb-3 border border-white/10">

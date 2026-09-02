@@ -225,7 +225,7 @@ export const VoiceRoomArea = () => {
   const watchingUser = usersInVoice.find((u) => u.socketId === watchingPeerId);
 
   return (
-    <div className="flex-1 bg-sys-base flex flex-col h-full overflow-hidden select-none relative">
+    <div className="flex-1 flex flex-col h-full overflow-hidden select-none relative voxel-workspace-inner">
       {/* Voice Stage Header */}
       <div className="h-12 border-b border-sys-border px-4 flex items-center justify-between flex-shrink-0 bg-sys-s3">
         <div className="flex items-center space-x-2.5">

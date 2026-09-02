@@ -29,6 +29,9 @@ export const ServerProvider = ({ children }) => {
   const [isScreenModalOpen, setIsScreenModalOpen] = useState(false);
   const [isClipManagerOpen, setIsClipManagerOpen] = useState(false);
   const [isAddServerOpen, setIsAddServerOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [unread, setUnread] = useState({}); // { channelId: { count, mentions } }
 
   // Sync servers when initialServersData updates (after login / register / session restore)
   useEffect(() => {
@@ -132,10 +135,28 @@ export const ServerProvider = ({ children }) => {
 
     socket.on('new-message', (message) => {
       setMessages((prev) => [...prev, message]);
-      // If message is in a DM, refresh DM list
       if (message.channelId?.startsWith('dm-')) {
         socket.emit('fetch-dms', (list) => {
           if (list && Array.isArray(list)) setDms(list);
+        });
+      }
+
+      const isOwn = message.userId === currentUser?.id || message.authorId === currentUser?.id;
+      if (!isOwn && message.channelId && message.channelId !== currentChannelId) {
+        const mentionNames = [currentUser?.username, currentUser?.displayName]
+          .filter(Boolean)
+          .map((n) => n.toLowerCase());
+        const content = (message.content || '').toLowerCase();
+        const isMention = mentionNames.some((name) => content.includes(`@${name}`));
+        setUnread((prev) => {
+          const current = prev[message.channelId] || { count: 0, mentions: 0 };
+          return {
+            ...prev,
+            [message.channelId]: {
+              count: current.count + 1,
+              mentions: current.mentions + (isMention ? 1 : 0)
+            }
+          };
         });
       }
     });
@@ -213,7 +234,7 @@ export const ServerProvider = ({ children }) => {
       socket.off('user-status-changed');
       socket.off('user-profile-updated');
     };
-  }, [socket, currentServerId, currentChannelId]);
+  }, [socket, currentServerId, currentChannelId, currentUser]);
 
   // Fetch messages when changing channel or DM
   useEffect(() => {
@@ -224,9 +245,26 @@ export const ServerProvider = ({ children }) => {
     });
   }, [socket, currentChannelId]);
 
+  const closeMobileNav = () => setNavOpen(false);
+
+  const markChannelRead = (channelId) => {
+    if (!channelId) return;
+    setUnread((prev) => {
+      if (!prev[channelId]) return prev;
+      const next = { ...prev };
+      delete next[channelId];
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (currentChannelId) markChannelRead(currentChannelId);
+  }, [currentChannelId]);
+
   const selectServer = (serverId) => {
     setActiveView('server');
     setCurrentServerId(serverId);
+    closeMobileNav();
     const s = servers.find((srv) => srv.id === serverId);
     if (s && s.channels?.length > 0) {
       const firstText = s.channels.find((c) => c.type === 'text') || s.channels[0];
@@ -236,11 +274,15 @@ export const ServerProvider = ({ children }) => {
 
   const selectChannel = (channelId) => {
     setCurrentChannelId(channelId);
+    markChannelRead(channelId);
+    closeMobileNav();
   };
 
   const selectDM = (dmId) => {
     setActiveView('dms');
     setCurrentChannelId(dmId);
+    markChannelRead(dmId);
+    closeMobileNav();
   };
 
   const openDM = (targetUserId, targetUserData) => {
@@ -269,6 +311,8 @@ export const ServerProvider = ({ children }) => {
 
     setActiveView('dms');
     setCurrentChannelId(dmId);
+    markChannelRead(dmId);
+    closeMobileNav();
 
     if (socket) {
       socket.emit('open-or-create-dm', { targetUserId: rawId }, (res) => {
@@ -431,7 +475,14 @@ export const ServerProvider = ({ children }) => {
         isAddServerOpen,
         setIsAddServerOpen,
         isClipManagerOpen,
-        setIsClipManagerOpen
+        setIsClipManagerOpen,
+        isCommandPaletteOpen,
+        setIsCommandPaletteOpen,
+        navOpen,
+        setNavOpen,
+        closeMobileNav,
+        unread,
+        markChannelRead
       }}
     >
       {children}

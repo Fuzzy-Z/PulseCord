@@ -50,7 +50,7 @@ export const DMHomeArea = () => {
   });
 
   return (
-    <div className="flex-1 bg-black/20 flex flex-col h-full overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full overflow-hidden select-none voxel-workspace-inner">
       {/* Header Bar */}
       <div className="h-12 border-b border-sys-border px-6 flex items-center justify-between flex-shrink-0 bg-sys-s3">
         <div className="flex items-center space-x-3">

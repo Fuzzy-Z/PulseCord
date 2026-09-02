@@ -1,27 +1,58 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { ServerProvider, useServer } from './context/ServerContext';
 import { VoiceProvider, useVoice } from './context/VoiceContext';
 import { TitleBar } from './components/TitleBar';
-import { ServerSidebar } from './components/ServerSidebar';
-import { ChannelSidebar } from './components/ChannelSidebar';
-import { DMSidebar } from './components/DMSidebar';
-import { ChatArea } from './components/ChatArea';
-import { ForumArea } from './components/ForumArea';
-import { VoiceRoomArea } from './components/VoiceRoomArea';
-import { ScreenShareModal } from './components/ScreenShareModal';
-import { ServerSettingsModal } from './components/ServerSettingsModal';
-import { MusicPlayerModal } from './components/MusicPlayerModal';
-import { UserSettingsModal } from './components/UserSettingsModal';
-import { CreateChannelModal } from './components/CreateChannelModal';
-import { CreateServerModal } from './components/CreateServerModal';
-import { ClipManagerModal } from './components/ClipManagerModal';
-import { AuthScreen } from './components/AuthScreen';
 import { UpdateToast } from './components/UpdateToast';
 import { GlobalAudioEngine } from './components/GlobalAudioEngine';
+import { CommandPalette } from './components/CommandPalette';
+import { OnboardingTour } from './components/OnboardingTour';
+import { applyUiStyle, getSavedUiStyle } from './utils/appearance';
 import { Loader2 } from 'lucide-react';
 
-import { DMHomeArea } from './components/DMHomeArea';
+const ChannelSidebar = lazy(() =>
+  import('./components/ChannelSidebar').then((m) => ({ default: m.ChannelSidebar }))
+);
+const DMSidebar = lazy(() =>
+  import('./components/DMSidebar').then((m) => ({ default: m.DMSidebar }))
+);
+const ChatArea = lazy(() =>
+  import('./components/ChatArea').then((m) => ({ default: m.ChatArea }))
+);
+const AuthScreen = lazy(() =>
+  import('./components/AuthScreen').then((m) => ({ default: m.AuthScreen }))
+);
+const DMHomeArea = lazy(() =>
+  import('./components/DMHomeArea').then((m) => ({ default: m.DMHomeArea }))
+);
+
+const VoiceRoomArea = lazy(() =>
+  import('./components/VoiceRoomArea').then((m) => ({ default: m.VoiceRoomArea }))
+);
+const ForumArea = lazy(() =>
+  import('./components/ForumArea').then((m) => ({ default: m.ForumArea }))
+);
+const ScreenShareModal = lazy(() =>
+  import('./components/ScreenShareModal').then((m) => ({ default: m.ScreenShareModal }))
+);
+const ServerSettingsModal = lazy(() =>
+  import('./components/ServerSettingsModal').then((m) => ({ default: m.ServerSettingsModal }))
+);
+const MusicPlayerModal = lazy(() =>
+  import('./components/MusicPlayerModal').then((m) => ({ default: m.MusicPlayerModal }))
+);
+const UserSettingsModal = lazy(() =>
+  import('./components/UserSettingsModal').then((m) => ({ default: m.UserSettingsModal }))
+);
+const CreateChannelModal = lazy(() =>
+  import('./components/CreateChannelModal').then((m) => ({ default: m.CreateChannelModal }))
+);
+const CreateServerModal = lazy(() =>
+  import('./components/CreateServerModal').then((m) => ({ default: m.CreateServerModal }))
+);
+const ClipManagerModal = lazy(() =>
+  import('./components/ClipManagerModal').then((m) => ({ default: m.ClipManagerModal }))
+);
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -34,7 +65,7 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error("PulseCord ErrorBoundary caught an error:", error, errorInfo);
+    console.error("Voxel ErrorBoundary caught an error:", error, errorInfo);
     this.setState({ errorInfo });
   }
 
@@ -74,39 +105,72 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const MainLayout = () => {
-  const { currentChannel, currentChannelId, activeView } = useServer();
-  const { activeVoiceChannel } = useVoice();
+const WorkspaceFallback = () => (
+  <div className="flex-1 flex items-center justify-center text-sys-muted">
+    <Loader2 className="w-6 h-6 animate-spin text-sys-accent" />
+  </div>
+);
 
-  // View routing
+const MainLayout = () => {
+  const {
+    currentChannel,
+    currentChannelId,
+    activeView,
+    navOpen,
+    setNavOpen,
+    isScreenModalOpen,
+    isServerSettingsOpen,
+    isMusicModalOpen,
+    isUserSettingsOpen,
+    isCreateChannelOpen,
+    isAddServerOpen,
+    isClipManagerOpen
+  } = useServer();
+
   const isVoiceView = currentChannel?.type === 'voice';
   const isForumView = currentChannel?.type === 'forum';
   const isDMHome = activeView === 'dms' && (!currentChannelId || currentChannelId === 'dm-home' || currentChannelId === 'dm-inbox' || !currentChannel);
 
   return (
-    <div className="flex-1 flex overflow-hidden">
-      <ServerSidebar />
-      {activeView === 'dms' ? <DMSidebar /> : <ChannelSidebar />}
-      {isVoiceView ? (
-        <VoiceRoomArea />
-      ) : isForumView ? (
-        <ForumArea />
-      ) : isDMHome ? (
-        <DMHomeArea />
-      ) : (
-        <ChatArea />
+    <div className="flex-1 flex overflow-hidden voxel-app-shell relative">
+      {navOpen && (
+        <button
+          type="button"
+          aria-label="Fechar menu"
+          className="voxel-nav-backdrop"
+          onClick={() => setNavOpen(false)}
+        />
       )}
+      <Suspense fallback={<WorkspaceFallback />}>
+        {activeView === 'dms' ? <DMSidebar /> : <ChannelSidebar />}
+      </Suspense>
+      <div className="flex-1 min-w-0 voxel-workspace overflow-hidden">
+        <Suspense fallback={<WorkspaceFallback />}>
+          {isVoiceView ? (
+            <VoiceRoomArea />
+          ) : isForumView ? (
+            <ForumArea />
+          ) : isDMHome ? (
+            <DMHomeArea />
+          ) : (
+            <ChatArea />
+          )}
+        </Suspense>
+      </div>
 
-      {/* Global Modals wrapped in ErrorBoundary */}
       <ErrorBoundary>
-        <ScreenShareModal />
-        <ServerSettingsModal />
-        <MusicPlayerModal />
-        <UserSettingsModal />
-        <CreateChannelModal />
-        <CreateServerModal />
-        <ClipManagerModal />
+        <Suspense fallback={null}>
+          {isScreenModalOpen && <ScreenShareModal />}
+          {isServerSettingsOpen && <ServerSettingsModal />}
+          {isMusicModalOpen && <MusicPlayerModal />}
+          {isUserSettingsOpen && <UserSettingsModal />}
+          {isCreateChannelOpen && <CreateChannelModal />}
+          {isAddServerOpen && <CreateServerModal />}
+          {isClipManagerOpen && <ClipManagerModal />}
+        </Suspense>
       </ErrorBoundary>
+      <CommandPalette />
+      <OnboardingTour />
     </div>
   );
 };
@@ -115,16 +179,40 @@ const AppContent = () => {
   const { isAuthenticated, authLoading, currentUser } = useSocket();
 
   useEffect(() => {
-    let savedTheme = localStorage.getItem('pulsecord-theme') || 'theme-grafite';
+    // Support both legacy 'pulsecord-theme' and new 'voxel-theme' keys
+    let savedTheme =
+      localStorage.getItem('voxel-theme') ||
+      localStorage.getItem('pulsecord-theme') ||
+      'theme-grafite';
     if (currentUser?.appTheme) {
       savedTheme = `theme-${currentUser.appTheme}`;
     }
-    document.body.className = savedTheme;
-  }, [currentUser?.appTheme]);
+    Array.from(document.body.classList)
+      .filter((c) => c.startsWith('theme-'))
+      .forEach((c) => document.body.classList.remove(c));
+    document.body.classList.add(savedTheme);
+    
+    // Apply UI style
+    const uiStyle = getSavedUiStyle(currentUser);
+    applyUiStyle(uiStyle);
+
+    // Apply dynamic wallpaper
+    const themeId = savedTheme.replace('theme-', '');
+    document.body.style.setProperty('--app-bg', `url('/themes/${themeId}.jpg')`);
+
+    // Apply wallpaper blur & opacity (default 0px — crisp wallpaper without blur)
+    let savedBlur = localStorage.getItem('voxel_bg_blur');
+    if (!savedBlur || savedBlur === '15' || savedBlur === '5' || savedBlur === '10' || savedBlur === '20') {
+      savedBlur = '0';
+      localStorage.setItem('voxel_bg_blur', '0');
+    }
+    document.body.style.setProperty('--bg-blur', `${savedBlur || '0'}px`);
+    document.body.style.setProperty('--bg-opacity', '1');
+
+  }, [currentUser?.appTheme, currentUser?.uiStyle]);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-sys-base text-sys-text overflow-hidden relative font-sans">
-      {/* App Content */}
+    <div className="flex flex-col h-screen w-screen text-sys-text overflow-hidden relative font-sans voxel-grid-bg">
       <div className="relative z-10 flex flex-col h-full w-full">
         <TitleBar />
         {authLoading ? (
@@ -133,7 +221,9 @@ const AppContent = () => {
             <p className="text-xs font-medium tracking-wide">Conectando ao Voxel...</p>
           </div>
         ) : !isAuthenticated ? (
-          <AuthScreen />
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-sys-accent" /></div>}>
+            <AuthScreen />
+          </Suspense>
         ) : (
           <MainLayout />
         )}

@@ -14,7 +14,8 @@ import {
   UserPlus,
   Shield,
   Disc3,
-  Move
+  Move,
+  MessageSquare
 } from 'lucide-react';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
@@ -36,7 +37,9 @@ export const ChannelSidebar = () => {
     setIsMusicModalOpen,
     setIsScreenModalOpen,
     mutedChannels,
-    toggleMuteChannel
+    toggleMuteChannel,
+    navOpen,
+    unread
   } = useServer();
 
   const { currentUser } = useSocket();
@@ -76,24 +79,25 @@ export const ChannelSidebar = () => {
 
   if (!currentServer) {
     return (
-      <div className="w-60 bg-sys-base flex flex-col items-center justify-center text-sys-muted text-sm">
+      <div className={`w-[280px] voxel-nav-panel flex flex-col items-center justify-center text-sys-muted text-sm ${navOpen ? 'is-open' : ''}`}>
         Nenhum servidor selecionado
       </div>
     );
   }
 
   const textChannels = currentServer.channels.filter((c) => c.type === 'text');
+  const forumChannels = currentServer.channels.filter((c) => c.type === 'forum');
   const voiceChannels = currentServer.channels.filter((c) => c.type === 'voice');
 
   const activeChannelObj = currentServer.channels.find(c => c.id === activeVoiceChannel);
 
   return (
-    <div className="w-60 bg-sys-s1 flex flex-col flex-shrink-0 select-none relative z-10 border-r border-sys-border">
+    <div className={`w-[280px] voxel-nav-panel flex flex-col flex-shrink-0 select-none relative z-10 ${navOpen ? 'is-open' : ''}`}>
       {/* Server Header Dropdown */}
       <div className="relative">
         <button
           onClick={() => setIsServerMenuOpen(!isServerMenuOpen)}
-          className="w-full h-12 px-4 border-b border-sys-border flex items-center justify-between font-semibold text-sys-text hover:bg-sys-s2 transition shadow-sm"
+          className="w-full h-11 px-4 border-b border-sys-border flex items-center justify-between font-semibold text-sys-text hover:bg-sys-s2/50 transition"
         >
           <span className="truncate tracking-tight font-bold text-[13px]">{currentServer.name}</span>
           <ChevronDown
@@ -172,12 +176,12 @@ export const ChannelSidebar = () => {
                       e.preventDefault();
                       setContextMenuChannel(contextMenuChannel === channel.id ? null : channel.id);
                     }}
-                    className={`w-full flex items-center px-2.5 py-1.5 rounded-lg text-xs transition-colors group ${
+                    className={`w-full flex items-center px-3 py-2 text-xs voxel-nav-item group ${
                       isSelected
-                        ? 'bg-white/[0.08] text-white font-semibold'
+                        ? 'voxel-nav-item--active'
                         : isMutedChan 
-                          ? 'text-sys-muted/50 hover:bg-white/[0.04] hover:text-sys-muted'
-                          : 'text-sys-muted hover:bg-white/[0.04] hover:text-sys-text'
+                          ? 'text-sys-muted/50'
+                          : 'text-sys-muted'
                     }`}
                   >
                     <Hash className={`w-4 h-4 mr-2 flex-shrink-0 transition-colors ${
@@ -268,10 +272,10 @@ export const ChannelSidebar = () => {
                       }
                       selectChannel(channel.id);
                     }}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors group ${
+                    className={`w-full flex items-center justify-between px-3 py-2 text-xs voxel-nav-item group ${
                       isConnectedHere
-                        ? 'bg-white/[0.08] text-white font-semibold'
-                        : 'text-sys-muted hover:bg-white/[0.04] hover:text-sys-text'
+                        ? 'voxel-nav-item--active'
+                        : 'text-sys-muted'
                     }`}
                   >
                     <div className="flex items-center truncate">
@@ -435,7 +439,7 @@ export const ChannelSidebar = () => {
       )}
 
       {/* Bottom User Bar */}
-      <div className="h-[54px] bg-sys-s2 px-3 flex items-center justify-between border-t border-sys-border">
+      <div className="h-[54px] bg-sys-s2/50 px-3 flex items-center justify-between border-t border-sys-border">
         {/* User Info */}
         <div
           onClick={() => setIsUserSettingsOpen(true)}

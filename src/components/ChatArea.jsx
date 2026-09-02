@@ -137,7 +137,7 @@ export const ChatArea = () => {
 
   if (!currentChannel) {
     return (
-      <div className="flex-1 bg-sys-s2 flex items-center justify-center text-sys-muted text-sm">
+      <div className="flex-1 flex items-center justify-center text-sys-muted text-sm voxel-workspace-inner">
         Selecione um canal para conversar
       </div>
     );
@@ -157,9 +157,9 @@ export const ChatArea = () => {
   const currentPinnedList = messages.filter((m) => m.isPinned || (pinnedMessages[currentChannel.id] || []).some(pm => pm.id === m.id));
 
   return (
-    <div className="flex-1 bg-black/20 flex flex-col h-full overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full overflow-hidden select-none voxel-workspace-inner">
       {/* Channel Header */}
-      <div className="h-12 border-b border-sys-border px-4 flex items-center justify-between flex-shrink-0 bg-sys-s3">
+      <div className="h-11 px-5 flex items-center justify-between flex-shrink-0 border-b border-sys-border bg-sys-s1/60">
         <div className="flex items-center space-x-2.5 truncate">
           {isDM ? (
             <div className="flex items-center space-x-2 truncate">
@@ -674,7 +674,7 @@ export const ChatArea = () => {
 
         {/* Server Members List Sidebar */}
         {!isDM && showMemberList && currentServer && (
-          <div className="w-56 bg-sys-s1 p-3 overflow-y-auto hidden lg:block select-none border-l border-sys-border thin-scrollbar">
+          <div className="w-56 bg-sys-s1/40 p-3 overflow-y-auto hidden lg:block select-none border-l border-sys-border thin-scrollbar">
             <div className="text-[10px] font-semibold text-sys-muted uppercase tracking-wider mb-2 px-1 flex items-center justify-between">
               <span>Membros</span>
               <span className="text-[9px] bg-sys-s2 px-1.5 py-0.5 rounded-full text-sys-muted font-bold">
