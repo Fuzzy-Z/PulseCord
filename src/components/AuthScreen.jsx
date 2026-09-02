@@ -170,7 +170,7 @@ export const AuthScreen = () => {
 
         {/* Conditional View: Google Onboarding Step vs Standard Login */}
         {googlePendingUser ? (
-          <form onSubmit={handleFinishGoogleAuth} className="space-y-4 animate-modal text-left">
+          <form onSubmit={handleFinishGoogleAuth} className="space-y-4 text-left">
             <div className="text-center mb-4">
               <div className="relative inline-block mb-2">
                 {useGooglePhoto && googlePendingUser.picture ? (
