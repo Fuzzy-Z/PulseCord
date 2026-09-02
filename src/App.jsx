@@ -200,13 +200,9 @@ const AppContent = () => {
     const themeId = savedTheme.replace('theme-', '');
     document.body.style.setProperty('--app-bg', `url('/themes/${themeId}.jpg')`);
 
-    // Apply wallpaper blur & opacity (default 0px — crisp wallpaper without blur)
-    let savedBlur = localStorage.getItem('voxel_bg_blur');
-    if (!savedBlur || savedBlur === '15' || savedBlur === '5' || savedBlur === '10' || savedBlur === '20') {
-      savedBlur = '0';
-      localStorage.setItem('voxel_bg_blur', '0');
-    }
-    document.body.style.setProperty('--bg-blur', `${savedBlur || '0'}px`);
+    // Apply wallpaper blur & opacity
+    const savedBlur = localStorage.getItem('voxel_bg_blur') || '0';
+    document.body.style.setProperty('--bg-blur', `${savedBlur}px`);
     document.body.style.setProperty('--bg-opacity', '1');
 
   }, [currentUser?.appTheme, currentUser?.uiStyle]);

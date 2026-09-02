@@ -179,13 +179,9 @@ export const UserSettingsModal = () => {
     // Set wallpaper
     document.body.style.setProperty('--app-bg', `url('/themes/${themeId}.jpg')`);
 
-    // Re-apply blur settings (default 0px)
-    let savedBlur = localStorage.getItem('voxel_bg_blur');
-    if (!savedBlur || savedBlur === '15' || savedBlur === '5' || savedBlur === '10' || savedBlur === '20') {
-      savedBlur = '0';
-      localStorage.setItem('voxel_bg_blur', '0');
-    }
-    document.body.style.setProperty('--bg-blur', `${savedBlur || '0'}px`);
+    // Re-apply blur settings
+    const savedBlur = localStorage.getItem('voxel_bg_blur') || '0';
+    document.body.style.setProperty('--bg-blur', `${savedBlur}px`);
     document.body.style.setProperty('--bg-opacity', '1');
 
     updateProfile({ appTheme: themeId });
@@ -1157,7 +1153,7 @@ export const UserSettingsModal = () => {
                       >
                         <option value="720p">Alta (720p 60fps)</option>
                         <option value="1080p">Ultra (1080p 60fps)</option>
-                        <option value="4k">Extrema (4K 60fps) - Requer Nitro</option>
+                        <option value="4k">Extrema (4K 60fps)</option>
                       </select>
                     </div>
 

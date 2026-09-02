@@ -99,9 +99,8 @@ export const ChatArea = () => {
     files.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        // Upload Limits (Non-Nitro: 25MB, Nitro: 500MB)
-        const isNitro = currentUser?.nitro === true;
-        const limitMB = isNitro ? 500 : 25;
+        // Upload Limit: 25MB
+        const limitMB = 25;
         if (file.size > limitMB * 1024 * 1024) {
           alert(`O arquivo ${file.name} excede o limite de upload (${limitMB}MB).`);
           return;

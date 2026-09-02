@@ -25,17 +25,63 @@
   }
 
   :root {
-    --op-base: 70%;
-    --op-s1: 85%;
-    --op-s2: 85%;
+    --op-base: 75%;
+    --op-s1: 88%;
+    --op-s2: 88%;
     --op-s3: 95%;
   }
 
   .ui-style-liquid {
-    --op-base: 30%;
-    --op-s1: 45%;
-    --op-s2: 45%;
-    --op-s3: 55%;
+    --op-base: 50%;
+    --op-s1: 65%;
+    --op-s2: 65%;
+    --op-s3: 75%;
+  }
+
+  /* Liquid Glass mode enhancements: backdrop blur, readable text contrast, and crisp text */
+  .ui-style-liquid .voxel-nav-panel,
+  .ui-style-liquid .voxel-workspace,
+  .ui-style-liquid .voxel-titlebar {
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+  }
+
+  .ui-style-liquid {
+    --color-text-muted: #cbd5e1;
+  }
+
+  .ui-style-liquid .text-sys-muted {
+    color: rgba(241, 245, 249, 0.78) !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  }
+
+  .ui-style-liquid .text-sys-text {
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+
+  .ui-style-liquid .voxel-nav-item {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  }
+
+  .ui-style-liquid .voxel-nav-item:not(.voxel-nav-item--active) {
+    color: rgba(241, 245, 249, 0.82) !important;
+  }
+
+  .ui-style-liquid .voxel-nav-item:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #ffffff !important;
+  }
+
+  .ui-style-liquid .voxel-nav-item--active {
+    background: rgba(255, 255, 255, 0.16) !important;
+    color: #ffffff !important;
+  }
+
+  .ui-style-liquid .bg-sys-s2,
+  .ui-style-liquid .bg-sys-s3 {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
   ::selection {
@@ -451,7 +497,8 @@ body::before {
   background-position: center;
   background-repeat: no-repeat;
   z-index: -1;
-  filter: none !important;
+  filter: blur(var(--bg-blur, 0px));
+  transform: scale(1.1);
   opacity: var(--bg-opacity, 1);
   pointer-events: none;
 }

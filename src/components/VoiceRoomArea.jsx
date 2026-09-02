@@ -846,45 +846,6 @@ export const VoiceRoomArea = () => {
               </button>
             )}
 
-            {/* Soundboard (Nitro Feature) */}
-            <button
-              onClick={() => {
-                if (currentUser?.nitro) {
-                  Swal.fire({
-                    title: 'Soundboard Aberto!',
-                    icon: 'success',
-                    timer: 1500,
-                    showConfirmButton: false,
-                    background: 'var(--color-bg-base)',
-                    color: 'var(--color-text-main)',
-                    customClass: {
-                      popup: 'border border-sys-border rounded-2xl shadow-2xl',
-                      title: 'font-bold tracking-tight',
-                    }
-                  });
-                } else {
-                  Swal.fire({
-                    title: 'Recurso Nitro',
-                    text: 'O Soundboard é um recurso exclusivo do Discord Nitro!',
-                    icon: 'warning',
-                    confirmButtonText: 'Entendi',
-                    buttonsStyling: false,
-                    background: 'var(--color-bg-base)',
-                    color: 'var(--color-text-main)',
-                    customClass: {
-                      popup: 'border border-sys-border rounded-2xl shadow-2xl',
-                      title: 'font-bold tracking-tight',
-                      htmlContainer: 'text-sys-muted text-sm',
-                      confirmButton: 'bg-sys-accent hover:opacity-80 text-white px-6 py-2.5 rounded-xl font-bold transition mt-4'
-                    }
-                  });
-                }
-              }}
-              className="p-3 rounded-xl transition-all duration-200 shadow-sm bg-sys-s1 hover:bg-sys-s2 text-sys-text border border-sys-border"
-              title="Soundboard (Sons)"
-            >
-              <Music className="w-4 h-4 text-sys-accent" />
-            </button>
 
             {/* Watch Together (YouTube) */}
             <button

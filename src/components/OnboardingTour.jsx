@@ -36,7 +36,7 @@ const STEPS = [
     icon: Palette,
     color: 'from-rose-500 to-pink-600',
     title: 'Temas e aparência',
-    body: 'Em Ajustes → Aparência você muda as cores, o estilo visual e muito mais. Suave, Agressivo ou Liquid Glass — tudo sem Nitro.',
+    body: 'Em Ajustes → Aparência você muda as cores, o estilo visual e muito mais. Suave, Agressivo ou Liquid Glass — tudo gratuito.',
     tip: 'Mais de 20 temas disponíveis'
   }
 ];
