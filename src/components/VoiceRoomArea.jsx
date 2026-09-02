@@ -73,6 +73,16 @@ export const VoiceRoomArea = () => {
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [contextMenuUser, setContextMenuUser] = useState(null);
   const [watchingPeerId, setWatchingPeerId] = useState(null);
+  const [localScreenPinned, setLocalScreenPinned] = useState(true);
+
+  // Auto-pin local screen when sharing starts
+  useEffect(() => {
+    if (isScreenSharing) {
+      setLocalScreenPinned(true);
+      setWatchingPeerId(null);
+    }
+  }, [isScreenSharing]);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
@@ -276,16 +286,27 @@ export const VoiceRoomArea = () => {
           )}
 
           {/* View Mode Toggle (Grid vs Theater) */}
-          {isConnectedToThisRoom && activeRemoteScreenShares.length > 0 && (
+          {isConnectedToThisRoom && (activeRemoteScreenShares.length > 0 || isScreenSharing) && (
             <button
-              onClick={() => setWatchingPeerId(watchingPeerId ? null : activeRemoteScreenShares[0][0])}
-              className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition btn-interactive ${watchingPeerId
+              onClick={() => {
+                if (isScreenSharing) {
+                  if (localScreenPinned) {
+                    setLocalScreenPinned(false);
+                  } else {
+                    setLocalScreenPinned(true);
+                    setWatchingPeerId(null);
+                  }
+                } else {
+                  setWatchingPeerId(watchingPeerId ? null : activeRemoteScreenShares[0][0]);
+                }
+              }}
+              className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium transition btn-interactive ${watchingPeerId || (isScreenSharing && localScreenPinned)
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm'
                 : 'bg-sys-s1 border border-sys-border text-sys-accent'
                 }`}
             >
-              {watchingPeerId ? <Grid className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              <span>{watchingPeerId ? 'Modo Grade' : 'Assistir Transmissão'}</span>
+              {(watchingPeerId || (isScreenSharing && localScreenPinned)) ? <Grid className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              <span>{(watchingPeerId || (isScreenSharing && localScreenPinned)) ? 'Modo Grade' : 'Assistir Transmissão'}</span>
             </button>
           )}
 
@@ -409,7 +430,7 @@ export const VoiceRoomArea = () => {
               </div>
             )}
           </div>
-        ) : isConnectedToThisRoom && isScreenSharing && localScreenStream ? (
+        ) : isConnectedToThisRoom && isScreenSharing && localScreenStream && localScreenPinned ? (
           <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-sys-s3 shadow-md border border-sys-accent/40">
             <video
               ref={localVideoRef}
@@ -418,16 +439,25 @@ export const VoiceRoomArea = () => {
               muted
               className="w-full h-full object-contain"
             />
-            <div className="absolute top-4 left-4 bg-sys-s1 px-3.5 py-1.5 rounded-full text-xs font-bold text-sys-text flex items-center space-x-2 border border-sys-border shadow-md">
+            <div className="absolute top-4 left-4 bg-sys-s1 px-3.5 py-1.5 rounded-full text-xs font-bold text-sys-text flex items-center space-x-2 border border-sys-border shadow-md z-20">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span>Sua Transmissão (60 FPS)</span>
             </div>
-            <button
-              onClick={stopScreenShare}
-              className="absolute bottom-4 right-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-bold shadow-md transition btn-interactive"
-            >
-              Parar Transmissão
-            </button>
+            
+            <div className="absolute bottom-4 right-4 flex items-center space-x-2 z-20">
+              <button
+                onClick={() => setLocalScreenPinned(false)}
+                className="px-4 py-2 bg-[#181d26]/90 hover:bg-[#202733] text-white rounded-2xl text-xs font-bold shadow-xl transition btn-interactive border border-white/10 backdrop-blur-md"
+              >
+                Ver Todos em Grade
+              </button>
+              <button
+                onClick={stopScreenShare}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-bold shadow-md transition btn-interactive"
+              >
+                Parar Transmissão
+              </button>
+            </div>
           </div>
         ) : isConnectedToThisRoom && watchingPeerId ? (
           /* 3. Remote Screen Share Theater Mode */
