@@ -57,7 +57,8 @@ export const ChannelSidebar = () => {
     musicPlayer,
     watchTogetherState,
     moveVoiceUser,
-    disconnectVoiceUser
+    disconnectVoiceUser,
+    usersInVoice
   } = useVoice();
 
   const [isServerMenuOpen, setIsServerMenuOpen] = useState(false);
@@ -226,7 +227,23 @@ export const ChannelSidebar = () => {
           <div className="space-y-0.5">
             {voiceChannels.map((channel) => {
               const isConnectedHere = activeVoiceChannel === channel.id;
-              const usersInThisChannel = voiceRooms[channel.id] || [];
+              const rawUsers = isConnectedHere
+                ? [
+                    ...(currentUser ? [{ ...currentUser, isMuted, isDeafened, socketId: 'local' }] : []),
+                    ...usersInVoice.filter((u) => u.id !== currentUser?.id)
+                  ]
+                : (voiceRooms[channel.id] || []);
+
+              // Deduplicate by user.id
+              const usersInThisChannel = [];
+              const seenIds = new Set();
+              for (const u of rawUsers) {
+                if (!seenIds.has(u.id)) {
+                  seenIds.add(u.id);
+                  usersInThisChannel.push(u);
+                }
+              }
+
               const isDropTarget = dragOverChannelId === channel.id;
 
               return (

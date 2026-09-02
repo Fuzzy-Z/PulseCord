@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import ReactPlayer from 'react-player';
 import Swal from 'sweetalert2';
 import {
@@ -22,7 +23,9 @@ import {
   Users,
   Loader2,
   Music,
-  Link
+  Link,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { useVoice } from '../context/VoiceContext';
 import { useServer } from '../context/ServerContext';
@@ -65,10 +68,28 @@ export const VoiceRoomArea = () => {
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const theaterContainerRef = useRef(null);
 
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [contextMenuUser, setContextMenuUser] = useState(null);
   const [watchingPeerId, setWatchingPeerId] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isFullscreen]);
+
+  const toggleFullscreen = (targetState) => {
+    setIsFullscreen((prev) => (typeof targetState === 'boolean' ? targetState : !prev));
+  };
 
   const [ytInput, setYtInput] = useState('');
   const [ytVolume, setYtVolume] = useState(0.5);
@@ -410,13 +431,23 @@ export const VoiceRoomArea = () => {
           </div>
         ) : isConnectedToThisRoom && watchingPeerId ? (
           /* 3. Remote Screen Share Theater Mode */
-          <div className="w-full h-full max-w-5xl flex flex-col items-center justify-center relative rounded-3xl overflow-hidden bg-sys-s3 shadow-md border border-red-500/30">
+          <div
+            ref={theaterContainerRef}
+            className={
+              isFullscreen
+                ? 'fixed inset-0 z-[99999] w-screen h-screen bg-black flex flex-col items-center justify-center select-none overflow-hidden m-0 p-0 border-none rounded-none'
+                : 'w-full h-full max-w-5xl rounded-3xl flex flex-col items-center justify-center relative overflow-hidden bg-black shadow-md border border-red-500/30'
+            }
+            style={isFullscreen ? { backgroundColor: '#000000', width: '100vw', height: '100vh', margin: 0, padding: 0 } : {}}
+          >
             {remoteStreams[watchingPeerId]?.videoStream ? (
               <video
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain cursor-pointer"
+                style={{ backgroundColor: '#000000', width: '100%', height: '100%' }}
+                onDoubleClick={() => toggleFullscreen()}
               />
             ) : (
               <div className="flex flex-col items-center justify-center gap-3 p-8 text-sys-muted">
@@ -426,31 +457,59 @@ export const VoiceRoomArea = () => {
                 </p>
               </div>
             )}
-            <div className="absolute top-4 left-4 bg-sys-s1 px-3.5 py-1.5 rounded-full text-xs font-bold text-sys-text flex items-center space-x-2 border border-sys-border shadow-md">
+            <div className="absolute top-4 left-4 bg-[#14181f]/90 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-bold text-white flex items-center space-x-2 border border-white/10 shadow-xl z-20">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span>Assistindo: {watchingUser?.username || 'Amigo'} (60 FPS)</span>
             </div>
 
-            <div className="absolute top-4 right-4 bg-sys-s1/80 backdrop-blur-md px-3 py-1.5 rounded-2xl flex items-center space-x-2 border border-sys-border shadow-md">
-              <Volume2 className="w-4 h-4 text-sys-muted" />
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={screenVolume}
-                onChange={(e) => setScreenVolume(parseFloat(e.target.value))}
-                className="w-20 accent-sys-accent cursor-pointer"
-                title="Volume da Transmissão"
-              />
+            <div className="absolute top-4 right-4 bg-[#14181f]/90 backdrop-blur-md px-3.5 py-1.5 rounded-2xl flex items-center space-x-3 border border-white/10 shadow-xl z-20">
+              <div className="flex items-center space-x-1.5">
+                <Volume2 className="w-4 h-4 text-white/70" />
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={screenVolume}
+                  onChange={(e) => setScreenVolume(parseFloat(e.target.value))}
+                  className="w-20 accent-sys-accent cursor-pointer"
+                  title="Volume da Transmissão"
+                />
+              </div>
+
+              <div className="h-4 w-[1px] bg-white/20" />
+
+              {/* Botão de Tela Cheia */}
+              <button
+                type="button"
+                onClick={() => toggleFullscreen()}
+                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition"
+                title={isFullscreen ? 'Sair da Tela Cheia (Esc)' : 'Tela Cheia'}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
             </div>
 
-            <button
-              onClick={() => setWatchingPeerId(null)}
-              className="absolute bottom-4 right-4 px-4 py-2 bg-sys-s2 hover:bg-sys-s1 text-sys-text rounded-2xl text-xs font-bold shadow-md transition btn-interactive border border-sys-border"
-            >
-              Ver Todos em Grade
-            </button>
+            <div className="absolute bottom-4 right-4 flex items-center space-x-2 z-20">
+              <button
+                type="button"
+                onClick={() => toggleFullscreen()}
+                className="px-3 py-2 bg-[#181d26]/90 hover:bg-[#202733] text-white rounded-2xl text-xs font-bold shadow-xl transition btn-interactive border border-white/10 flex items-center space-x-1.5 backdrop-blur-md"
+              >
+                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                <span>{isFullscreen ? 'Restaurar' : 'Tela Cheia'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (isFullscreen) toggleFullscreen(false);
+                  setWatchingPeerId(null);
+                }}
+                className="px-4 py-2 bg-[#181d26]/90 hover:bg-[#202733] text-white rounded-2xl text-xs font-bold shadow-xl transition btn-interactive border border-white/10 backdrop-blur-md"
+              >
+                Ver Todos em Grade
+              </button>
+            </div>
           </div>
         ) : allParticipants.length === 0 ? (
           /* 4. Empty Room Placeholder */

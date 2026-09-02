@@ -4,7 +4,7 @@ import { useSocket } from './SocketContext';
 const ServerContext = createContext(null);
 
 export const ServerProvider = ({ children }) => {
-  const { socket, isConnected, currentUser, initialServersData, isAuthenticated } = useSocket();
+  const { socket, isConnected, currentUser, initialServersData, initialVoiceRoomsData, isAuthenticated } = useSocket();
 
   const [servers, setServers] = useState([]);
   const [currentServerId, setCurrentServerId] = useState(null);
@@ -12,7 +12,25 @@ export const ServerProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [voiceRooms, setVoiceRooms] = useState({});
   const [onlineMembers, setOnlineMembers] = useState([]);
-  
+
+  // Sync voice rooms from initial authentication response immediately
+  useEffect(() => {
+    if (initialVoiceRoomsData) {
+      setVoiceRooms(initialVoiceRoomsData);
+    }
+  }, [initialVoiceRoomsData]);
+
+  // Request fresh voice rooms sync whenever socket connects or reconnects
+  useEffect(() => {
+    if (socket && isConnected) {
+      socket.emit('sync-voice-rooms', (res) => {
+        if (res && res.voiceRooms) {
+          setVoiceRooms(res.voiceRooms);
+        }
+      });
+    }
+  }, [socket, isConnected]);
+
   // DMs & UI State
   const [activeView, setActiveView] = useState('server'); // 'server' | 'dms'
   const [dms, setDms] = useState([]); // Array of private conversations

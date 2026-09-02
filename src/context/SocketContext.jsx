@@ -42,6 +42,7 @@ export const SocketProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authError, setAuthError] = useState(null);
   const [initialServersData, setInitialServersData] = useState([]);
+  const [initialVoiceRoomsData, setInitialVoiceRoomsData] = useState(null);
 
   const socketRef = useRef(null);
 
@@ -77,6 +78,7 @@ export const SocketProvider = ({ children }) => {
                 setCurrentUser(res.user);
                 setIsAuthenticated(true);
                 if (res.servers) setInitialServersData(res.servers);
+                if (res.voiceRooms) setInitialVoiceRoomsData(res.voiceRooms);
               } else {
                 localStorage.removeItem('pulsecord_session');
                 setIsAuthenticated(false);
@@ -119,6 +121,7 @@ export const SocketProvider = ({ children }) => {
           setCurrentUser(res.user);
           setIsAuthenticated(true);
           if (res.servers) setInitialServersData(res.servers);
+          if (res.voiceRooms) setInitialVoiceRoomsData(res.voiceRooms);
 
           if (rememberMe) {
             localStorage.setItem(
@@ -154,6 +157,7 @@ export const SocketProvider = ({ children }) => {
             setCurrentUser(res.user);
             setIsAuthenticated(true);
             if (res.servers) setInitialServersData(res.servers);
+            if (res.voiceRooms) setInitialVoiceRoomsData(res.voiceRooms);
 
             if (rememberMe) {
               localStorage.setItem(
@@ -190,6 +194,7 @@ export const SocketProvider = ({ children }) => {
             setCurrentUser(res.user);
             setIsAuthenticated(true);
             if (res.servers) setInitialServersData(res.servers);
+            if (res.voiceRooms) setInitialVoiceRoomsData(res.voiceRooms);
             localStorage.setItem(
               'pulsecord_session',
               JSON.stringify({ token: res.user.token, userId: res.user.id, email: res.user.email })
@@ -222,6 +227,7 @@ export const SocketProvider = ({ children }) => {
           setCurrentUser(res.user);
           setIsAuthenticated(true);
           if (res.servers) setInitialServersData(res.servers);
+          if (res.voiceRooms) setInitialVoiceRoomsData(res.voiceRooms);
           localStorage.setItem(
             'pulsecord_session',
             JSON.stringify({ token: res.user.token, userId: res.user.id, email: res.user.email })
@@ -244,6 +250,7 @@ export const SocketProvider = ({ children }) => {
     setIsAuthenticated(false);
     setCurrentUser(null);
     setInitialServersData([]);
+    setInitialVoiceRoomsData(null);
   };
 
   // Delete Account Permanently (Purge all user data)
@@ -253,10 +260,7 @@ export const SocketProvider = ({ children }) => {
 
       socketRef.current.emit('delete-account', { confirmUsername }, (res) => {
         if (res && res.success) {
-          localStorage.removeItem('pulsecord_session');
-          setIsAuthenticated(false);
-          setCurrentUser(null);
-          setInitialServersData([]);
+          logout();
           resolve({ success: true });
         } else {
           resolve({ success: false, error: res?.error || 'Erro ao excluir conta.' });
@@ -338,7 +342,8 @@ export const SocketProvider = ({ children }) => {
         register,
         logout,
         deleteAccount,
-        initialServersData
+        initialServersData,
+        initialVoiceRoomsData
       }}
     >
       {children}
