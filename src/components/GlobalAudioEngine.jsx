@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 import { useVoice } from '../context/VoiceContext';
 
-const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice }) => {
+const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice, isDeafened, isUserMuted }) => {
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -13,7 +13,9 @@ const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice }) => {
       audio.srcObject = stream;
     }
 
-    audio.volume = Math.max(0, Math.min(1, volume));
+    const effectiveMuted = isDeafened || isUserMuted;
+    audio.muted = effectiveMuted;
+    audio.volume = effectiveMuted ? 0 : Math.max(0, Math.min(1, volume));
 
     if (outputDevice && outputDevice !== 'default' && audio.setSinkId) {
       audio.setSinkId(outputDevice).catch(() => {});
@@ -24,7 +26,7 @@ const RemoteAudioPlayer = ({ socketId, stream, volume, outputDevice }) => {
     audio.play().catch((err) => {
       console.warn(`[WebRTC Audio Play ${socketId}]`, err.message);
     });
-  }, [stream, volume, outputDevice, socketId]);
+  }, [stream, volume, outputDevice, socketId, isDeafened, isUserMuted]);
 
   return <audio ref={audioRef} autoPlay playsInline />;
 };
@@ -36,6 +38,7 @@ export const GlobalAudioEngine = () => {
     localMusicVolume,
     isDeafened,
     userVolumes,
+    userMutes,
     usersInVoice,
     selectedOutputDevice,
     activeVoiceChannel,
@@ -143,6 +146,7 @@ export const GlobalAudioEngine = () => {
 
         const peerUser = usersInVoice.find((u) => u.socketId === socketId);
         const userVol = peerUser && userVolumes[peerUser.id] !== undefined ? userVolumes[peerUser.id] : 100;
+        const isUserMuted = peerUser ? Boolean(userMutes[peerUser.id]) : false;
         // Allows up to 2.0 (200% volume amplification)
         const finalVolume = isDeafened ? 0 : Math.max(0, userVol / 100);
 
@@ -153,6 +157,8 @@ export const GlobalAudioEngine = () => {
             stream={streams.audioStream}
             volume={finalVolume}
             outputDevice={selectedOutputDevice}
+            isDeafened={isDeafened}
+            isUserMuted={isUserMuted}
           />
         );
       })}

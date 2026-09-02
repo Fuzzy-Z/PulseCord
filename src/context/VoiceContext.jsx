@@ -117,6 +117,11 @@ export const VoiceProvider = ({ children }) => {
   const remoteAudioElementsRef = useRef(new Map()); // socketId -> HTMLAudioElement
   const remoteStreamsRef = useRef({});
 
+  const isMutedRef = useRef(isMuted);
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
   useEffect(() => {
     remoteStreamsRef.current = remoteStreams;
   }, [remoteStreams]);
@@ -174,6 +179,10 @@ export const VoiceProvider = ({ children }) => {
           inputGain: micGain / 100,
           krispEnabled,
           onSpeakingChange: (speaking) => {
+            if (isMutedRef.current) {
+              setIsSpeaking(false);
+              return;
+            }
             setIsSpeaking(speaking);
             if (socket) socket.emit('speaking-state', { isSpeaking: speaking });
           }
@@ -357,13 +366,11 @@ export const VoiceProvider = ({ children }) => {
       if (channelId === activeVoiceChannelRef.current) {
         soundFX.play('user-join');
         setUsersInVoice((prev) => {
-          if (!prev.some((u) => u.id === user.id)) {
-            return [...prev, user];
-          }
-          return prev;
+          const filtered = prev.filter((u) => u.id !== user.id && u.socketId !== user.socketId);
+          return [...filtered, user];
         });
         // The newly joined user will initiate the WebRTC offer to existing peers
-        if (manager) {
+        if (manager && user.socketId) {
           manager.createPeerConnection(user.socketId, false);
         }
       }
@@ -371,13 +378,13 @@ export const VoiceProvider = ({ children }) => {
 
     socket.on('user-left-voice', ({ socketId, userId, channelId }) => {
       soundFX.play('user-leave');
-      setUsersInVoice((prev) => prev.filter((u) => u.id !== userId));
+      setUsersInVoice((prev) => prev.filter((u) => (!userId || u.id !== userId) && (!socketId || u.socketId !== socketId)));
       setSpeakingUsers((prev) => {
         const next = new Set(prev);
-        next.delete(socketId);
+        if (socketId) next.delete(socketId);
         return next;
       });
-      if (manager) {
+      if (manager && socketId) {
         manager.removePeer(socketId);
       }
     });
@@ -521,6 +528,10 @@ export const VoiceProvider = ({ children }) => {
         inputGain: micGain / 100,
         krispEnabled,
         onSpeakingChange: (speaking) => {
+          if (isMutedRef.current) {
+            setIsSpeaking(false);
+            return;
+          }
           setIsSpeaking(speaking);
           socket.emit('speaking-state', { isSpeaking: speaking });
         }
@@ -601,6 +612,10 @@ export const VoiceProvider = ({ children }) => {
       krispProcessorRef.current.stop();
       krispProcessorRef.current = null;
     }
+    setIsSpeaking(false);
+    if (socket) {
+      socket.emit('speaking-state', { isSpeaking: false });
+    }
     if (webrtcManagerRef.current) {
       webrtcManagerRef.current.closeAll();
     }
@@ -614,26 +629,69 @@ export const VoiceProvider = ({ children }) => {
     const newMuted = !isMuted;
     setIsMuted(newMuted);
     soundFX.play(newMuted ? 'mute' : 'unmute');
+
+    // 1. Disable tracks on raw stream
     if (localAudioStream) {
       localAudioStream.getAudioTracks().forEach((t) => {
         t.enabled = !newMuted;
       });
     }
+
+    // 2. Also disable tracks on processed stream if Krisp is active
+    if (krispProcessorRef.current) {
+      const processed = krispProcessorRef.current.getProcessedStream();
+      if (processed) {
+        processed.getAudioTracks().forEach((t) => {
+          t.enabled = !newMuted;
+        });
+      }
+    }
+
+    // 3. Reset speaking state immediately when muting
+    if (newMuted) {
+      setIsSpeaking(false);
+      if (socket) {
+        socket.emit('speaking-state', { isSpeaking: false });
+      }
+    }
+
+    // 4. Broadcast status to server
     if (socket) {
       socket.emit('update-voice-status', { isMuted: newMuted });
     }
   };
 
-  // Toggle Deafen
+  // Toggle Deafen (also mutes when deafened, and restores mute state when undeafened)
   const toggleDeafen = () => {
     const newDeafened = !isDeafened;
     setIsDeafened(newDeafened);
     soundFX.play(newDeafened ? 'deafen' : 'undeafen');
-    remoteAudioElementsRef.current.forEach((audioEl) => {
-      audioEl.volume = newDeafened ? 0 : 1.0;
-    });
-    if (socket) {
-      socket.emit('update-voice-status', { isDeafened: newDeafened });
+
+    // When deafening, we must also mute the microphone so the user cannot be heard while unable to hear
+    if (newDeafened && !isMuted) {
+      setIsMuted(true);
+      if (localAudioStream) {
+        localAudioStream.getAudioTracks().forEach((t) => {
+          t.enabled = false;
+        });
+      }
+      if (krispProcessorRef.current) {
+        const processed = krispProcessorRef.current.getProcessedStream();
+        if (processed) {
+          processed.getAudioTracks().forEach((t) => {
+            t.enabled = false;
+          });
+        }
+      }
+      setIsSpeaking(false);
+      if (socket) {
+        socket.emit('speaking-state', { isSpeaking: false });
+        socket.emit('update-voice-status', { isMuted: true, isDeafened: true });
+      }
+    } else {
+      if (socket) {
+        socket.emit('update-voice-status', { isDeafened: newDeafened });
+      }
     }
   };
 

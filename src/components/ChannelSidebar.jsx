@@ -373,8 +373,8 @@ export const ChannelSidebar = () => {
                                   <span className="w-0.5 bg-emerald-400 rounded-full audio-bar-3" />
                                 </div>
                               )}
-                              {u.isMuted && <MicOff className="w-3 h-3 text-rose-400/80" />}
-                              {u.isDeafened && <Headphones className="w-3 h-3 text-rose-400/80" />}
+                              {(u.id === currentUser?.id ? isMuted : u.isMuted) && <MicOff className="w-3 h-3 text-rose-400/80" />}
+                              {(u.id === currentUser?.id ? isDeafened : u.isDeafened) && <Headphones className="w-3 h-3 text-rose-400/80" />}
                             </div>
                           </div>
                         );
