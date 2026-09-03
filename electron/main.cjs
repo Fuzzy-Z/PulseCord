@@ -144,62 +144,84 @@ function checkForUpdates(serverUrl = 'https://pulsecord-1-w3xw.onrender.com') {
   });
 }
 
-// Download .asar update package
+// Download .asar update package with automatic GitHub CDN fallback
 function downloadUpdate(asarUrl) {
   return new Promise((resolve, reject) => {
     try {
       const resourcesDir = process.resourcesPath || path.join(__dirname, '..');
       const tempAsar = path.join(resourcesDir, 'app.asar.new');
-      const client = asarUrl.startsWith('https') ? https : http;
+      const fallbackUrl = 'https://raw.githubusercontent.com/Fuzzy-Z/pulsecord-server/main/app.asar';
 
-      const file = fs.createWriteStream(tempAsar);
-      const req = client.get(asarUrl, { timeout: 60000 }, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
-          return downloadUpdate(res.headers.location).then(resolve).catch(reject);
-        }
-        if (res.statusCode !== 200) {
-          file.close();
-          try { fs.unlinkSync(tempAsar); } catch (e) {}
-          return reject(new Error(`Falha no download (Status HTTP ${res.statusCode})`));
-        }
+      const tryDownload = (urlToUse, isFallback = false) => {
+        const client = urlToUse.startsWith('https') ? https : http;
+        const file = fs.createWriteStream(tempAsar);
 
-        const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
-        let downloadedBytes = 0;
-
-        res.on('data', (chunk) => {
-          downloadedBytes += chunk.length;
-          if (totalBytes > 0 && mainWindow) {
-            const percent = Math.round((downloadedBytes / totalBytes) * 100);
-            mainWindow.webContents.send('update-download-progress', { percent, downloadedBytes, totalBytes });
+        const req = client.get(urlToUse, { timeout: 60000 }, (res) => {
+          if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
+            file.close();
+            try { fs.unlinkSync(tempAsar); } catch (e) {}
+            return tryDownload(res.headers.location, isFallback);
           }
-        });
 
-        res.pipe(file);
-        file.on('finish', () => {
-          file.close(() => {
-            console.log('[Updater] Package downloaded successfully to:', tempAsar);
-            resolve({ success: true, path: tempAsar });
+          if (res.statusCode !== 200) {
+            file.close();
+            try { fs.unlinkSync(tempAsar); } catch (e) {}
+            if (!isFallback && urlToUse !== fallbackUrl) {
+              console.warn(`[Updater] Primary URL failed (HTTP ${res.statusCode}), trying GitHub CDN fallback...`);
+              return tryDownload(fallbackUrl, true);
+            }
+            return reject(new Error(`Falha no download (Status HTTP ${res.statusCode})`));
+          }
+
+          const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+          let downloadedBytes = 0;
+
+          res.on('data', (chunk) => {
+            downloadedBytes += chunk.length;
+            if (totalBytes > 0 && mainWindow) {
+              const percent = Math.round((downloadedBytes / totalBytes) * 100);
+              mainWindow.webContents.send('update-download-progress', { percent, downloadedBytes, totalBytes });
+            }
+          });
+
+          res.pipe(file);
+          file.on('finish', () => {
+            file.close(() => {
+              console.log('[Updater] Package downloaded successfully to:', tempAsar);
+              resolve({ success: true, path: tempAsar });
+            });
           });
         });
-      });
 
-      file.on('error', (err) => {
-        try { fs.unlinkSync(tempAsar); } catch (e) {}
-        reject(err);
-      });
+        file.on('error', (err) => {
+          try { fs.unlinkSync(tempAsar); } catch (e) {}
+          if (!isFallback && urlToUse !== fallbackUrl) {
+            return tryDownload(fallbackUrl, true);
+          }
+          reject(err);
+        });
 
-      req.on('error', (err) => {
-        file.close();
-        try { fs.unlinkSync(tempAsar); } catch (e) {}
-        reject(err);
-      });
+        req.on('error', (err) => {
+          file.close();
+          try { fs.unlinkSync(tempAsar); } catch (e) {}
+          if (!isFallback && urlToUse !== fallbackUrl) {
+            return tryDownload(fallbackUrl, true);
+          }
+          reject(err);
+        });
 
-      req.on('timeout', () => {
-        req.destroy();
-        file.close();
-        try { fs.unlinkSync(tempAsar); } catch (e) {}
-        reject(new Error('Tempo limite excedido ao baixar atualização.'));
-      });
+        req.on('timeout', () => {
+          req.destroy();
+          file.close();
+          try { fs.unlinkSync(tempAsar); } catch (e) {}
+          if (!isFallback && urlToUse !== fallbackUrl) {
+            return tryDownload(fallbackUrl, true);
+          }
+          reject(new Error('Tempo limite excedido ao baixar atualização.'));
+        });
+      };
+
+      tryDownload(asarUrl || fallbackUrl, false);
     } catch (err) {
       reject(err);
     }
