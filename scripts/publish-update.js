@@ -35,24 +35,32 @@ if (fs.existsSync(staging)) {
 }
 fs.mkdirSync(staging, { recursive: true });
 
-function copyFolder(src, dest) {
+function copyFolder(src, dest, filterFn) {
   if (!fs.existsSync(src)) return;
-  fs.cpSync(src, dest, { recursive: true });
+  fs.cpSync(src, dest, {
+    recursive: true,
+    filter: filterFn || (() => true)
+  });
 }
 
+// Copy dist, electron, public and server (excluding any nested .asar files!)
 copyFolder(path.join(root, 'dist'), path.join(staging, 'dist'));
 copyFolder(path.join(root, 'electron'), path.join(staging, 'electron'));
-copyFolder(path.join(root, 'server'), path.join(staging, 'server'));
+copyFolder(path.join(root, 'public'), path.join(staging, 'public'));
+copyFolder(path.join(root, 'server'), path.join(staging, 'server'), (src) => !src.endsWith('.asar'));
 fs.copyFileSync(path.join(root, 'package.json'), path.join(staging, 'package.json'));
 
 console.log('⚡ Creating app.asar...');
 const generatedAsar = path.join(root, 'app.asar');
 await asar.createPackage(staging, generatedAsar);
 
+const asarSizeMb = (fs.statSync(generatedAsar).size / (1024 * 1024)).toFixed(2);
+console.log(`📦 Generated clean app.asar package: ${asarSizeMb} MB`);
+
 // Clean staging
 fs.rmSync(staging, { recursive: true, force: true });
 
-// Copy to dist-electron/win-unpacked
+// Copy to dist-electron/win-unpacked if it exists
 if (fs.existsSync(path.dirname(targetAsar))) {
   fs.copyFileSync(generatedAsar, targetAsar);
 }
@@ -61,7 +69,7 @@ if (fs.existsSync(path.dirname(targetAsar))) {
 const versionManifest = {
   version: newVersion,
   releaseDate: new Date().toISOString(),
-  notes: `Atualização v${newVersion} com melhorias no PulseCord.`,
+  notes: `Atualização v${newVersion} com melhorias de voz e estabilidade no Voxel.`,
   hasAsar: true
 };
 
@@ -79,15 +87,21 @@ if (fs.existsSync(path.join(serverDir, 'musicService.js'))) fs.copyFileSync(path
 copyFolder(path.join(root, 'dist'), path.join(deployDir, 'dist'));
 
 fs.writeFileSync(path.join(serverDir, 'version.json'), versionJsonStr);
-fs.copyFileSync(generatedAsar, path.join(serverDir, 'app.asar'));
 
 // Cleanup root generated asar
 try { fs.unlinkSync(generatedAsar); } catch (e) {}
 
+// Delete old oversized server/app.asar from root repo to prevent git push errors
+try {
+  if (fs.existsSync(path.join(serverDir, 'app.asar'))) {
+    fs.unlinkSync(path.join(serverDir, 'app.asar'));
+  }
+} catch (e) {}
+
 console.log('🌐 Committing and pushing OTA update to GitHub (Render will deploy in ~1 min)...');
 
 try {
-  execSync(`"${git}" add -f index.js signaling.js storage.js musicService.js version.json app.asar package.json`, { cwd: deployDir, stdio: 'inherit' });
+  execSync(`"${git}" add -A`, { cwd: deployDir, stdio: 'inherit' });
   execSync(`"${git}" commit -m "Publish OTA Update v${newVersion}"`, { cwd: deployDir, stdio: 'inherit' });
   execSync(`"${git}" push origin main`, { cwd: deployDir, stdio: 'inherit' });
   console.log('✅ Server repository updated with new app.asar and server code!');
@@ -105,7 +119,7 @@ try {
 }
 
 console.log(`\n======================================================`);
-console.log(`🎉 Atualização v${newVersion} publicada com sucesso!`);
-console.log(`Assim que seus amigos abrirem o PulseCord, o aplicativo`);
-console.log(`vai detectar e baixar o pacote de ~450 KB automaticamente!`);
+console.log(`🎉 Atualização v${newVersion} (${asarSizeMb} MB) publicada com sucesso!`);
+console.log(`Assim que seus amigos abrirem o Voxel, o aplicativo`);
+console.log(`vai detectar e baixar o pacote automaticamente!`);
 console.log(`======================================================\n`);

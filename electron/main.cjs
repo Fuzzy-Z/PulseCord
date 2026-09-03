@@ -5,11 +5,53 @@ const https = require('https');
 const http = require('http');
 const { spawn } = require('child_process');
 
+// Set application identity
+app.name = 'Voxel';
+app.setName('Voxel');
+
 // Bypass all browser autoplay restrictions for WebRTC and Music Bot audio
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('disable-features', 'PreloadMediaEngagementData');
 
 let mainWindow = null;
+
+// Reliable physical icon helper that works seamlessly inside and outside ASAR
+function getAppIcon() {
+  try {
+    const icoPath = path.join(__dirname, '../public/icon.ico');
+    const pngPath = path.join(__dirname, '../public/icon.png');
+    let targetPath = fs.existsSync(icoPath) ? icoPath : pngPath;
+    let iconImg = nativeImage.createEmpty();
+
+    if (process.platform === 'win32') {
+      try {
+        const userDataPath = app.getPath('userData');
+        if (!fs.existsSync(userDataPath)) {
+          fs.mkdirSync(userDataPath, { recursive: true });
+        }
+        const physicalIcoPath = path.join(userDataPath, 'voxel_icon.ico');
+        if (fs.existsSync(icoPath)) {
+          const buf = fs.readFileSync(icoPath);
+          fs.writeFileSync(physicalIcoPath, buf);
+          targetPath = physicalIcoPath;
+          iconImg = nativeImage.createFromBuffer(buf);
+          return { path: physicalIcoPath, image: iconImg };
+        }
+      } catch (e) {
+        console.warn('[Electron] Could not write physical icon:', e);
+      }
+    }
+
+    if (fs.existsSync(targetPath)) {
+      const buf = fs.readFileSync(targetPath);
+      iconImg = nativeImage.createFromBuffer(buf);
+    }
+    return { path: targetPath, image: iconImg };
+  } catch (err) {
+    console.warn('[Electron] Error resolving app icon:', err);
+    return { path: '', image: nativeImage.createEmpty() };
+  }
+}
 
 // Read App Version reliably from Electron or package.json
 function getInstalledVersion() {
@@ -24,7 +66,7 @@ function getInstalledVersion() {
       if (pkg.version) return pkg.version;
     }
   } catch (e) {}
-  return '1.0.4';
+  return '1.0.0';
 }
 
 // Start embedded signaling server if not already running
@@ -164,12 +206,14 @@ function downloadUpdate(asarUrl) {
   });
 }
 
-// Apply update and restart PulseCord
+// Apply update and reliably restart Voxel
 function applyUpdateAndRestart() {
   const resourcesDir = process.resourcesPath || path.join(__dirname, '..');
   const targetAsar = path.join(resourcesDir, 'app.asar');
   const newAsar = path.join(resourcesDir, 'app.asar.new');
   const exePath = app.getPath('exe');
+
+  console.log('[Updater] Applying update. Target:', targetAsar, 'New:', newAsar, 'Exe:', exePath);
 
   if (!fs.existsSync(newAsar)) {
     console.warn('[Updater] app.asar.new not found at:', newAsar);
@@ -180,13 +224,30 @@ function applyUpdateAndRestart() {
 
   if (process.platform === 'win32') {
     const currentPid = process.pid;
-    const psScript = `Start-Sleep -Milliseconds 400; Wait-Process -Id ${currentPid} -Timeout 12 -ErrorAction SilentlyContinue; Copy-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Destination '${targetAsar.replace(/'/g, "''")}' -Force; Remove-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Force -ErrorAction SilentlyContinue; Start-Process -FilePath '${exePath.replace(/'/g, "''")}'`;
+    const psCommands = [
+      `$ErrorActionPreference = 'SilentlyContinue'`,
+      `Start-Sleep -Milliseconds 600`,
+      `Wait-Process -Id ${currentPid} -Timeout 8 -ErrorAction SilentlyContinue`,
+      `for ($i = 0; $i -lt 30; $i++) {`,
+      `  try {`,
+      `    if (Test-Path -LiteralPath '${newAsar.replace(/'/g, "''")}') {`,
+      `      Copy-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Destination '${targetAsar.replace(/'/g, "''")}' -Force -ErrorAction Stop`,
+      `      Remove-Item -LiteralPath '${newAsar.replace(/'/g, "''")}' -Force -ErrorAction SilentlyContinue`,
+      `    }`,
+      `    break`,
+      `  } catch {`,
+      `    Start-Sleep -Milliseconds 300`,
+      `  }`,
+      `}`,
+      `Start-Sleep -Milliseconds 400`,
+      `Start-Process -FilePath '${exePath.replace(/'/g, "''")}'`
+    ].join('; ');
 
     const child = spawn('powershell.exe', [
       '-WindowStyle', 'Hidden',
       '-NoProfile',
       '-ExecutionPolicy', 'Bypass',
-      '-Command', psScript
+      '-Command', psCommands
     ], {
       detached: true,
       stdio: 'ignore',
@@ -198,7 +259,9 @@ function applyUpdateAndRestart() {
     try {
       fs.copyFileSync(newAsar, targetAsar);
       fs.unlinkSync(newAsar);
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[Updater] Unix copy error:', e);
+    }
     app.relaunch();
     app.exit(0);
   }
@@ -234,10 +297,7 @@ function createWindow() {
   const preloadPath = fs.existsSync(path.join(__dirname, 'preload.cjs'))
     ? path.join(__dirname, 'preload.cjs')
     : path.join(__dirname, 'preload.js');
-  const appIcoPath = path.join(__dirname, '../public/icon.ico');
-  const appPngPath = path.join(__dirname, '../public/icon.png');
-  const iconToUse = process.platform === 'win32' && fs.existsSync(appIcoPath) ? appIcoPath : appPngPath;
-  const appIcon = nativeImage.createFromPath(iconToUse);
+  const { path: iconFilePath, image: appIcon } = getAppIcon();
 
   mainWindow = new BrowserWindow({
     title: 'Voxel',
@@ -247,7 +307,7 @@ function createWindow() {
     minHeight: 600,
     frame: false,
     backgroundColor: '#090a0f',
-    icon: iconToUse,
+    icon: iconFilePath || appIcon,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
@@ -260,7 +320,7 @@ function createWindow() {
     mainWindow.setIcon(appIcon);
   }
 
-  // Handle sleek popups for Google OAuth & external logins (No ugly menu bar, perfect dimensions)
+  // Handle sleek popups for Google OAuth & external logins
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.includes('accounts.google.com') || url.includes('google.com/o/oauth2')) {
       return {
@@ -274,7 +334,7 @@ function createWindow() {
           resizable: true,
           fullscreenable: false,
           autoHideMenuBar: true,
-          icon: iconToUse,
+          icon: iconFilePath || appIcon,
           parent: mainWindow,
           modal: true,
           center: true,
@@ -289,7 +349,6 @@ function createWindow() {
     return { action: 'allow' };
   });
 
-  // Remove default File/Edit/View menu and apply icon for all spawned child windows
   mainWindow.webContents.on('did-create-window', (childWindow) => {
     try {
       childWindow.setMenu(null);
@@ -300,7 +359,6 @@ function createWindow() {
     } catch (e) {}
   });
 
-  // Handle maximized state updates
   mainWindow.on('maximize', () => {
     mainWindow?.webContents.send('window-maximized-change', true);
   });
@@ -401,9 +459,7 @@ ipcMain.handle('get-desktop-sources', async (event, opts) => {
 
 // Save Clip Mock
 ipcMain.handle('save-clip', async (event, clipData) => {
-  // In a real app we'd save a buffer to disk using fs.writeFileSync
-  // For now, we mock the success.
-  return { success: true, message: 'Clipe salvo em: Downloads/PulseCord Clips' };
+  return { success: true, message: 'Clipe salvo em: Downloads/Voxel Clips' };
 });
 
 app.whenReady().then(async () => {
