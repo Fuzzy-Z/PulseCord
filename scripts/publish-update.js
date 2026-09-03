@@ -67,13 +67,16 @@ const versionManifest = {
 
 const versionJsonStr = JSON.stringify(versionManifest, null, 2);
 
-// Copy all backend server files, asar & version.json to deploy-server
+// Copy all backend server files, asar, version.json & dist to deploy-server
 fs.writeFileSync(path.join(deployDir, 'version.json'), versionJsonStr);
 fs.copyFileSync(generatedAsar, path.join(deployDir, 'app.asar'));
 if (fs.existsSync(path.join(serverDir, 'index.js'))) fs.copyFileSync(path.join(serverDir, 'index.js'), path.join(deployDir, 'index.js'));
 if (fs.existsSync(path.join(serverDir, 'signaling.js'))) fs.copyFileSync(path.join(serverDir, 'signaling.js'), path.join(deployDir, 'signaling.js'));
 if (fs.existsSync(path.join(serverDir, 'storage.js'))) fs.copyFileSync(path.join(serverDir, 'storage.js'), path.join(deployDir, 'storage.js'));
 if (fs.existsSync(path.join(serverDir, 'musicService.js'))) fs.copyFileSync(path.join(serverDir, 'musicService.js'), path.join(deployDir, 'musicService.js'));
+
+// Also copy web dist to deploy-server/dist
+copyFolder(path.join(root, 'dist'), path.join(deployDir, 'dist'));
 
 fs.writeFileSync(path.join(serverDir, 'version.json'), versionJsonStr);
 fs.copyFileSync(generatedAsar, path.join(serverDir, 'app.asar'));

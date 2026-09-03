@@ -1,18 +1,19 @@
-// Krisp-Style Advanced Noise Suppressor, Noise Gate & Voice Activity Detection
+// Studio-Grade Intelligent Voice Processor, Multi-band Noise Suppressor, Voice Leveler & VAD
 
-export class KrispAudioProcessor {
+export class StudioVoiceProcessor {
   constructor(rawStream, options = {}) {
     this.rawStream = rawStream;
-    this.sensitivity = options.sensitivity ?? 35; // 0 - 100
-    this.inputGain = options.inputGain ?? 1.0; // 0.0 - 2.0
+    this.sensitivity = options.sensitivity ?? 25; // 0 - 100
+    this.inputGain = options.inputGain ?? 1.2; // 0.0 - 2.5 (1.2 = 120% default voice boost)
     this.krispEnabled = options.krispEnabled ?? true;
     this.onLevelChange = options.onLevelChange || (() => {});
     this.onSpeakingChange = options.onSpeakingChange || (() => {});
 
     this.isSpeaking = false;
     this.isGateOpen = false;
-    this.animationFrameId = null;
+    this.intervalId = null;
     this.speakingTimer = null;
+    this.holdTimer = null;
 
     this.initAudioGraph();
   }
@@ -20,54 +21,73 @@ export class KrispAudioProcessor {
   initAudioGraph() {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      this.audioContext = new AudioCtx();
+      if (!AudioCtx) return;
+
+      this.audioContext = new AudioCtx({ latencyHint: 'interactive' });
       if (this.audioContext.state === 'suspended') {
         this.audioContext.resume().catch(() => {});
       }
 
-      // 1. Source from raw mic
+      // 1. Raw Microphone Media Stream Source
       this.source = this.audioContext.createMediaStreamSource(this.rawStream);
 
-      // 2. High-pass filter (cuts low-frequency desk rumble, room hum, wind < 85Hz)
+      // 2. High-pass filter (Cuts desk bumps, room rumble, air conditioning sub-bass < 85Hz)
       this.highPassFilter = this.audioContext.createBiquadFilter();
       this.highPassFilter.type = 'highpass';
-      this.highPassFilter.frequency.value = 85;
+      this.highPassFilter.frequency.setValueAtTime(85, this.audioContext.currentTime);
+      this.highPassFilter.Q.setValueAtTime(0.7, this.audioContext.currentTime);
 
-      // 3. Low-pass filter (cuts high-frequency static hiss > 7800Hz)
+      // 3. Notch Filter at 60Hz / 120Hz power hum
+      this.notchFilter = this.audioContext.createBiquadFilter();
+      this.notchFilter.type = 'notch';
+      this.notchFilter.frequency.setValueAtTime(60, this.audioContext.currentTime);
+      this.notchFilter.Q.setValueAtTime(4.0, this.audioContext.currentTime);
+
+      // 4. Low-pass filter (Cuts harsh high-frequency static hiss > 8500Hz)
       this.lowPassFilter = this.audioContext.createBiquadFilter();
       this.lowPassFilter.type = 'lowpass';
-      this.lowPassFilter.frequency.value = 7800;
+      this.lowPassFilter.frequency.setValueAtTime(8500, this.audioContext.currentTime);
 
-      // 4. Input Gain
-      this.gainNode = this.audioContext.createGain();
-      this.gainNode.gain.value = this.inputGain;
-
-      // 5. Krisp Noise Gate Node
+      // 5. Intelligent Noise Gate Node
       this.gateNode = this.audioContext.createGain();
-      this.gateNode.gain.value = 1.0;
+      this.gateNode.gain.setValueAtTime(1.0, this.audioContext.currentTime);
 
-      // 6. Analyser for Real-time Signal & VAD
+      // 6. Studio Dynamic Voice Leveler & Compressor (Elevates whispers & prevents clipping)
+      this.compressor = this.audioContext.createDynamicsCompressor();
+      this.compressor.threshold.setValueAtTime(-28, this.audioContext.currentTime); // Catches quiet voices
+      this.compressor.knee.setValueAtTime(20, this.audioContext.currentTime);
+      this.compressor.ratio.setValueAtTime(5, this.audioContext.currentTime); // Smooth compression
+      this.compressor.attack.setValueAtTime(0.003, this.audioContext.currentTime); // 3ms attack
+      this.compressor.release.setValueAtTime(0.15, this.audioContext.currentTime); // 150ms release
+
+      // 7. Master Input Gain Node (Configurable by user from 0% to 200%)
+      this.gainNode = this.audioContext.createGain();
+      this.gainNode.gain.setValueAtTime(this.inputGain, this.audioContext.currentTime);
+
+      // 8. Analyser for Real-time Signal, RMS & Speech Frequency Detection
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
-      this.analyser.smoothingTimeConstant = 0.25;
+      this.analyser.smoothingTimeConstant = 0.2;
       this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
 
-      // 7. Destination Stream for WebRTC
+      // 9. WebRTC Destination Stream
       this.destination = this.audioContext.createMediaStreamDestination();
 
       // Connect graph:
-      // Source -> Highpass -> Lowpass -> GainNode -> GateNode -> Destination
-      //                                           \-> Analyser
+      // Source -> Highpass -> Notch -> Lowpass -> GateNode -> Compressor -> GainNode -> Destination
+      //                                       \-> Analyser (for VAD calculation)
       this.source.connect(this.highPassFilter);
-      this.highPassFilter.connect(this.lowPassFilter);
-      this.lowPassFilter.connect(this.gainNode);
-      this.gainNode.connect(this.analyser);
-      this.gainNode.connect(this.gateNode);
-      this.gateNode.connect(this.destination);
+      this.highPassFilter.connect(this.notchFilter);
+      this.notchFilter.connect(this.lowPassFilter);
+      this.lowPassFilter.connect(this.analyser);
+      this.lowPassFilter.connect(this.gateNode);
+      this.gateNode.connect(this.compressor);
+      this.compressor.connect(this.gainNode);
+      this.gainNode.connect(this.destination);
 
       this.startProcessingLoop();
     } catch (err) {
-      console.warn('[KrispAudio] Audio graph initialization error:', err);
+      console.warn('[StudioVoiceProcessor] Audio graph initialization error:', err);
     }
   }
 
@@ -76,36 +96,52 @@ export class KrispAudioProcessor {
       if (!this.analyser || !this.audioContext || this.audioContext.state === 'closed') return;
 
       this.analyser.getByteFrequencyData(this.dataArray);
-      let sum = 0;
-      for (let i = 0; i < this.dataArray.length; i++) {
-        sum += this.dataArray[i];
+
+      // Analyze energy specifically in human voice formant range (200Hz - 3500Hz)
+      // Bin count = 128 (sampleRate 48kHz / 256 = ~187.5Hz per bin)
+      const binCount = this.dataArray.length;
+      let speechEnergySum = 0;
+      let speechBins = 0;
+
+      for (let i = 1; i < Math.min(24, binCount); i++) {
+        speechEnergySum += this.dataArray[i];
+        speechBins++;
       }
-      const rawAverage = (sum / this.dataArray.length / 255) * 100;
-      const currentLevel = Math.min(100, Math.round(rawAverage * 2.2));
+
+      const averageEnergy = speechBins > 0 ? (speechEnergySum / speechBins / 255) * 100 : 0;
+      const currentLevel = Math.min(100, Math.round(averageEnergy * 2.4));
 
       // Calculate if current level passes user's sensitivity threshold
       const passesThreshold = currentLevel >= this.sensitivity;
 
-      if (this.krispEnabled && this.gateNode) {
-        // Noise Gate Logic: Fast attack, smooth decay
+      if (this.krispEnabled && this.gateNode && this.audioContext) {
         const now = this.audioContext.currentTime;
 
         if (passesThreshold) {
-          // Open gate quickly (5ms)
-          this.gateNode.gain.setTargetAtTime(1.0, now, 0.005);
+          if (this.holdTimer) {
+            clearTimeout(this.holdTimer);
+            this.holdTimer = null;
+          }
+          // Open gate quickly (3ms)
+          this.gateNode.gain.setTargetAtTime(1.0, now, 0.003);
           this.isGateOpen = true;
-        } else {
-          // Close gate smoothly (120ms) to avoid clicks or cutoff mid-sentence
-          this.gateNode.gain.setTargetAtTime(0.0, now, 0.12);
-          this.isGateOpen = false;
+        } else if (this.isGateOpen && !this.holdTimer) {
+          // Hold open for 80ms before starting decay so word ends are never clipped
+          this.holdTimer = setTimeout(() => {
+            if (!this.audioContext || this.audioContext.state === 'closed') return;
+            const targetTime = this.audioContext.currentTime;
+            this.gateNode.gain.setTargetAtTime(0.0001, targetTime, 0.12);
+            this.isGateOpen = false;
+            this.holdTimer = null;
+          }, 80);
         }
-      } else if (this.gateNode) {
-        // Krisp off: gate is always open
-        this.gateNode.gain.value = 1.0;
+      } else if (this.gateNode && this.audioContext) {
+        // Suppressor disabled: gate permanently open
+        this.gateNode.gain.setTargetAtTime(1.0, this.audioContext.currentTime, 0.05);
         this.isGateOpen = true;
       }
 
-      // Voice Activity Detection event
+      // Voice Activity Detection (VAD)
       if (passesThreshold && !this.isSpeaking) {
         this.isSpeaking = true;
         this.onSpeakingChange(true);
@@ -115,21 +151,20 @@ export class KrispAudioProcessor {
             this.isSpeaking = false;
             this.onSpeakingChange(false);
             this.speakingTimer = null;
-          }, 300);
+          }, 250);
         }
       } else if (passesThreshold && this.speakingTimer) {
         clearTimeout(this.speakingTimer);
         this.speakingTimer = null;
       }
 
-      // Notify level meter only if handler attached
       if (this.onLevelChange) {
         this.onLevelChange(currentLevel, this.isGateOpen);
       }
     };
 
-    // Run at 20Hz (every 50ms) - extremely light on CPU / Battery
-    this.intervalId = setInterval(processFrame, 50);
+    // Run processing loop at 25Hz (every 40ms)
+    this.intervalId = setInterval(processFrame, 40);
   }
 
   setSensitivity(threshold) {
@@ -137,16 +172,17 @@ export class KrispAudioProcessor {
   }
 
   setInputGain(gain) {
-    this.inputGain = Math.max(0, Math.min(2.0, Number(gain)));
-    if (this.gainNode && this.audioContext) {
+    this.inputGain = Math.max(0, Math.min(2.5, Number(gain)));
+    if (this.gainNode && this.audioContext && this.audioContext.state !== 'closed') {
       this.gainNode.gain.setTargetAtTime(this.inputGain, this.audioContext.currentTime, 0.05);
     }
   }
 
   setKrispEnabled(enabled) {
     this.krispEnabled = !!enabled;
-    if (!this.krispEnabled && this.gateNode) {
-      this.gateNode.gain.value = 1.0;
+    if (!this.krispEnabled && this.gateNode && this.audioContext) {
+      this.gateNode.gain.setTargetAtTime(1.0, this.audioContext.currentTime, 0.02);
+      this.isGateOpen = true;
     }
   }
 
@@ -161,17 +197,23 @@ export class KrispAudioProcessor {
     }
     if (this.speakingTimer) {
       clearTimeout(this.speakingTimer);
+      this.speakingTimer = null;
+    }
+    if (this.holdTimer) {
+      clearTimeout(this.holdTimer);
+      this.holdTimer = null;
     }
     if (this.audioContext && this.audioContext.state !== 'closed') {
-      this.audioContext.close();
+      this.audioContext.close().catch(() => {});
     }
   }
 }
 
-// Fallback legacy export
-export const VoiceDetector = KrispAudioProcessor;
+// Backward compatibility alias
+export const KrispAudioProcessor = StudioVoiceProcessor;
+export const VoiceDetector = StudioVoiceProcessor;
 
-// Software-Level Automatic Echo Canceller & Voice Isolator for Screen Sharing
+// Screen Sharing Audio Processor (Echo cancellation and voice isolation for desktop/game audio)
 export class CleanScreenAudioProcessor {
   constructor(screenStream, getRemoteStreamsFn) {
     this.rawStream = screenStream;
@@ -179,7 +221,6 @@ export class CleanScreenAudioProcessor {
     this.audioContext = null;
     this.destination = null;
     this.source = null;
-    this.animationFrameId = null;
     this.voiceFilter = null;
     this.compressor = null;
 
@@ -196,37 +237,32 @@ export class CleanScreenAudioProcessor {
         this.audioContext.resume().catch(() => {});
       }
 
-      // 1. Raw screen audio input
       const audioTracks = this.rawStream.getAudioTracks();
       if (audioTracks.length === 0) return;
 
       const audioOnlyStream = new MediaStream([audioTracks[0]]);
       this.source = this.audioContext.createMediaStreamSource(audioOnlyStream);
 
-      // 2. High fidelity studio dynamics compressor for crisp game & media audio
+      // Studio dynamics compressor for punchy, clean game audio
       this.compressor = this.audioContext.createDynamicsCompressor();
-      this.compressor.threshold.setValueAtTime(-24, this.audioContext.currentTime);
-      this.compressor.knee.setValueAtTime(30, this.audioContext.currentTime);
-      this.compressor.ratio.setValueAtTime(8, this.audioContext.currentTime);
+      this.compressor.threshold.setValueAtTime(-20, this.audioContext.currentTime);
+      this.compressor.knee.setValueAtTime(25, this.audioContext.currentTime);
+      this.compressor.ratio.setValueAtTime(6, this.audioContext.currentTime);
       this.compressor.attack.setValueAtTime(0.003, this.audioContext.currentTime);
-      this.compressor.release.setValueAtTime(0.25, this.audioContext.currentTime);
+      this.compressor.release.setValueAtTime(0.2, this.audioContext.currentTime);
 
-      // 3. Notch/Voice Suppression Filter for real-time voice cancellation
       this.voiceFilter = this.audioContext.createBiquadFilter();
       this.voiceFilter.type = 'peaking';
-      this.voiceFilter.frequency.value = 1000;
-      this.voiceFilter.Q.value = 0.6;
-      this.voiceFilter.gain.value = 0; // Neutral when no voice is playing
+      this.voiceFilter.frequency.setValueAtTime(1000, this.audioContext.currentTime);
+      this.voiceFilter.Q.setValueAtTime(0.6, this.audioContext.currentTime);
+      this.voiceFilter.gain.setValueAtTime(0, this.audioContext.currentTime);
 
-      // 4. Output stream to be sent via WebRTC
       this.destination = this.audioContext.createMediaStreamDestination();
 
-      // Connect screen stream: Source -> VoiceFilter -> Compressor -> Destination
       this.source.connect(this.voiceFilter);
       this.voiceFilter.connect(this.compressor);
       this.compressor.connect(this.destination);
 
-      // 5. Setup dynamic monitoring loop to analyze incoming remote voice activity
       this.startCancellationLoop();
     } catch (err) {
       console.warn('[CleanScreenAudio] Init error:', err);
@@ -254,19 +290,16 @@ export class CleanScreenAudioProcessor {
           }
         }
 
-        // When remote peers are in voice, transparently attenuate call frequencies
-        // to prevent loopback re-capture without muffling overall game audio
         const now = this.audioContext.currentTime;
         if (anyRemoteVoiceActive && this.voiceFilter) {
-          this.voiceFilter.gain.setTargetAtTime(-18, now, 0.05);
+          this.voiceFilter.gain.setTargetAtTime(-15, now, 0.05);
         } else if (this.voiceFilter) {
           this.voiceFilter.gain.setTargetAtTime(0, now, 0.1);
         }
       } catch (e) {}
     };
 
-    // Run at 4Hz (every 250ms) which is more than enough for remote voice presence detection
-    this.intervalId = setInterval(process, 250);
+    this.intervalId = setInterval(process, 200);
   }
 
   getCleanStream() {
@@ -290,4 +323,3 @@ export class CleanScreenAudioProcessor {
     }
   }
 }
-

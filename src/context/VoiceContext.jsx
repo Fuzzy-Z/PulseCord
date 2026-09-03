@@ -160,7 +160,13 @@ export const VoiceProvider = ({ children }) => {
         const audioConstraints = {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false,
+          autoGainControl: true,
+          googEchoCancellation: true,
+          googAutoGainControl: true,
+          googNoiseSuppression: true,
+          googHighpassFilter: true,
+          googAudioMirroring: false,
+          channelCount: 1,
           ...(deviceId && deviceId !== 'default' ? { deviceId: { exact: deviceId } } : {})
         };
         const newStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
@@ -258,17 +264,6 @@ export const VoiceProvider = ({ children }) => {
     setUserVolumes((prev) => {
       const updated = { ...prev, [userId]: volume };
       localStorage.setItem('pulsecord_user_volumes', JSON.stringify(updated));
-
-      // Update active audio element volume
-      usersInVoice.forEach((u) => {
-        if (u.id === userId && u.socketId) {
-          const audioEl = remoteAudioElementsRef.current.get(u.socketId);
-          if (audioEl) {
-            audioEl.volume = isDeafened ? 0 : Math.min(1, volume / 100);
-          }
-        }
-      });
-
       return updated;
     });
   };
@@ -280,17 +275,6 @@ export const VoiceProvider = ({ children }) => {
       const nextMuted = !isCurrentlyMuted;
       const updated = { ...prev, [userId]: nextMuted };
       localStorage.setItem('pulsecord_user_mutes', JSON.stringify(updated));
-
-      // Mute active HTMLAudioElement for this user
-      usersInVoice.forEach((u) => {
-        if (u.id === userId && u.socketId) {
-          const audioEl = remoteAudioElementsRef.current.get(u.socketId);
-          if (audioEl) {
-            audioEl.muted = nextMuted;
-          }
-        }
-      });
-
       return updated;
     });
   };
@@ -369,9 +353,8 @@ export const VoiceProvider = ({ children }) => {
           const filtered = prev.filter((u) => u.id !== user.id && u.socketId !== user.socketId);
           return [...filtered, user];
         });
-        // The newly joined user will initiate the WebRTC offer to existing peers
         if (manager && user.socketId) {
-          manager.createPeerConnection(user.socketId, false);
+          manager.createPeerConnection(user.socketId);
         }
       }
     });
@@ -504,7 +487,13 @@ export const VoiceProvider = ({ children }) => {
       const audioConstraints = {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: false,
+        autoGainControl: true,
+        googEchoCancellation: true,
+        googAutoGainControl: true,
+        googNoiseSuppression: true,
+        googHighpassFilter: true,
+        googAudioMirroring: false,
+        channelCount: 1,
         ...(selectedInputDevice && selectedInputDevice !== 'default'
           ? { deviceId: { exact: selectedInputDevice } }
           : {})
@@ -518,7 +507,7 @@ export const VoiceProvider = ({ children }) => {
 
       setLocalAudioStream(rawMicStream);
 
-      // 2. Initialize Krisp Audio Processor
+      // 2. Initialize Studio Voice Processor
       if (krispProcessorRef.current) {
         krispProcessorRef.current.stop();
       }
@@ -538,7 +527,7 @@ export const VoiceProvider = ({ children }) => {
       });
       krispProcessorRef.current = processor;
 
-      // 3. Feed stream to WebRTC (Bypass processor completely if Krisp is disabled)
+      // 3. Feed stream to WebRTC
       const streamToUse = krispEnabled ? processor.getProcessedStream() : rawMicStream;
       if (webrtcManagerRef.current) {
         webrtcManagerRef.current.setLocalAudioStream(streamToUse);
@@ -560,7 +549,7 @@ export const VoiceProvider = ({ children }) => {
 
           if (response.usersInRoom && webrtcManagerRef.current) {
             response.usersInRoom.forEach((peerUser) => {
-              webrtcManagerRef.current.createPeerConnection(peerUser.socketId, true);
+              webrtcManagerRef.current.createPeerConnection(peerUser.socketId);
             });
           }
         }
