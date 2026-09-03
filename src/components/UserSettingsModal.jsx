@@ -297,9 +297,22 @@ export const UserSettingsModal = () => {
       const res = await window.electronAPI.downloadUpdate(updateResult.asarUrl);
       if (res && res.success) {
         setUpdateReady(true);
+      } else {
+        Swal.fire({
+          title: 'Erro ao Baixar',
+          text: res?.error || 'Não foi possível baixar o pacote de atualização.',
+          icon: 'error',
+          confirmButtonColor: '#6366f1'
+        });
       }
     } catch (err) {
       console.error(err);
+      Swal.fire({
+        title: 'Erro no Download',
+        text: err?.message || 'Servidor de atualização indisponível ou pacote em processamento.',
+        icon: 'error',
+        confirmButtonColor: '#6366f1'
+      });
     }
     setDownloadingUpdate(false);
   };
