@@ -8,7 +8,7 @@ const OFFICIAL_SERVER_URL = 'https://pulsecord-1-w3xw.onrender.com';
 const getInitialServerUrl = () => {
   try {
     const saved = localStorage.getItem('pulsecord_server_url');
-    if (import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))) {
+    if (import.meta.env.DEV) {
       if (!saved || saved === OFFICIAL_SERVER_URL) {
         return 'http://localhost:4000';
       }
