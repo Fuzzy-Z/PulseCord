@@ -25,7 +25,7 @@ export const UserContextMenu = ({
   onMention
 }) => {
   const menuRef = useRef(null);
-  const { currentServer, openDM } = useServer();
+  const { currentServer, openDM, assignMemberRole } = useServer();
   const { currentUser } = useSocket();
   const {
     moveVoiceUser,
@@ -39,23 +39,30 @@ export const UserContextMenu = ({
     setUserVolume
   } = useVoice();
 
+  const [showRolesSubmenu, setShowRolesSubmenu] = useState(false);
   const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  const targetId = targetUser?.id || targetUser?.userId;
+  const targetId = targetUser?.id || targetUser?.userId || targetUser?._id;
   const isMuted = targetId ? isUserMuted(targetId) : false;
   const isDeafened = targetId ? isUserDeafened(targetId) : false;
 
-  // Check if current user has permission to move/kick members
+  // Check if current user has permission to move/kick members & manage roles
   const isOwner = currentServer?.ownerId === currentUser?.id;
-  const isHigherRole =
-    currentUser?.roleId === 'role-admin' ||
-    currentUser?.roleId === 'role-mod' ||
-    currentUser?.id === 'usr-admin' ||
-    currentServer?.roles?.find((r) => r.id === currentUser?.roleId)?.permissions?.includes('ADMIN') ||
-    currentServer?.roles?.find((r) => r.id === currentUser?.roleId)?.permissions?.includes('MOVE_MEMBERS');
+  const myMember = currentServer?.members?.find((m) => m.id === currentUser?.id);
+  const myRoleId = currentServer?.memberRoles?.[currentUser?.id] || myMember?.roleId || (isOwner ? 'role-admin' : 'role-member');
+  const myRoleObj = currentServer?.roles?.find((r) => r.id === myRoleId);
 
-  const canMoveMembers = isOwner || isHigherRole;
+  const canMoveMembers =
+    isOwner ||
+    Boolean(myRoleObj?.permissions?.administrator || myRoleObj?.permissions?.manageChannels || myRoleObj?.permissions?.kickMembers);
+
+  const canManageRoles =
+    isOwner ||
+    Boolean(myRoleObj?.permissions?.administrator || myRoleObj?.permissions?.manageRoles);
+
+  const targetMember = currentServer?.members?.find((m) => m.id === targetId);
+  const targetCurrentRoleId = currentServer?.memberRoles?.[targetId] || targetMember?.roleId || (targetId === currentServer?.ownerId ? 'role-admin' : 'role-member');
 
   // Available voice channels in current server
   const voiceChannels = (currentServer?.channels || []).filter((c) => c.type === 'voice');
@@ -108,13 +115,13 @@ export const UserContextMenu = ({
 
   const handleMoveTo = (channelId) => {
     if (!canMoveMembers) return;
-    moveVoiceUser(targetUser.id, channelId, currentServer?.id);
+    moveVoiceUser(targetId, channelId, currentServer?.id);
     onClose();
   };
 
   const handleDisconnect = () => {
     if (!canMoveMembers) return;
-    disconnectVoiceUser(targetUser.id, currentServer?.id);
+    disconnectVoiceUser(targetId, currentServer?.id);
     onClose();
   };
 
@@ -221,7 +228,62 @@ export const UserContextMenu = ({
         </div>
       )}
 
-      <div className="h-[1px] bg-white/[0.08] my-1" />
+      {/* Cargos > (Submenu with Server Roles) */}
+      {currentServer && canManageRoles && (
+        <div
+          className="relative"
+          onMouseEnter={() => setShowRolesSubmenu(true)}
+          onMouseLeave={() => setShowRolesSubmenu(false)}
+        >
+          <button
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-sys-accent hover:text-white transition group cursor-pointer"
+          >
+            <div className="flex items-center space-x-2">
+              <span className="font-medium">Cargos</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
+          </button>
+
+          {/* Submenu */}
+          {showRolesSubmenu && (
+            <div className="absolute left-full top-0 ml-1 w-52 bg-[#111214] border border-white/10 rounded-xl shadow-2xl p-1.5 text-xs text-[#dbdee1] space-y-0.5 animate-fadeIn z-[10000]">
+              <div className="text-[10px] font-bold text-sys-muted uppercase px-2 py-1 tracking-wider border-b border-white/5 mb-1">
+                Atribuir Cargo
+              </div>
+              {(currentServer.roles || []).map((role) => {
+                const isCurrentRole = targetCurrentRoleId === role.id;
+                const cleanRoleName = (role.name || '').replace(/[\uD800-\uDFFF].*/g, '').trim();
+
+                return (
+                  <button
+                    key={role.id}
+                    onClick={() => {
+                      assignMemberRole(targetId, role.id, currentServer.id);
+                      onClose();
+                    }}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg transition flex items-center justify-between truncate ${
+                      isCurrentRole ? 'bg-white/10 text-white font-bold' : 'hover:bg-white/5 text-sys-muted hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 truncate">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: role.color }}
+                      />
+                      <span className="truncate" style={{ color: role.color }}>
+                        {cleanRoleName || role.name}
+                      </span>
+                    </div>
+                    {isCurrentRole && (
+                      <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 ml-1" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Mover para > (Submenu with Voice Channels) */}
       <div

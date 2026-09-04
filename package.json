@@ -57,8 +57,19 @@
       "electron/**/*",
       "server/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "native/bin",
+        "to": "native/bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "win": {
       "icon": "public/icon.ico",
+      "signAndEditExecutable": false,
+      "forceCodeSigning": false,
       "target": [
         "portable"
       ]

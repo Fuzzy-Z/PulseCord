@@ -231,6 +231,56 @@ class SoundFX {
           break;
         }
 
+        // 11. Call Ringing (Repeated UK/EU style dual tone)
+        case 'call-ring': {
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc1.type = 'sine';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(400, now);
+          osc2.frequency.setValueAtTime(450, now);
+
+          // Pulsing volume for a ring effect
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+          gain.gain.linearRampToValueAtTime(0, now + 0.4);
+          gain.gain.linearRampToValueAtTime(0.15, now + 0.5);
+          gain.gain.linearRampToValueAtTime(0, now + 0.9);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.0);
+          osc2.stop(now + 1.0);
+          break;
+        }
+
+        // 12. Call Declined/Cancelled (Busy tone simulation)
+        case 'call-decline': {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(480, now);
+
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.setValueAtTime(0, now + 0.25);
+          gain.gain.setValueAtTime(0.1, now + 0.4);
+          gain.gain.setValueAtTime(0, now + 0.65);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.7);
+          break;
+        }
+
         default:
           break;
       }

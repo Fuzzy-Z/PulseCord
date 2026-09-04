@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useServer } from '../context/ServerContext';
 import { useSocket } from '../context/SocketContext';
 import { useVoice } from '../context/VoiceContext';
 import { MessageSquare, Users, Plus, Mic, MicOff, Headphones, Settings, Search, X, Check } from 'lucide-react';
 import { AvatarImage } from './AvatarImage';
+import { StatusBadge, getStatusInfo } from './StatusBadge';
+import { UserProfileMenuPopover } from './UserProfileMenuPopover';
 
 export const DMSidebar = () => {
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
+  const statusAnchorRef = useRef(null);
   const { dms, selectDM, openDM, currentChannelId, onlineMembers, setIsUserSettingsOpen, unread } = useServer();
   const { currentUser } = useSocket();
   const { isMuted, isDeafened, toggleMute, toggleDeafen } = useVoice();
@@ -236,33 +240,52 @@ export const DMSidebar = () => {
       )}
 
       {/* Bottom Profile Bar */}
-      <div className="h-[52px] bg-sys-s2/50 px-3 flex items-center justify-between border-t border-sys-border flex-shrink-0">
+      <div className="relative h-[52px] bg-sys-s2/50 px-3 flex items-center justify-between border-t border-sys-border flex-shrink-0">
+        <UserProfileMenuPopover
+          isOpen={isStatusPickerOpen}
+          onClose={() => setIsStatusPickerOpen(false)}
+          anchorRef={statusAnchorRef}
+        />
+
         <div
-          onClick={() => setIsUserSettingsOpen(true)}
-          className="flex items-center space-x-2 p-1 -ml-1 rounded-lg hover:bg-sys-s1 cursor-pointer transition truncate mr-1"
-          title="Abrir Configurações de Usuário"
+          ref={statusAnchorRef}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsStatusPickerOpen((prev) => !prev);
+          }}
+          className="flex items-center space-x-2 p-1 -ml-1 rounded-lg hover:bg-sys-s1 cursor-pointer transition truncate mr-1 group"
+          title="Ver perfil e opções"
         >
           <div className="relative flex-shrink-0">
             {currentUser?.avatarUrl ? (
               <AvatarImage
                 src={currentUser.avatarUrl}
                 alt={currentUser.username}
-                className="w-8 h-8 rounded-full object-cover shadow-sm"
+                className="w-8 h-8 rounded-full object-cover shadow-sm group-hover:opacity-80 transition"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-sys-accent flex items-center justify-center text-white font-bold text-xs shadow-sm">
+              <div className={`w-8 h-8 rounded-full bg-gradient-to-tr ${currentUser?.avatarColor || 'from-indigo-500 to-purple-600'} flex items-center justify-center text-white font-bold text-xs shadow-sm group-hover:opacity-80 transition`}>
                 {(currentUser?.username || 'U').substring(0, 2).toUpperCase()}
               </div>
             )}
-            <div className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-sys-s2" />
+            <div className="absolute bottom-0 right-0 border-2 border-sys-s2 rounded-full shadow-sm">
+              <StatusBadge status={currentUser?.status || 'online'} size="xs" />
+            </div>
           </div>
 
           <div className="flex flex-col truncate">
-            <span className="text-xs font-bold text-sys-text truncate leading-tight">
+            <span className="text-xs font-bold text-sys-text truncate leading-tight group-hover:text-sys-accent transition-colors">
               {currentUser?.displayName || currentUser?.username || 'Usuário'}
             </span>
-            <span className="text-[10px] text-sys-muted truncate leading-tight">
-              {currentUser?.customStatus?.text || 'Online'}
+            <span className="text-[10px] text-sys-muted truncate leading-tight flex items-center gap-1">
+              {currentUser?.customStatus?.text ? (
+                <>
+                  {currentUser.customStatus.emoji && <span>{currentUser.customStatus.emoji}</span>}
+                  <span className="truncate">{currentUser.customStatus.text}</span>
+                </>
+              ) : (
+                <span>{getStatusInfo(currentUser?.status)?.name || 'Disponível'}</span>
+              )}
             </span>
           </div>
         </div>

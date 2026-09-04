@@ -5,6 +5,7 @@ import { VoiceProvider, useVoice } from './context/VoiceContext';
 import { TitleBar } from './components/TitleBar';
 import { UpdateToast } from './components/UpdateToast';
 import { GlobalAudioEngine } from './components/GlobalAudioEngine';
+import { CallOverlay } from './components/CallOverlay';
 import { CommandPalette } from './components/CommandPalette';
 import { OnboardingTour } from './components/OnboardingTour';
 import { applyUiStyle, getSavedUiStyle } from './utils/appearance';
@@ -33,7 +34,7 @@ const ForumArea = lazy(() =>
   import('./components/ForumArea').then((m) => ({ default: m.ForumArea }))
 );
 const ScreenShareModal = lazy(() =>
-  import('./components/ScreenShareModal').then((m) => ({ default: m.ScreenShareModal }))
+  import('./components/ScreenShareModal').then((m) => ({ default: m.ScreenShareModal || m.default }))
 );
 const ServerSettingsModal = lazy(() =>
   import('./components/ServerSettingsModal').then((m) => ({ default: m.ServerSettingsModal }))
@@ -52,6 +53,9 @@ const CreateServerModal = lazy(() =>
 );
 const ClipManagerModal = lazy(() =>
   import('./components/ClipManagerModal').then((m) => ({ default: m.ClipManagerModal }))
+);
+const InviteModal = lazy(() =>
+  import('./components/InviteModal').then((m) => ({ default: m.InviteModal }))
 );
 
 class ErrorBoundary extends React.Component {
@@ -124,6 +128,7 @@ const MainLayout = () => {
     isUserSettingsOpen,
     isCreateChannelOpen,
     isAddServerOpen,
+    isInviteModalOpen,
     isClipManagerOpen
   } = useServer();
 
@@ -166,6 +171,7 @@ const MainLayout = () => {
           {isUserSettingsOpen && <UserSettingsModal />}
           {isCreateChannelOpen && <CreateChannelModal />}
           {isAddServerOpen && <CreateServerModal />}
+          {isInviteModalOpen && <InviteModal />}
           {isClipManagerOpen && <ClipManagerModal />}
         </Suspense>
       </ErrorBoundary>
@@ -225,6 +231,7 @@ const AppContent = () => {
         )}
         <UpdateToast />
         <GlobalAudioEngine />
+        <CallOverlay />
       </div>
     </div>
   );

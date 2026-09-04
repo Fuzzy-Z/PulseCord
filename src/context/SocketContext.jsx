@@ -8,6 +8,12 @@ const OFFICIAL_SERVER_URL = 'https://pulsecord-1-w3xw.onrender.com';
 const getInitialServerUrl = () => {
   try {
     const saved = localStorage.getItem('pulsecord_server_url');
+    if (import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))) {
+      if (!saved || saved === OFFICIAL_SERVER_URL) {
+        return 'http://localhost:4000';
+      }
+      return saved;
+    }
     if (saved && saved.startsWith('http')) {
       return saved;
     }
@@ -259,27 +265,30 @@ export const SocketProvider = ({ children }) => {
   // Update Profile
   const updateProfile = (profileData) => {
     return new Promise((resolve) => {
+      let finalUser = null;
       // Optimistically update currentUser locally right away
-      const updatedUser = {
-        ...(currentUser || {}),
-        ...profileData
-      };
-      setCurrentUser(updatedUser);
+      setCurrentUser((prev) => {
+        finalUser = {
+          ...(prev || {}),
+          ...profileData
+        };
 
-      // Persist in localStorage if session exists
-      const savedSession = localStorage.getItem('pulsecord_session');
-      if (savedSession) {
-        try {
-          const session = JSON.parse(savedSession);
-          localStorage.setItem(
-            'pulsecord_session',
-            JSON.stringify({ ...session, user: updatedUser })
-          );
-        } catch (e) {}
-      }
+        // Persist in localStorage if session exists
+        const savedSession = localStorage.getItem('pulsecord_session');
+        if (savedSession) {
+          try {
+            const session = JSON.parse(savedSession);
+            localStorage.setItem(
+              'pulsecord_session',
+              JSON.stringify({ ...session, user: finalUser })
+            );
+          } catch (e) {}
+        }
+        return finalUser;
+      });
 
       if (!socketRef.current || !socketRef.current.connected) {
-        return resolve({ success: true, user: updatedUser });
+        return resolve({ success: true, user: finalUser });
       }
 
       // Set a 3-second fallback timeout in case backend takes too long
@@ -287,7 +296,7 @@ export const SocketProvider = ({ children }) => {
       const timeout = setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          resolve({ success: true, user: updatedUser });
+          resolve({ success: true, user: finalUser });
         }
       }, 3000);
 
@@ -295,11 +304,26 @@ export const SocketProvider = ({ children }) => {
         if (resolved) return;
         resolved = true;
         clearTimeout(timeout);
-        if (res && res.success) {
-          setCurrentUser(res.user);
-          resolve({ success: true, user: res.user });
+        if (res && res.success && res.user) {
+          const userWithStatus = {
+            ...res.user,
+            status: profileData.status || res.user.status || finalUser?.status || 'online'
+          };
+          setCurrentUser(userWithStatus);
+
+          const savedSession = localStorage.getItem('pulsecord_session');
+          if (savedSession) {
+            try {
+              const session = JSON.parse(savedSession);
+              localStorage.setItem(
+                'pulsecord_session',
+                JSON.stringify({ ...session, user: userWithStatus })
+              );
+            } catch (e) {}
+          }
+          resolve({ success: true, user: userWithStatus });
         } else {
-          resolve({ success: true, user: updatedUser });
+          resolve({ success: true, user: finalUser });
         }
       });
     });
@@ -307,6 +331,16 @@ export const SocketProvider = ({ children }) => {
 
   const updateCurrentUser = (newUser) => {
     setCurrentUser(newUser);
+    const savedSession = localStorage.getItem('pulsecord_session');
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession);
+        localStorage.setItem(
+          'pulsecord_session',
+          JSON.stringify({ ...session, user: newUser })
+        );
+      } catch (e) {}
+    }
   };
 
   return (

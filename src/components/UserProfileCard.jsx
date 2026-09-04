@@ -3,11 +3,12 @@ import { X, Gamepad2, BadgeCheck, Sparkles, MessageSquare } from 'lucide-react';
 import { useServer } from '../context/ServerContext';
 import { useSocket } from '../context/SocketContext';
 import { AvatarImage } from './AvatarImage';
+import { StatusBadge, getStatusInfo } from './StatusBadge';
 
-export const UserProfileCard = ({ user, onClose, inline = false }) => {
+export const UserProfileCard = ({ user, onClose, position = { top: 0, left: 0 }, inline = false }) => {
   if (!user) return null;
 
-  const { openDM } = useServer();
+  const { openDM, currentServer } = useServer();
   const { currentUser } = useSocket();
 
   const {
@@ -94,7 +95,9 @@ export const UserProfileCard = ({ user, onClose, inline = false }) => {
           )}
           
           {/* Status Indicator */}
-          <div className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-4 border-[#111214] ${user.status === 'online' ? 'bg-emerald-500' : 'bg-sys-muted'}`} />
+          <div className="absolute bottom-1 right-1 border-4 border-[#111214] rounded-full shadow-md">
+            <StatusBadge status={user.status || 'online'} size="md" />
+          </div>
         </div>
 
         <div className="pt-14 space-y-3">
@@ -169,6 +172,41 @@ export const UserProfileCard = ({ user, onClose, inline = false }) => {
                     <div className="text-sm font-bold text-gray-200 truncate">{gameStatus}</div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Server Roles */}
+            {currentServer && (
+              <div>
+                <h3 className="text-[10px] font-bold text-sys-muted uppercase tracking-wider mb-1.5">Cargos no Servidor</h3>
+                {(() => {
+                  const targetId = id || user.id || user.userId || user.authorId || user._id;
+                  const assignedRoleId = currentServer.memberRoles?.[targetId] || user.roleId || (targetId === currentServer.ownerId ? 'role-admin' : 'role-member');
+                  const role = currentServer.roles?.find(r => r.id === assignedRoleId);
+                  
+                  if (!role) {
+                    return <span className="text-xs text-sys-muted italic">Nenhum cargo específico</span>;
+                  }
+
+                  return (
+                    <div className="flex flex-wrap gap-1.5">
+                      <span 
+                        className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border"
+                        style={{
+                          backgroundColor: `${role.color || '#99aab5'}15`,
+                          borderColor: `${role.color || '#99aab5'}40`,
+                          color: role.color || '#e0e0e0'
+                        }}
+                      >
+                        <span 
+                          className="w-2 h-2 rounded-full flex-shrink-0" 
+                          style={{ backgroundColor: role.color || '#99aab5' }}
+                        />
+                        <span>{role.name}</span>
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

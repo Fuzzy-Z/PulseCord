@@ -15,18 +15,36 @@ import {
   Clock,
   Video,
   File,
-  CheckCheck
+  CheckCheck,
+  PhoneCall,
+  Crown
 } from 'lucide-react';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
+import { VoiceRoomArea } from './VoiceRoomArea';
 import { useSocket } from '../context/SocketContext';
 import { UserProfileCard } from './UserProfileCard';
 import { UserContextMenu } from './UserContextMenu';
 import { AvatarImage } from './AvatarImage';
+import { StatusBadge } from './StatusBadge';
 
 export const ChatArea = () => {
-  const { currentChannel, currentServer, messages, sendMessage, setIsMusicModalOpen, onlineMembers, pinMessage, unpinMessage, pinnedMessages, activeView, openDM } = useServer();
-  const { sendMusicControl, activeVoiceChannel } = useVoice();
+  const {
+    currentChannel,
+    currentServer,
+    messages,
+    sendMessage,
+    setIsMusicModalOpen,
+    onlineMembers,
+    pinMessage,
+    unpinMessage,
+    pinnedMessages,
+    activeView,
+    openDM,
+    joinServerInvite,
+    servers
+  } = useServer();
+  const { sendMusicControl, activeVoiceChannel, initiateDMCall } = useVoice();
   const { currentUser } = useSocket();
 
   const [inputMessage, setInputMessage] = useState('');
@@ -187,6 +205,22 @@ export const ChatArea = () => {
         </div>
 
         <div className="flex items-center space-x-2 text-sys-muted">
+          {/* DM Call Button */}
+          {isDM && (
+            <button
+              onClick={() => {
+                const targetUserId = currentChannel.recipient?.id;
+                if (targetUserId) {
+                  initiateDMCall(targetUserId, currentChannel.id);
+                }
+              }}
+              className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition btn-interactive text-sys-muted hover:text-green-400 hover:bg-green-400/10"
+              title="Iniciar Chamada"
+            >
+              <PhoneCall className="w-4 h-4" />
+            </button>
+          )}
+
           {/* Pinned Messages Button */}
           <button
             onClick={() => setShowPinnedModal(!showPinnedModal)}
@@ -240,6 +274,13 @@ export const ChatArea = () => {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Messages Feed */}
         <div className="flex-1 flex flex-col justify-between overflow-hidden">
+          {/* DM Voice Room Split */}
+          {isDM && activeVoiceChannel === currentChannel.id && (
+            <div className="h-[45%] flex-shrink-0 border-b border-sys-border overflow-hidden">
+              <VoiceRoomArea />
+            </div>
+          )}
+          
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 thin-scrollbar">
             {/* Channel Welcome Header */}
             <div className="mb-4 pt-2 px-2 space-y-1.5">
@@ -381,6 +422,58 @@ export const ChatArea = () => {
                           {msg.content}
                         </div>
                       )}
+
+                      {/* Server Invite Embed Card */}
+                      {(() => {
+                        const extractInviteCode = (content) => {
+                          if (!content) return null;
+                          const match = content.match(/(?:https?:\/\/)?(?:voxel\.gg|pulsecord\.app)\/invite\/([a-zA-Z0-9_-]+)/i) ||
+                                        content.match(/\b(?:invite:|PC-)([a-zA-Z0-9_-]{5,10})\b/i);
+                          return match ? match[1] : null;
+                        };
+
+                        const code = msg.invite?.code || extractInviteCode(msg.content);
+                        if (!code) return null;
+
+                        const serverName = msg.invite?.serverName || (msg.content.match(/\*\*([^*]+)\*\*/)?.[1]) || 'Espaço PulseCord';
+                        const serverIcon = msg.invite?.serverIcon || serverName.substring(0, 2).toUpperCase();
+                        const isAlreadyMember = servers.some(s => s.id === msg.invite?.serverId || (s.inviteCode && s.inviteCode.toUpperCase() === code.toUpperCase()));
+
+                        return (
+                          <div className="mt-2.5 max-w-sm p-3.5 bg-sys-s2/90 border border-sys-border rounded-2xl shadow-lg flex flex-col space-y-3">
+                            <div className="text-[10px] font-bold tracking-wider uppercase text-sys-muted flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-sys-accent" />
+                              <span>Convite para Espaço</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center space-x-3 min-w-0">
+                                <div className="w-10 h-10 rounded-2xl bg-sys-accent/20 border border-sys-accent/30 text-sys-accent font-bold flex items-center justify-center flex-shrink-0 text-sm shadow-sm">
+                                  {serverIcon}
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs font-bold text-sys-text truncate">
+                                    {serverName}
+                                  </span>
+                                  <span className="text-[10px] text-sys-muted flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    {msg.invite?.memberCount ? `${msg.invite.memberCount} membros` : 'Convite ativo'}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => joinServerInvite(code)}
+                                className={`px-3.5 py-1.5 font-bold rounded-xl text-xs transition shadow-md flex-shrink-0 btn-interactive flex items-center gap-1.5 ${
+                                  isAlreadyMember
+                                    ? 'bg-sys-s3 border border-sys-border text-sys-muted hover:text-white'
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                                }`}
+                              >
+                                <span>{isAlreadyMember ? 'Acessar' : 'Entrar'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Attachments: Video, Image, Audio, Files */}
                       {msg.attachments && msg.attachments.length > 0 && (
@@ -696,11 +789,15 @@ export const ChatArea = () => {
               }
 
               const membersInRole = allMembersList.filter((m) => {
-                const userRoleId = m.roleId || 'role-member';
-                if (role.id === 'role-member' || role.id === 'role-everyone') {
-                  return userRoleId === role.id || userRoleId === 'role-member' || userRoleId === 'role-everyone' || !userRoleId;
+                const isMemberOwner = m.id === currentServer.ownerId;
+                const userRoleId = currentServer.memberRoles?.[m.id] || (isMemberOwner ? 'role-admin' : (m.roleId || 'role-member'));
+                if (role.id === 'role-admin') {
+                  return userRoleId === 'role-admin' || isMemberOwner;
                 }
-                return userRoleId === role.id;
+                if (role.id === 'role-member' || role.id === 'role-everyone') {
+                  return !isMemberOwner && (userRoleId === 'role-member' || userRoleId === 'role-everyone' || !userRoleId);
+                }
+                return !isMemberOwner && userRoleId === role.id;
               });
 
               // Deduplicate members by id
@@ -740,8 +837,12 @@ export const ChatArea = () => {
                   <div className="space-y-1">
                     {uniqueMembers.map((member) => {
                       const isMe = currentUser?.id === member.id;
-                      const liveData = onlineMembers.find(om => om.id === member.id) || (isMe ? currentUser : null) || member;
-                      const isOnline = onlineMembers.some(om => om.id === member.id) || isMe || liveData.status === 'online';
+                      const isMemberOwner = member.id === currentServer.ownerId;
+                      const liveData = (isMe ? currentUser : null) || onlineMembers.find(om => om.id === member.id) || member;
+                      const isOnline = onlineMembers.some(om => om.id === member.id) || (isMe && currentUser?.status !== 'invisible') || liveData.status === 'online';
+                      const effectiveStatus = isMe 
+                        ? (currentUser?.status || 'online')
+                        : (!isOnline || liveData.status === 'invisible' ? 'offline' : (liveData.status || 'online'));
                       const displayName = liveData.displayName || liveData.username || 'Usuário';
 
                       return (
@@ -758,7 +859,7 @@ export const ChatArea = () => {
                             });
                           }}
                           className={`flex items-center space-x-2.5 p-1.5 rounded-xl hover:bg-sys-s2 cursor-pointer transition group ${
-                            !isOnline ? 'opacity-50 hover:opacity-100' : ''
+                            !isOnline && !isMe ? 'opacity-50 hover:opacity-100' : ''
                           }`}
                         >
                           <div className="relative flex-shrink-0">
@@ -777,20 +878,24 @@ export const ChatArea = () => {
                                 {getMonogram(displayName)}
                               </div>
                             )}
-                            <div
-                              className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-sys-s1 ${
-                                isOnline ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-zinc-600'
-                              }`}
-                            />
+                            <div className="absolute -bottom-0.5 -right-0.5 border-2 border-sys-s1 rounded-full shadow-sm">
+                              <StatusBadge
+                                status={effectiveStatus}
+                                size="xs"
+                              />
+                            </div>
                           </div>
 
                           <div className="flex flex-col truncate flex-1 min-w-0">
                             <div className="flex items-center space-x-1">
                               <span
-                                className="text-xs font-semibold truncate group-hover:text-white transition"
+                                className="text-xs font-semibold truncate group-hover:text-white transition flex items-center gap-1"
                                 style={{ color: role.color }}
                               >
                                 {displayName}
+                                {isMemberOwner && (
+                                  <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 flex-shrink-0" title="Dono do Servidor" />
+                                )}
                               </span>
                               {isMe && (
                                 <span className="bg-sys-s3 border border-sys-border text-sys-muted text-[8px] font-bold px-1 py-0.2 rounded">

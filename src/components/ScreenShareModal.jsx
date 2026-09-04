@@ -53,7 +53,7 @@ export const ScreenShareModal = () => {
 
   return (
     <div className="fixed inset-0 bg-sys-s3 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-none">
-      <div className="bg-sys-base border border-sys-border w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-sys-border flex flex-col max-h-[85vh] animate-modal">
+      <div className="bg-sys-base border border-sys-border w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-modal">
         {/* Modal Header */}
         <div className="p-5 flex items-center justify-between border-b border-sys-border bg-sys-s2">
           <div className="flex items-center space-x-3">
@@ -280,4 +280,6 @@ export const ScreenShareModal = () => {
     </div>
   );
 };
+
+export default ScreenShareModal;
 

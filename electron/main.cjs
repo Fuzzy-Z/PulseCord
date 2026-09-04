@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const http = require('http');
+const net = require('net');
 const { spawn } = require('child_process');
 
 // Set application identity
@@ -484,6 +485,147 @@ ipcMain.handle('save-clip', async (event, clipData) => {
   return { success: true, message: 'Clipe salvo em: Downloads/Voxel Clips' };
 });
 
+// Native WASAPI Audio Filter Microservice Engine (Exclude PulseCord Process Tree)
+let audioFilterProcess = null;
+let audioFilterSocket = null;
+
+function getAudioFilterExePath() {
+  const devPath = path.join(__dirname, '../native/bin/PulseCordAudioFilter.exe');
+  const prodPath = process.resourcesPath ? path.join(process.resourcesPath, 'native/bin/PulseCordAudioFilter.exe') : '';
+  if (prodPath && fs.existsSync(prodPath)) return prodPath;
+  if (fs.existsSync(devPath)) return devPath;
+  return devPath;
+}
+
+function stopAudioFilterEngine() {
+  if (audioFilterSocket) {
+    try {
+      audioFilterSocket.destroy();
+    } catch (e) {}
+    audioFilterSocket = null;
+  }
+  if (audioFilterProcess) {
+    try {
+      audioFilterProcess.kill('SIGTERM');
+      setTimeout(() => {
+        if (audioFilterProcess) {
+          try { audioFilterProcess.kill('SIGKILL'); } catch (e) {}
+          audioFilterProcess = null;
+        }
+      }, 500);
+    } catch (e) {}
+    audioFilterProcess = null;
+  }
+  console.log('[AudioFilter] Microservice stopped.');
+}
+
+ipcMain.handle('start-audio-filter', async (event, opts = {}) => {
+  if (process.platform !== 'win32') {
+    return { success: false, reason: 'Unsupported platform' };
+  }
+
+  stopAudioFilterEngine();
+
+  const exePath = getAudioFilterExePath();
+  if (!fs.existsSync(exePath)) {
+    console.warn('[AudioFilter] Microservice binary not found at:', exePath);
+    return { success: false, error: 'Binary not found' };
+  }
+
+  const pipeName = `pulsecord-audio-${Date.now()}`;
+  const pipePath = `\\\\.\\pipe\\${pipeName}`;
+  const excludePid = process.pid;
+
+  console.log(`[AudioFilter] Spawning ${exePath} with exclude-pid ${excludePid} and pipe ${pipeName}`);
+
+  return new Promise((resolve) => {
+    let hasResolved = false;
+    const safeResolve = (val) => {
+      if (!hasResolved) {
+        hasResolved = true;
+        clearTimeout(timeoutId);
+        resolve(val);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      console.warn('[AudioFilter] Spawn/connect timed out after 1.2s.');
+      safeResolve({ success: false, error: 'Connection timeout' });
+    }, 1200);
+
+    try {
+      audioFilterProcess = spawn(exePath, [
+        '--exclude-pid', String(excludePid),
+        '--pipe', pipeName
+      ], {
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+
+      audioFilterProcess.stdout?.on('data', (d) => {
+        console.log(`[AudioFilter Native] ${d.toString().trim()}`);
+      });
+      audioFilterProcess.stderr?.on('data', (d) => {
+        console.warn(`[AudioFilter Native Error] ${d.toString().trim()}`);
+      });
+
+      audioFilterProcess.on('exit', (code) => {
+        console.log(`[AudioFilter] Process exited with code ${code}`);
+        audioFilterProcess = null;
+        safeResolve({ success: false, error: `Process exited code ${code}` });
+      });
+
+      audioFilterProcess.on('error', (err) => {
+        console.error('[AudioFilter] Spawn error event:', err);
+        safeResolve({ success: false, error: err.message });
+      });
+
+      // Attempt to connect to named pipe
+      let retries = 0;
+      const tryConnect = () => {
+        if (hasResolved || !audioFilterProcess) return;
+
+        const sock = net.connect(pipePath, () => {
+          audioFilterSocket = sock;
+          console.log('[AudioFilter] Connected to native Named Pipe successfully!');
+          safeResolve({ success: true, sampleRate: 48000, channels: 2, pipeName });
+        });
+
+        sock.on('data', (chunk) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('native-audio-chunk', chunk);
+          }
+        });
+
+        sock.on('error', (err) => {
+          sock.destroy();
+          if (retries < 6 && !hasResolved) {
+            retries++;
+            setTimeout(tryConnect, 150);
+          } else {
+            safeResolve({ success: false, error: err.message });
+          }
+        });
+
+        sock.on('close', () => {
+          console.log('[AudioFilter] Pipe closed.');
+        });
+      };
+
+      setTimeout(tryConnect, 300);
+
+    } catch (err) {
+      console.error('[AudioFilter] Spawn error:', err);
+      safeResolve({ success: false, error: err.message });
+    }
+  });
+});
+
+ipcMain.handle('stop-audio-filter', async () => {
+  stopAudioFilterEngine();
+  return { success: true };
+});
+
 app.whenReady().then(async () => {
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.voxel.app');
@@ -501,7 +643,12 @@ app.whenReady().then(async () => {
   });
 });
 
+app.on('before-quit', () => {
+  stopAudioFilterEngine();
+});
+
 app.on('window-all-closed', () => {
+  stopAudioFilterEngine();
   if (process.platform !== 'darwin') {
     app.quit();
   }

@@ -29,5 +29,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onUpdateDownloadProgress: (callback) => {
     ipcRenderer.on('update-download-progress', (event, progress) => callback(progress));
+  },
+  // Native WASAPI Screen Audio Filter APIs
+  startAudioFilter: async (options) => {
+    return await ipcRenderer.invoke('start-audio-filter', options);
+  },
+  stopAudioFilter: async () => {
+    return await ipcRenderer.invoke('stop-audio-filter');
+  },
+  onNativeAudioChunk: (callback) => {
+    const handler = (event, chunk) => callback(chunk);
+    ipcRenderer.on('native-audio-chunk', handler);
+    return () => ipcRenderer.removeListener('native-audio-chunk', handler);
   }
 });

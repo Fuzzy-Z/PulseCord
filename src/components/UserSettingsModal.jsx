@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Mic, Globe, X, Check, Volume2, User, Server, Sparkles, LogOut, Download, RotateCw, RefreshCw, Layers, Palette, Lock, Video, Upload, Trash2, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useServer } from '../context/ServerContext';
 import { useVoice } from '../context/VoiceContext';
+import { StudioVoiceProcessor } from '../services/audioUtils';
 import { UserProfileCard } from './UserProfileCard';
 import { AvatarImage } from './AvatarImage';
+import { USER_STATUSES, StatusBadge, getStatusInfo } from './StatusBadge';
 import Swal from 'sweetalert2';
 
 export const UserSettingsModal = () => {
@@ -34,6 +36,7 @@ export const UserSettingsModal = () => {
   const [pronouns, setPronouns] = useState(currentUser?.pronouns || '');
   const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatarUrl || '');
   const [bannerUrl, setBannerUrl] = useState(currentUser?.bannerUrl || '');
+  const [userStatus, setUserStatus] = useState(currentUser?.status || 'online');
   const [customStatusText, setCustomStatusText] = useState(currentUser?.customStatus?.text || '');
   const [customStatusEmoji, setCustomStatusEmoji] = useState(currentUser?.customStatus?.emoji || '');
   const [gameStatus, setGameStatus] = useState(currentUser?.gameStatus || '');
@@ -62,6 +65,7 @@ export const UserSettingsModal = () => {
       setPronouns(currentUser.pronouns || '');
       setAvatarUrl(currentUser.avatarUrl || '');
       setBannerUrl(currentUser.bannerUrl || '');
+      setUserStatus(currentUser.status || 'online');
       setCustomStatusText(currentUser.customStatus?.text || '');
       setCustomStatusEmoji(currentUser.customStatus?.emoji || '');
       setGameStatus(currentUser.gameStatus || '');
@@ -323,49 +327,65 @@ export const UserSettingsModal = () => {
     }
   };
 
+  const testProcessorRef = useRef(null);
+
+  // Interactive Real-Time Microphone & Gain/Sensitivity Audio Test
   useEffect(() => {
-    let audioContext;
-    let analyser;
-    let stream;
-    let animId;
+    let stream = null;
 
     if (micTestActive) {
+      const audioConstraints = {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        channelCount: 1,
+        ...(selectedInputDevice && selectedInputDevice !== 'default'
+          ? { deviceId: { exact: selectedInputDevice } }
+          : {})
+      };
+
       navigator.mediaDevices
-        .getUserMedia({ audio: true })
+        .getUserMedia({ audio: audioConstraints, video: false })
         .then((s) => {
           stream = s;
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          audioContext = new AudioCtx();
-          analyser = audioContext.createAnalyser();
-          analyser.fftSize = 256;
-          const source = audioContext.createMediaStreamSource(s);
-          source.connect(analyser);
-
-          const dataArray = new Uint8Array(analyser.frequencyBinCount);
-          let lastUpdate = 0;
-          const update = (timestamp) => {
-            if (timestamp - lastUpdate >= 35) {
-              lastUpdate = timestamp;
-              analyser.getByteFrequencyData(dataArray);
-              let sum = 0;
-              for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-              const avg = (sum / dataArray.length / 255) * 100;
-              setMicLevel(Math.min(100, Math.round(avg * 2.5)));
+          const processor = new StudioVoiceProcessor(s, {
+            sensitivity: micSensitivity,
+            inputGain: micGain / 100,
+            krispEnabled,
+            onLevelChange: (level) => {
+              setMicLevel(level);
             }
-            animId = requestAnimationFrame(update);
-          };
-          animId = requestAnimationFrame(update);
+          });
+          testProcessorRef.current = processor;
+
+          if (selectedOutputDevice && selectedOutputDevice !== 'default') {
+            processor.setSinkId(selectedOutputDevice);
+          }
+          // Direct Web Audio output to speakers/headphones for ultra-low latency playback
+          processor.enableMonitoring(true);
         })
         .catch((err) => console.warn('Mic test error:', err));
     }
 
     return () => {
-      if (animId) cancelAnimationFrame(animId);
+      if (testProcessorRef.current) {
+        testProcessorRef.current.enableMonitoring(false);
+        testProcessorRef.current.stop();
+        testProcessorRef.current = null;
+      }
       if (stream) stream.getTracks().forEach((t) => t.stop());
-      if (audioContext && audioContext.state !== 'closed') audioContext.close();
       setMicLevel(0);
     };
-  }, [micTestActive]);
+  }, [micTestActive, selectedInputDevice, selectedOutputDevice]);
+
+  // Live update test processor when sliders move during mic test
+  useEffect(() => {
+    if (testProcessorRef.current) {
+      testProcessorRef.current.setInputGain(micGain / 100);
+      testProcessorRef.current.setSensitivity(micSensitivity);
+      testProcessorRef.current.setKrispEnabled(krispEnabled);
+    }
+  }, [krispEnabled, micSensitivity, micGain]);
 
   if (!isUserSettingsOpen) return null;
 
@@ -471,6 +491,7 @@ export const UserSettingsModal = () => {
       pronouns: ((pronouns || '') + '').trim(),
       avatarUrl: ((avatarUrl || '') + '').trim(),
       bannerUrl: ((bannerUrl || '') + '').trim(),
+      status: userStatus || 'online',
       customStatus: { text: ((customStatusText || '') + '').trim(), emoji: ((customStatusEmoji || '') + '').trim() },
       gameStatus: ((gameStatus || '') + '').trim(),
       avatar: finalInitials,
@@ -693,12 +714,12 @@ export const UserSettingsModal = () => {
                   </div>
                 </div>
 
-                {/* Color Gradient Theme Picker (Clean 3-col grid, no text cut-off) */}
+                {/* Color Gradient Theme Picker (Clean swatches with checkmarks) */}
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted mb-2">
                     Cor de Destaque / Gradiente
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
                     {gradientOptions.map((opt) => {
                       const isSelected = selectedGradient === opt.gradient;
                       return (
@@ -706,14 +727,14 @@ export const UserSettingsModal = () => {
                           key={opt.name}
                           type="button"
                           onClick={() => setSelectedGradient(opt.gradient)}
-                          className={`flex items-center space-x-2.5 px-3 py-2 rounded-xl border text-left transition-all ${
+                          title={opt.name}
+                          className={`h-10 rounded-xl bg-gradient-to-tr ${opt.gradient} flex items-center justify-center transition-all shadow-sm ${
                             isSelected
-                              ? 'bg-sys-s3 border-sys-accent text-sys-text font-semibold ring-1 ring-sys-accent'
-                              : 'bg-sys-s2 border-sys-border/60 hover:bg-sys-s3 hover:border-sys-border text-sys-muted'
+                              ? 'ring-2 ring-white scale-105 shadow-md'
+                              : 'opacity-80 hover:opacity-100 hover:scale-105 border border-white/10'
                           }`}
                         >
-                          <span className={`w-4 h-4 rounded-full bg-gradient-to-tr ${opt.gradient} flex-shrink-0 shadow-sm`} />
-                          <span className="text-xs truncate">{opt.name}</span>
+                          {isSelected && <Check className="w-4 h-4 text-white drop-shadow" />}
                         </button>
                       );
                     })}
@@ -769,10 +790,47 @@ export const UserSettingsModal = () => {
                   />
                 </div>
 
+                {/* Online Status Selection Card */}
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted">
+                    Estado de Presença / Status
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {USER_STATUSES.map((st) => {
+                      const isSelected = userStatus === st.id;
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => setUserStatus(st.id)}
+                          className={`flex items-center justify-between p-3 rounded-xl border text-left transition ${
+                            isSelected
+                              ? 'bg-sys-s1 border-sys-accent shadow-sm ring-1 ring-sys-accent/50'
+                              : 'bg-sys-s2/40 border-sys-border/60 hover:bg-sys-s1/60 hover:border-sys-border'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 pr-2">
+                            <StatusBadge status={st.id} size="md" />
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-bold text-sys-text">
+                                {st.name}
+                              </span>
+                              <span className="text-[10px] text-sys-muted leading-tight mt-0.5">
+                                {st.desc}
+                              </span>
+                            </div>
+                          </div>
+                          {isSelected && <Check className="w-4 h-4 text-sys-accent flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Status & Activity Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted">Status Customizado</label>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-sys-muted">Frase de Status Customizada</label>
                     <input 
                       type="text" 
                       placeholder="Ex: Programando em React..." 
@@ -856,7 +914,7 @@ export const UserSettingsModal = () => {
                       pronouns: pronouns || '',
                       customStatus: { text: customStatusText || '', emoji: customStatusEmoji || '' },
                       gameStatus: gameStatus || '',
-                      status: 'online',
+                      status: userStatus || 'online',
                       badges: currentUser?.badges || [],
                       createdAt: currentUser?.createdAt || new Date().toISOString()
                     }}

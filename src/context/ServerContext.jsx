@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSocket } from './SocketContext';
+import { encodeServerToInvite, decodeInviteToId } from '../utils/inviteUtils';
 
 const ServerContext = createContext(null);
 
@@ -47,6 +48,7 @@ export const ServerProvider = ({ children }) => {
   const [isScreenModalOpen, setIsScreenModalOpen] = useState(false);
   const [isClipManagerOpen, setIsClipManagerOpen] = useState(false);
   const [isAddServerOpen, setIsAddServerOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [unread, setUnread] = useState({}); // { channelId: { count, mentions } }
@@ -123,10 +125,15 @@ export const ServerProvider = ({ children }) => {
 
     socket.on('server-created', (newServer) => {
       setServers((prev) => {
-        if (prev.some((s) => s.id === newServer.id)) return prev;
+        if (prev.some((s) => s.id === newServer.id)) {
+          return prev.map((s) => (s.id === newServer.id ? newServer : s));
+        }
         return [...prev, newServer];
       });
-      selectServer(newServer.id);
+      setActiveView('server');
+      setCurrentServerId(newServer.id);
+      const firstText = newServer.channels?.find((c) => c.type === 'text') || newServer.channels?.[0];
+      if (firstText) setCurrentChannelId(firstText.id);
     });
 
     socket.on('channel-created', ({ serverId, channel }) => {
@@ -140,11 +147,30 @@ export const ServerProvider = ({ children }) => {
       );
     });
 
-    socket.on('server-roles-updated', ({ serverId, roles }) => {
+    socket.on('server-roles-updated', ({ serverId, roles, server }) => {
       setServers((prev) =>
         prev.map((s) => {
           if (s.id === serverId) {
-            return { ...s, roles };
+            return server || { ...s, roles };
+          }
+          return s;
+        })
+      );
+    });
+
+    socket.on('server-member-role-updated', ({ serverId, targetUserId, roleId, server }) => {
+      setServers((prev) =>
+        prev.map((s) => {
+          if (s.id === serverId) {
+            if (server) return server;
+            const updatedMembers = (s.members || []).map((m) =>
+              m.id === targetUserId ? { ...m, roleId } : m
+            );
+            return {
+              ...s,
+              members: updatedMembers,
+              memberRoles: { ...(s.memberRoles || {}), [targetUserId]: roleId }
+            };
           }
           return s;
         })
@@ -243,6 +269,7 @@ export const ServerProvider = ({ children }) => {
       socket.off('server-created');
       socket.off('channel-created');
       socket.off('server-roles-updated');
+      socket.off('server-member-role-updated');
       socket.off('new-message');
       socket.off('dm-received');
       socket.off('message-pinned');
@@ -412,7 +439,16 @@ export const ServerProvider = ({ children }) => {
     if (!socket) return;
     socket.emit('create-server', { name, icon }, (newServer) => {
       if (newServer) {
-        selectServer(newServer.id);
+        setServers((prev) => {
+          if (prev.some((s) => s.id === newServer.id)) {
+            return prev.map((s) => (s.id === newServer.id ? newServer : s));
+          }
+          return [...prev, newServer];
+        });
+        setActiveView('server');
+        setCurrentServerId(newServer.id);
+        const firstText = newServer.channels?.find((c) => c.type === 'text') || newServer.channels?.[0];
+        if (firstText) setCurrentChannelId(firstText.id);
       }
     });
   };
@@ -421,7 +457,16 @@ export const ServerProvider = ({ children }) => {
     if (!socket) return;
     socket.emit('join-server', { serverId }, (res) => {
       if (res && res.success && res.server) {
-        selectServer(res.server.id);
+        setServers((prev) => {
+          if (prev.some((s) => s.id === res.server.id)) {
+            return prev.map((s) => (s.id === res.server.id ? res.server : s));
+          }
+          return [...prev, res.server];
+        });
+        setActiveView('server');
+        setCurrentServerId(res.server.id);
+        const firstText = res.server.channels?.find((c) => c.type === 'text') || res.server.channels?.[0];
+        if (firstText) setCurrentChannelId(firstText.id);
       }
     });
   };
@@ -444,6 +489,182 @@ export const ServerProvider = ({ children }) => {
     });
   };
 
+  const assignMemberRole = (targetUserId, roleId, serverId = null) => {
+    const sId = serverId || currentServerId;
+    if (!sId) return;
+
+    // Optimistic local state update
+    setServers((prev) =>
+      prev.map((s) => {
+        if (s.id === sId) {
+          const updatedMembers = (s.members || []).map((m) =>
+            m.id === targetUserId ? { ...m, roleId } : m
+          );
+          return {
+            ...s,
+            members: updatedMembers,
+            memberRoles: { ...(s.memberRoles || {}), [targetUserId]: roleId }
+          };
+        }
+        return s;
+      })
+    );
+
+    if (socket) {
+      socket.emit('assign-member-role', {
+        serverId: sId,
+        targetUserId,
+        roleId
+      });
+    }
+  };
+
+  const getServerInvite = (serverId = null) => {
+    return new Promise((resolve) => {
+      const sId = serverId || currentServerId;
+      if (!sId) return resolve({ success: false, error: 'Servidor indisponível.' });
+      
+      const s = servers.find((srv) => srv.id === sId);
+      const fallbackCode = encodeServerToInvite(s);
+
+      const timer = setTimeout(() => {
+        resolve({
+          success: true,
+          inviteCode: fallbackCode,
+          inviteUrl: `https://voxel.gg/invite/${fallbackCode}`,
+          serverId: sId,
+          serverName: s?.name || 'Espaço',
+          memberCount: s?.members?.length || 1
+        });
+      }, 600);
+
+      if (socket) {
+        socket.emit('get-server-invite', { serverId: sId }, (res) => {
+          clearTimeout(timer);
+          if (res && res.success && res.inviteCode) {
+            resolve(res);
+          } else {
+            resolve({
+              success: true,
+              inviteCode: fallbackCode,
+              inviteUrl: `https://voxel.gg/invite/${fallbackCode}`,
+              serverId: sId,
+              serverName: s?.name || 'Espaço',
+              memberCount: s?.members?.length || 1
+            });
+          }
+        });
+      }
+    });
+  };
+
+  const generateNewInvite = (serverId = null) => {
+    return new Promise((resolve) => {
+      const sId = serverId || currentServerId;
+      if (!sId) return resolve({ success: false, error: 'Servidor indisponível.' });
+
+      const s = servers.find((srv) => srv.id === sId);
+      const code = encodeServerToInvite(s, true);
+
+      const timer = setTimeout(() => {
+        resolve({
+          success: true,
+          inviteCode: code,
+          inviteUrl: `https://voxel.gg/invite/${code}`,
+          serverId: sId
+        });
+      }, 600);
+
+      if (socket) {
+        socket.emit('generate-new-invite', { serverId: sId }, (res) => {
+          clearTimeout(timer);
+          resolve(res || {
+            success: true,
+            inviteCode: code,
+            inviteUrl: `https://voxel.gg/invite/${code}`,
+            serverId: sId
+          });
+        });
+      }
+    });
+  };
+
+  const joinServerInvite = (inviteCode) => {
+    return new Promise((resolve) => {
+      if (!inviteCode || typeof inviteCode !== 'string') {
+        return resolve({ success: false, error: 'Código de convite inválido.' });
+      }
+
+      const decodedId = decodeInviteToId(inviteCode);
+      let cleaned = inviteCode.trim();
+      const urlMatch = cleaned.match(/invite\/([a-zA-Z0-9_-]+)/i);
+      if (urlMatch) {
+        cleaned = urlMatch[1];
+      } else {
+        cleaned = cleaned.replace(/^PC-?/i, '').trim();
+      }
+
+      const applyServerJoin = (joinedServer) => {
+        if (!joinedServer) return;
+        setServers((prev) => {
+          if (prev.some((s) => s.id === joinedServer.id)) {
+            return prev.map((s) => (s.id === joinedServer.id ? joinedServer : s));
+          }
+          return [...prev, joinedServer];
+        });
+        setActiveView('server');
+        setCurrentServerId(joinedServer.id);
+        const firstText = joinedServer.channels?.find((c) => c.type === 'text') || joinedServer.channels?.[0];
+        if (firstText) setCurrentChannelId(firstText.id);
+      };
+
+      if (!socket) {
+        return resolve({ success: false, error: 'Desconectado do servidor.' });
+      }
+
+      const primaryId = decodedId || (cleaned.startsWith('server-') ? cleaned : `server-${cleaned}`);
+
+      // Emit standard join-server which works on Render and all backend versions
+      socket.emit('join-server', { serverId: primaryId }, (res) => {
+        if (res && res.success && res.server) {
+          applyServerJoin(res.server);
+          resolve({ success: true, server: res.server });
+        } else {
+          // If primaryId wasn't found directly, fallback to cleaned string
+          socket.emit('join-server', { serverId: cleaned }, (res2) => {
+            if (res2 && res2.success && res2.server) {
+              applyServerJoin(res2.server);
+              resolve({ success: true, server: res2.server });
+            } else {
+              resolve({
+                success: false,
+                error: res2?.error || res?.error || 'Servidor não encontrado ou convite expirado.'
+              });
+            }
+          });
+        }
+      });
+    });
+  };
+
+  const sendInviteDM = (targetUserId, serverId = null) => {
+    return new Promise((resolve) => {
+      const sId = serverId || currentServerId;
+      if (!targetUserId || !sId) return resolve({ success: false });
+
+      const timer = setTimeout(() => {
+        resolve({ success: true });
+      }, 1000);
+
+      if (socket) {
+        socket.emit('send-server-invite-dm', { targetUserId, serverId: sId }, (res) => {
+          clearTimeout(timer);
+          resolve(res || { success: false });
+        });
+      }
+    });
+  };
+
   return (
     <ServerContext.Provider
       value={{
@@ -460,8 +681,13 @@ export const ServerProvider = ({ children }) => {
         onlineMembers,
         createServer,
         joinServer,
+        joinServerInvite,
+        getServerInvite,
+        generateNewInvite,
+        sendInviteDM,
         createChannel,
         updateRoles,
+        assignMemberRole,
         
         // DMs & Mutings
         activeView,
@@ -492,6 +718,8 @@ export const ServerProvider = ({ children }) => {
         setIsScreenModalOpen,
         isAddServerOpen,
         setIsAddServerOpen,
+        isInviteModalOpen,
+        setIsInviteModalOpen,
         isClipManagerOpen,
         setIsClipManagerOpen,
         isCommandPaletteOpen,

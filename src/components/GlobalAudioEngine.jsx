@@ -222,7 +222,7 @@ export const GlobalAudioEngine = () => {
   }, [musicPlayer.isPlaying, musicPlayer.currentTrack?.url, localMusicVolume, musicPlayer.volume, activeVoiceChannel, isDeafened, selectedOutputDevice, musicPlayer.queue]);
 
   return (
-    <div id="pulsecord-global-audio-engine" style={{ display: 'none', position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}>
+    <div id="pulsecord-global-audio-engine" style={{ position: 'fixed', top: -9999, left: -9999, width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}>
       {/* 1. Music Bot Global Audio Element */}
       <audio ref={musicAudioRef} autoPlay playsInline crossOrigin="anonymous" />
 

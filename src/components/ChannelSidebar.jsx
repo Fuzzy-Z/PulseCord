@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Hash,
   Volume2,
@@ -24,7 +24,13 @@ import { UserContextMenu } from './UserContextMenu';
 import { UserProfileCard } from './UserProfileCard';
 import { AvatarImage } from './AvatarImage';
 
+import { StatusBadge, getStatusInfo } from './StatusBadge';
+import { UserProfileMenuPopover } from './UserProfileMenuPopover';
+
 export const ChannelSidebar = () => {
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
+  const statusAnchorRef = useRef(null);
+
   const {
     currentServer,
     currentChannelId,
@@ -36,6 +42,7 @@ export const ChannelSidebar = () => {
     setCreateChannelType,
     setIsMusicModalOpen,
     setIsScreenModalOpen,
+    setIsInviteModalOpen,
     mutedChannels,
     toggleMuteChannel,
     navOpen,
@@ -43,6 +50,7 @@ export const ChannelSidebar = () => {
   } = useServer();
 
   const { currentUser } = useSocket();
+  const statusInfo = getStatusInfo(currentUser?.status);
   const {
     activeVoiceChannel,
     joinVoiceChannel,
@@ -67,16 +75,11 @@ export const ChannelSidebar = () => {
   const [selectedUserForCard, setSelectedUserForCard] = useState(null);
   const [dragOverChannelId, setDragOverChannelId] = useState(null);
 
-  // Permission to move members (Owner, Admin, Mod)
+  // Permission to move members (Owner or Roles with permissions)
   const isOwner = currentServer?.ownerId === currentUser?.id;
-  const isHigherRole =
-    currentUser?.roleId === 'role-admin' ||
-    currentUser?.roleId === 'role-mod' ||
-    currentUser?.id === 'usr-admin' ||
-    currentServer?.roles?.find((r) => r.id === currentUser?.roleId)?.permissions?.includes('ADMIN') ||
-    currentServer?.roles?.find((r) => r.id === currentUser?.roleId)?.permissions?.includes('MOVE_MEMBERS');
-
-  const canMoveMembers = isOwner || isHigherRole;
+  const myRoleId = currentServer?.memberRoles?.[currentUser?.id] || (isOwner ? 'role-admin' : 'role-member');
+  const myRoleObj = (currentServer?.roles || []).find((r) => r.id === myRoleId);
+  const canMoveMembers = isOwner || Boolean(myRoleObj?.permissions?.administrator || myRoleObj?.permissions?.manageChannels || myRoleObj?.permissions?.kickMembers);
 
   if (!currentServer) {
     return (
@@ -114,12 +117,22 @@ export const ChannelSidebar = () => {
             <button
               onClick={() => {
                 setIsServerMenuOpen(false);
+                setIsInviteModalOpen(true);
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sys-accent hover:bg-sys-accent/10 transition font-semibold text-xs"
+            >
+              <span>Convidar Pessoas</span>
+              <UserPlus className="w-3.5 h-3.5 text-sys-accent" />
+            </button>
+            <button
+              onClick={() => {
+                setIsServerMenuOpen(false);
                 setIsServerSettingsOpen(true);
               }}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sys-muted hover:bg-sys-s2 hover:text-sys-text transition font-medium text-xs"
             >
               <span>Ajustes do Servidor</span>
-              <Shield className="w-3.5 h-3.5 text-sys-accent" />
+              <Shield className="w-3.5 h-3.5 text-sys-muted" />
             </button>
             <button
               onClick={() => {
@@ -456,11 +469,23 @@ export const ChannelSidebar = () => {
       )}
 
       {/* Bottom User Bar */}
-      <div className="h-[54px] bg-sys-s2/50 px-3 flex items-center justify-between border-t border-sys-border">
-        {/* User Info */}
+      <div className="relative h-[54px] bg-sys-s2/50 px-3 flex items-center justify-between border-t border-sys-border">
+        {/* Discord-style User Profile Popover */}
+        <UserProfileMenuPopover
+          isOpen={isStatusPickerOpen}
+          onClose={() => setIsStatusPickerOpen(false)}
+          anchorRef={statusAnchorRef}
+        />
+
+        {/* User Info & Avatar (Click opens profile popover) */}
         <div
-          onClick={() => setIsUserSettingsOpen(true)}
+          ref={statusAnchorRef}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsStatusPickerOpen((prev) => !prev);
+          }}
           className="flex items-center space-x-2.5 p-1 rounded-xl hover:bg-sys-s3 cursor-pointer truncate mr-1 transition group"
+          title="Ver perfil e opções"
         >
           <div className="relative flex-shrink-0">
             {currentUser?.avatarUrl ? (
@@ -468,21 +493,31 @@ export const ChannelSidebar = () => {
                 src={currentUser.avatarUrl} 
                 alt="Avatar" 
                 isSpeaking={isSpeaking}
-                className="w-8 h-8 rounded-full object-cover shadow-sm border border-white/10" 
+                className="w-8 h-8 rounded-full object-cover shadow-sm border border-white/10 group-hover:opacity-80 transition" 
               />
             ) : (
-              <div className={`w-8 h-8 rounded-full bg-gradient-to-tr ${currentUser?.avatarColor || 'from-indigo-500 to-purple-600'} flex items-center justify-center text-white font-bold text-xs shadow-sm`}>
+              <div className={`w-8 h-8 rounded-full bg-gradient-to-tr ${currentUser?.avatarColor || 'from-indigo-500 to-purple-600'} flex items-center justify-center text-white font-bold text-xs shadow-sm group-hover:opacity-80 transition`}>
                 {(currentUser?.avatar || currentUser?.displayName || currentUser?.username || 'U').substring(0, 2).toUpperCase()}
               </div>
             )}
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-sys-s2" />
+            <div className="absolute -bottom-0.5 -right-0.5 border-2 border-sys-s2 rounded-full shadow-sm">
+              <StatusBadge status={currentUser?.status || 'online'} size="sm" />
+            </div>
           </div>
+
           <div className="flex flex-col truncate">
-            <span className="text-xs font-semibold text-sys-text truncate group-hover:text-sys-accent">
+            <span className="text-xs font-semibold text-sys-text truncate group-hover:text-sys-accent transition-colors">
               {currentUser?.displayName || currentUser?.username || 'Usuário'}
             </span>
-            <span className="text-[10px] text-sys-muted leading-none truncate">
-              {currentUser?.customStatus?.text ? `${currentUser.customStatus.emoji || ''} ${currentUser.customStatus.text}` : 'Online'}
+            <span className="text-[10px] text-sys-muted leading-none truncate flex items-center gap-1">
+              {currentUser?.customStatus?.text ? (
+                <>
+                  {currentUser.customStatus.emoji && <span>{currentUser.customStatus.emoji}</span>}
+                  <span className="truncate">{currentUser.customStatus.text}</span>
+                </>
+              ) : (
+                <span>{getStatusInfo(currentUser?.status)?.name || 'Disponível'}</span>
+              )}
             </span>
           </div>
         </div>

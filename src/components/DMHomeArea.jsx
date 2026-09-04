@@ -4,6 +4,7 @@ import { useSocket } from '../context/SocketContext';
 import { MessageSquare, Users, Search, UserCheck, Sparkles, Gamepad2, Shield } from 'lucide-react';
 import { UserProfileCard } from './UserProfileCard';
 import { AvatarImage } from './AvatarImage';
+import { StatusBadge } from './StatusBadge';
 
 export const DMHomeArea = () => {
   const { servers, onlineMembers, openDM, dms } = useServer();
@@ -160,11 +161,12 @@ export const DMHomeArea = () => {
                             {(name || 'U').substring(0, 2).toUpperCase()}
                           </div>
                         )}
-                        <span
-                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-sys-s2 ${
-                            isOnline ? 'bg-emerald-500 shadow-sm' : 'bg-sys-muted'
-                          }`}
-                        />
+                        <div className="absolute bottom-0 right-0 border-2 border-sys-s2 rounded-full shadow-sm">
+                          <StatusBadge
+                            status={user.status || (isOnline ? 'online' : 'offline')}
+                            size="xs"
+                          />
+                        </div>
                       </div>
 
                       <div className="truncate">

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useSocket } from './SocketContext';
 import { WebRTCManager } from '../services/webrtc';
-import { KrispAudioProcessor, CleanScreenAudioProcessor } from '../services/audioUtils';
+import { KrispAudioProcessor, CleanScreenAudioProcessor, NativeLoopbackAudioProcessor } from '../services/audioUtils';
 import { soundFX } from '../services/soundEffects';
 
 const VoiceContext = createContext(null);
@@ -110,9 +110,57 @@ export const VoiceProvider = ({ children }) => {
     localStorage.setItem('pulsecord_local_music_volume', String(clamped));
   };
 
+  // DM Call States
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [outgoingCall, setOutgoingCall] = useState(null);
+  const callRingIntervalRef = useRef(null);
+
+  const clearRingInterval = () => {
+    if (callRingIntervalRef.current) {
+      clearInterval(callRingIntervalRef.current);
+      callRingIntervalRef.current = null;
+    }
+  };
+
+  const initiateDMCall = (targetUserId, dmId) => {
+    console.log(`[VoiceContext] initiateDMCall disparado! Alvo: ${targetUserId}, DM: ${dmId}`);
+    clearRingInterval();
+    soundFX.play('call-ring');
+    callRingIntervalRef.current = setInterval(() => soundFX.play('call-ring'), 2500);
+    setOutgoingCall({ targetUserId, dmId });
+    console.log(`[VoiceContext] Emitindo evento socket 'initiate-dm-call'...`);
+    socket.emit('initiate-dm-call', { targetUserId, dmId });
+  };
+
+  const cancelDMCall = () => {
+    if (outgoingCall) {
+      clearRingInterval();
+      socket.emit('cancel-dm-call', { targetUserId: outgoingCall.targetUserId, dmId: outgoingCall.dmId });
+      setOutgoingCall(null);
+    }
+  };
+
+  const acceptDMCall = () => {
+    if (incomingCall) {
+      clearRingInterval();
+      socket.emit('accept-dm-call', { callerId: incomingCall.caller.id, dmId: incomingCall.dmId });
+      joinVoiceChannel(incomingCall.dmId, null);
+      setIncomingCall(null);
+    }
+  };
+
+  const declineDMCall = () => {
+    if (incomingCall) {
+      clearRingInterval();
+      socket.emit('decline-dm-call', { callerId: incomingCall.caller.id, dmId: incomingCall.dmId });
+      setIncomingCall(null);
+    }
+  };
+
   const webrtcManagerRef = useRef(null);
   const krispProcessorRef = useRef(null);
   const screenAudioProcessorRef = useRef(null);
+  const nativeAudioProcessorRef = useRef(null);
   const musicAudioRef = useRef(null);
   const remoteAudioElementsRef = useRef(new Map()); // socketId -> HTMLAudioElement
   const remoteStreamsRef = useRef({});
@@ -233,14 +281,6 @@ export const VoiceProvider = ({ children }) => {
     localStorage.setItem('pulsecord_krisp_enabled', val);
     if (krispProcessorRef.current) {
       krispProcessorRef.current.setKrispEnabled(val);
-    }
-    
-    // Switch stream live if in voice channel
-    if (webrtcManagerRef.current && localAudioStream) {
-      const streamToUse = val && krispProcessorRef.current 
-        ? krispProcessorRef.current.getProcessedStream() 
-        : localAudioStream;
-      webrtcManagerRef.current.setLocalAudioStream(streamToUse);
     }
   };
 
@@ -428,12 +468,36 @@ export const VoiceProvider = ({ children }) => {
 
     socket.on('moved-to-voice-channel', ({ channelId, serverId }) => {
       soundFX.play('user-join');
-      joinVoiceChannel(channelId, serverId);
+      joinVoiceChannel(channelId, serverId, true);
     });
 
     socket.on('force-disconnected-from-voice', () => {
-      soundFX.play('user-leave');
-      leaveVoiceChannel();
+      handleLeaveRoomLocally();
+      alert('Você foi desconectado do canal de voz por um administrador.');
+    });
+
+    socket.on('dm-call-incoming', ({ dmId, caller }) => {
+      setIncomingCall({ dmId, caller });
+      soundFX.play('call-ring');
+      if (callRingIntervalRef.current) clearInterval(callRingIntervalRef.current);
+      callRingIntervalRef.current = setInterval(() => soundFX.play('call-ring'), 2500);
+    });
+
+    socket.on('dm-call-cancelled', () => {
+      clearRingInterval();
+      setIncomingCall(null);
+    });
+
+    socket.on('dm-call-declined', () => {
+      clearRingInterval();
+      soundFX.play('call-decline');
+      setOutgoingCall(null);
+    });
+
+    socket.on('dm-call-accepted', ({ dmId }) => {
+      clearRingInterval();
+      setOutgoingCall(null);
+      joinVoiceChannel(dmId, null);
     });
 
     return () => {
@@ -451,8 +515,13 @@ export const VoiceProvider = ({ children }) => {
       socket.off('watch-together-state-update');
       socket.off('moved-to-voice-channel');
       socket.off('force-disconnected-from-voice');
+      socket.off('dm-call-incoming');
+      socket.off('dm-call-cancelled');
+      socket.off('dm-call-declined');
+      socket.off('dm-call-accepted');
+      clearRingInterval();
     };
-  }, [socket]);
+  }, [socket, webrtcManagerRef]);
 
   // Synchronized Music Bot Audio Player Element
   useEffect(() => {
@@ -477,9 +546,25 @@ export const VoiceProvider = ({ children }) => {
   }, [musicPlayer, activeVoiceChannel, isDeafened, selectedOutputDevice]);
 
   // Handle Join Voice Channel with Audio Device Selection & Krisp Filter
-  const joinVoiceChannel = async (channelId, serverId) => {
-    if (!socket) return;
-    if (activeVoiceChannel === channelId) return;
+  const joinVoiceChannel = async (channelId, serverId, force = false) => {
+    if (!socket || !channelId) return;
+    if (!force && activeVoiceChannel === channelId) return;
+
+    // If switching from another voice channel, close old peer connections first
+    if (activeVoiceChannel && activeVoiceChannel !== channelId) {
+      if (webrtcManagerRef.current) {
+        webrtcManagerRef.current.closeAll();
+      }
+      setRemoteStreams({});
+      remoteAudioElementsRef.current.forEach((audioEl) => {
+        try {
+          audioEl.srcObject = null;
+          audioEl.pause();
+        } catch (e) {}
+      });
+      remoteAudioElementsRef.current.clear();
+      setSpeakingUsers(new Set());
+    }
 
     try {
       await refreshAudioDevices();
@@ -487,9 +572,9 @@ export const VoiceProvider = ({ children }) => {
       const audioConstraints = {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true,
+        autoGainControl: false,
         googEchoCancellation: true,
-        googAutoGainControl: true,
+        googAutoGainControl: false,
         googNoiseSuppression: true,
         googHighpassFilter: true,
         googAudioMirroring: false,
@@ -499,13 +584,15 @@ export const VoiceProvider = ({ children }) => {
           : {})
       };
 
-      // 1. Acquire Local Audio
-      const rawMicStream = await navigator.mediaDevices.getUserMedia({
-        audio: audioConstraints,
-        video: false
-      });
-
-      setLocalAudioStream(rawMicStream);
+      // 1. Acquire Local Audio (reuse if live, or acquire new)
+      let rawMicStream = localAudioStream;
+      if (!rawMicStream || !rawMicStream.getAudioTracks().some((t) => t.readyState === 'live')) {
+        rawMicStream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: false
+        });
+        setLocalAudioStream(rawMicStream);
+      }
 
       // 2. Initialize Studio Voice Processor
       if (krispProcessorRef.current) {
@@ -527,8 +614,8 @@ export const VoiceProvider = ({ children }) => {
       });
       krispProcessorRef.current = processor;
 
-      // 3. Feed stream to WebRTC
-      const streamToUse = krispEnabled ? processor.getProcessedStream() : rawMicStream;
+      // 3. Feed high-fidelity processed stream (with gain & noise gate) to WebRTC
+      const streamToUse = processor.getProcessedStream();
       if (webrtcManagerRef.current) {
         webrtcManagerRef.current.setLocalAudioStream(streamToUse);
       }
@@ -717,7 +804,7 @@ export const VoiceProvider = ({ children }) => {
               }
             });
           } catch (e) {
-            console.warn('Failed to capture desktop audio in Electron, falling back to video only:', e);
+            console.warn('[VoiceContext] Direct desktop audio capture failed, capturing video only:', e);
             stream = await navigator.mediaDevices.getUserMedia({
               audio: false,
               video: {
@@ -734,7 +821,37 @@ export const VoiceProvider = ({ children }) => {
               }
             });
           }
+
+          // Non-blocking C# Native Audio Filter upgrade
+          if (window.electronAPI?.startAudioFilter) {
+            window.electronAPI.startAudioFilter().then((filterRes) => {
+              if (filterRes && filterRes.success) {
+                try {
+                  if (nativeAudioProcessorRef.current) {
+                    nativeAudioProcessorRef.current.stop();
+                  }
+                  const nativeProcessor = new NativeLoopbackAudioProcessor();
+                  nativeAudioProcessorRef.current = nativeProcessor;
+                  const cleanAudioTrack = nativeProcessor.getAudioTrack();
+                  if (cleanAudioTrack && stream) {
+                    const videoTracks = stream.getVideoTracks();
+                    const upgradedStream = new MediaStream([...videoTracks, cleanAudioTrack]);
+                    setLocalScreenStream(upgradedStream);
+                    if (webrtcManagerRef.current) {
+                      webrtcManagerRef.current.setLocalScreenStream(upgradedStream);
+                    }
+                    console.log('[VoiceContext] Upgraded live screen share to Native C# WASAPI clean audio track!');
+                  }
+                } catch (err) {
+                  console.warn('[VoiceContext] Error upgrading audio track:', err);
+                }
+              }
+            }).catch((err) => {
+              console.warn('[VoiceContext] Native audio filter call error:', err);
+            });
+          }
         } else {
+          // Video only
           stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: {
@@ -766,9 +883,9 @@ export const VoiceProvider = ({ children }) => {
       const hasAudio = stream.getAudioTracks().length > 0;
       setIsScreenAudioEnabled(shouldCaptureAudio && hasAudio);
 
-      // Automated Software-Level Audio Cleaner for Screen Sharing
+      // Automated Software-Level Audio Cleaner for Screen Sharing (if not using native filter)
       let streamToTransmit = stream;
-      if (shouldCaptureAudio && hasAudio) {
+      if (shouldCaptureAudio && hasAudio && !nativeAudioProcessorRef.current) {
         if (screenAudioProcessorRef.current) {
           screenAudioProcessorRef.current.stop();
         }
@@ -808,6 +925,13 @@ export const VoiceProvider = ({ children }) => {
   };
 
   const stopScreenShare = () => {
+    if (nativeAudioProcessorRef.current) {
+      nativeAudioProcessorRef.current.stop();
+      nativeAudioProcessorRef.current = null;
+    }
+    if (window.electronAPI?.stopAudioFilter) {
+      window.electronAPI.stopAudioFilter().catch(() => {});
+    }
     if (screenAudioProcessorRef.current) {
       screenAudioProcessorRef.current.stop();
       screenAudioProcessorRef.current = null;
@@ -906,7 +1030,13 @@ export const VoiceProvider = ({ children }) => {
         toggleUserMute,
         toggleUserDeafen,
         isUserMuted,
-        isUserDeafened
+        isUserDeafened,
+        incomingCall,
+        outgoingCall,
+        initiateDMCall,
+        acceptDMCall,
+        declineDMCall,
+        cancelDMCall
       }}
     >
       {children}

@@ -136,7 +136,7 @@ export async function setupSignaling(io) {
   // Initialize storage connection
   await storage.initStorage();
 
-  // Load persisted database (from Redis if available, or pulsecord-db.json)
+  // Load persisted database directly from Redis / Upstash
   const loadedData = await storage.loadInitialData(INITIAL_SERVERS, initialHistory);
   let registeredUsers = loadedData.users || [];
   let servers = loadedData.servers || INITIAL_SERVERS;
@@ -167,7 +167,48 @@ export async function setupSignaling(io) {
     };
   };
 
+  const decodeInviteToId = (inviteInput) => {
+    if (!inviteInput || typeof inviteInput !== 'string') return null;
+    let cleaned = inviteInput.trim();
+    const match = cleaned.match(/invite\/([a-zA-Z0-9_-]+)/i);
+    if (match) cleaned = match[1];
+    cleaned = cleaned.replace(/^PC-?/i, '').trim();
+
+    if (cleaned.startsWith('server-')) return cleaned;
+    if (/^\d{12,}$/.test(cleaned)) return `server-${cleaned}`;
+    if (cleaned.toLowerCase() === 'community' || cleaned === '1') return 'server-1';
+
+    try {
+      const num = parseInt(cleaned, 36);
+      if (!isNaN(num) && num > 1000000000000) {
+        return `server-${num}`;
+      }
+    } catch (e) {}
+
+    return cleaned;
+  };
+
+  const encodeServerToInvite = (server) => {
+    if (!server) return 'VOXEL';
+    if (server.id === 'server-1') return 'COMMUNITY';
+    if (server.inviteCode) return server.inviteCode.toUpperCase();
+    const raw = (server.id || '').replace(/^server-/, '');
+    const num = parseInt(raw, 10);
+    if (!isNaN(num) && num > 1000000000000) {
+      return num.toString(36).toUpperCase();
+    }
+    return raw.substring(0, 8).toUpperCase() || 'VOXEL';
+  };
+
+  const generateInviteCode = (server = null) => {
+    return encodeServerToInvite(server);
+  };
+
   const formatServerWithMembers = (s) => {
+    s.memberRoles = s.memberRoles || {};
+    if (!s.inviteCode) {
+      s.inviteCode = encodeServerToInvite(s);
+    }
     let memberList = [];
     if (s.id === 'server-1') {
       const allKnown = [...registeredUsers];
@@ -176,13 +217,29 @@ export async function setupSignaling(io) {
           allKnown.push(act);
         }
       }
-      memberList = allKnown.map(sanitizeUser).filter(Boolean);
+      memberList = allKnown.map((u) => {
+        const sanitized = sanitizeUser(u);
+        if (!sanitized) return null;
+        const isOwner = u.id === s.ownerId;
+        const roleId = s.memberRoles[u.id] || (isOwner ? 'role-admin' : 'role-member');
+        return {
+          ...sanitized,
+          roleId
+        };
+      }).filter(Boolean);
     } else {
       const ids = new Set([s.ownerId, ...(s.memberIds || [])]);
       memberList = Array.from(ids)
         .map((id) => {
           const u = registeredUsers.find((r) => r.id === id) || Array.from(activeSockets.values()).find((act) => act.id === id);
-          return sanitizeUser(u);
+          const sanitized = sanitizeUser(u);
+          if (!sanitized) return null;
+          const isOwner = id === s.ownerId;
+          const roleId = s.memberRoles[id] || (isOwner ? 'role-admin' : 'role-member');
+          return {
+            ...sanitized,
+            roleId
+          };
         })
         .filter(Boolean);
     }
@@ -570,7 +627,7 @@ export async function setupSignaling(io) {
       const activeUser = {
         ...user,
         socketId: socket.id,
-        status: 'online',
+        status: user.status || 'online',
         isMuted: false,
         isDeafened: false,
         isScreenSharing: false,
@@ -605,7 +662,7 @@ export async function setupSignaling(io) {
       const activeUser = {
         ...user,
         socketId: socket.id,
-        status: 'online',
+        status: user.status || 'online',
         isMuted: false,
         isDeafened: false,
         isScreenSharing: false,
@@ -635,7 +692,7 @@ export async function setupSignaling(io) {
       const activeUser = activeSockets.get(socket.id);
       if (!activeUser) return callback && callback({ success: false, error: 'Not authenticated' });
 
-      const allowedFields = ['displayName', 'bio', 'pronouns', 'avatarColor', 'avatarUrl', 'bannerUrl', 'avatarDecoration', 'profileEffect', 'customStatus', 'gameStatus', 'username', 'appTheme', 'compactMode', 'clipSettings'];
+      const allowedFields = ['displayName', 'bio', 'pronouns', 'avatarColor', 'avatarUrl', 'bannerUrl', 'avatarDecoration', 'profileEffect', 'customStatus', 'gameStatus', 'username', 'appTheme', 'compactMode', 'clipSettings', 'status'];
 
       const userIndex = registeredUsers.findIndex(u => u.id === activeUser.id);
 
@@ -662,10 +719,18 @@ export async function setupSignaling(io) {
 
       // Broadcast to everyone
       io.emit('user-profile-updated', { user: activeUser });
+      io.emit('user-status-changed', { user: activeUser });
 
       if (callback) {
         if (userIndex !== -1) {
-          callback({ success: true, user: { ...registeredUsers[userIndex], password: undefined } });
+          callback({
+            success: true,
+            user: {
+              ...registeredUsers[userIndex],
+              password: undefined,
+              status: activeUser.status || 'online'
+            }
+          });
         } else {
           callback({ success: true, user: activeUser });
         }
@@ -789,6 +854,9 @@ export async function setupSignaling(io) {
         icon: icon || (name ? name.substring(0, 2).toUpperCase() : 'PC'),
         ownerId: user.id,
         memberIds: [user.id],
+        memberRoles: {
+          [user.id]: 'role-admin'
+        },
         roles: JSON.parse(JSON.stringify(DEFAULT_ROLES)),
         channels: [
           { id: `c-${Date.now()}-1`, name: 'geral', type: 'text', topic: 'Boas vindas ao novo servidor!' },
@@ -813,14 +881,26 @@ export async function setupSignaling(io) {
       if (callback) callback(formattedNew);
     });
 
-    // Join an Existing Server by Server ID
+    // Join an Existing Server by Server ID or Invite Code
     socket.on('join-server', ({ serverId }, callback) => {
       const user = activeSockets.get(socket.id);
-      if (!user) return;
+      if (!user) return callback && callback({ success: false, error: 'Não autenticado.' });
 
-      const targetServer = servers.find((s) => s.id === serverId);
+      const decodedId = decodeInviteToId(serverId);
+      let cleaned = (serverId || '').trim();
+      const match = cleaned.match(/invite\/([a-zA-Z0-9_-]+)/i);
+      if (match) cleaned = match[1];
+      cleaned = cleaned.replace(/^PC-?/i, '').trim();
+
+      const targetServer = servers.find((s) =>
+        s.id === serverId ||
+        (decodedId && s.id === decodedId) ||
+        (s.inviteCode && s.inviteCode.toUpperCase() === cleaned.toUpperCase()) ||
+        s.id === cleaned
+      );
+
       if (!targetServer) {
-        return callback && callback({ success: false, error: 'Servidor não encontrado.' });
+        return callback && callback({ success: false, error: 'Servidor não encontrado ou convite expirado.' });
       }
 
       if (!targetServer.memberIds) targetServer.memberIds = [];
@@ -828,16 +908,201 @@ export async function setupSignaling(io) {
         targetServer.memberIds.push(user.id);
       }
 
+      const registered = registeredUsers.find((u) => u.id === user.id);
+      if (registered) {
+        if (!registered.serverIds) registered.serverIds = [];
+        if (!registered.serverIds.includes(targetServer.id)) {
+          registered.serverIds.push(targetServer.id);
+        }
+      }
+
       storage.saveData(registeredUsers, servers, messageHistory);
 
       const formattedTarget = formatServerWithMembers(targetServer);
+
+      io.emit('server-roles-updated', {
+        serverId: targetServer.id,
+        roles: targetServer.roles,
+        server: formattedTarget
+      });
+
       socket.emit('server-created', formattedTarget);
       if (callback) callback({ success: true, server: formattedTarget });
     });
 
+    // Get or Create Invite Code for Server
+    socket.on('get-server-invite', ({ serverId }, callback) => {
+      const user = activeSockets.get(socket.id);
+      if (!user) return callback && callback({ success: false, error: 'Não autenticado.' });
+
+      const decodedId = decodeInviteToId(serverId);
+      const targetServer = servers.find((s) => s.id === serverId || (decodedId && s.id === decodedId));
+      if (!targetServer) {
+        return callback && callback({ success: false, error: 'Servidor não encontrado.' });
+      }
+
+      if (!targetServer.inviteCode) {
+        targetServer.inviteCode = encodeServerToInvite(targetServer);
+        storage.saveData(registeredUsers, servers, messageHistory);
+      }
+
+      const memberCount = (targetServer.memberIds?.length || 1);
+      callback && callback({
+        success: true,
+        inviteCode: targetServer.inviteCode,
+        inviteUrl: `https://voxel.gg/invite/${targetServer.inviteCode}`,
+        serverId: targetServer.id,
+        serverName: targetServer.name,
+        serverIcon: targetServer.icon,
+        memberCount
+      });
+    });
+
+    // Generate New Invite Code for Server
+    socket.on('generate-new-invite', ({ serverId }, callback) => {
+      const user = activeSockets.get(socket.id);
+      if (!user) return callback && callback({ success: false, error: 'Não autenticado.' });
+
+      const decodedId = decodeInviteToId(serverId);
+      const targetServer = servers.find((s) => s.id === serverId || (decodedId && s.id === decodedId));
+      if (!targetServer) {
+        return callback && callback({ success: false, error: 'Servidor não encontrado.' });
+      }
+
+      targetServer.inviteCode = encodeServerToInvite(targetServer);
+      storage.saveData(registeredUsers, servers, messageHistory);
+
+      const memberCount = (targetServer.memberIds?.length || 1);
+      callback && callback({
+        success: true,
+        inviteCode: targetServer.inviteCode,
+        inviteUrl: `https://voxel.gg/invite/${targetServer.inviteCode}`,
+        serverId: targetServer.id,
+        serverName: targetServer.name,
+        serverIcon: targetServer.icon,
+        memberCount
+      });
+    });
+
+    // Join Server via Invite Code or Link
+    socket.on('join-server-invite', ({ inviteCode }, callback) => {
+      const user = activeSockets.get(socket.id);
+      if (!user) return callback && callback({ success: false, error: 'Não autenticado.' });
+
+      if (!inviteCode || typeof inviteCode !== 'string') {
+        return callback && callback({ success: false, error: 'Código de convite inválido.' });
+      }
+
+      const decodedId = decodeInviteToId(inviteCode);
+      let cleaned = inviteCode.trim();
+      const urlMatch = cleaned.match(/invite\/([a-zA-Z0-9_-]+)/i);
+      if (urlMatch) {
+        cleaned = urlMatch[1];
+      } else {
+        cleaned = cleaned.replace(/^PC-?/i, '').trim();
+      }
+
+      const targetServer = servers.find((s) =>
+        (s.inviteCode && s.inviteCode.toUpperCase() === cleaned.toUpperCase()) ||
+        (decodedId && s.id === decodedId) ||
+        s.id === inviteCode ||
+        s.id === cleaned
+      );
+
+      if (!targetServer) {
+        return callback && callback({ success: false, error: 'Convite inválido ou servidor não encontrado.' });
+      }
+
+      if (!targetServer.memberIds) targetServer.memberIds = [];
+      if (!targetServer.memberIds.includes(user.id)) {
+        targetServer.memberIds.push(user.id);
+      }
+
+      const registered = registeredUsers.find((u) => u.id === user.id);
+      if (registered) {
+        if (!registered.serverIds) registered.serverIds = [];
+        if (!registered.serverIds.includes(targetServer.id)) {
+          registered.serverIds.push(targetServer.id);
+        }
+      }
+
+      storage.saveData(registeredUsers, servers, messageHistory);
+
+      const formattedTarget = formatServerWithMembers(targetServer);
+
+      // Notify other online members of this server
+      io.emit('server-roles-updated', {
+        serverId: targetServer.id,
+        roles: targetServer.roles,
+        server: formattedTarget
+      });
+
+      socket.emit('server-created', formattedTarget);
+      if (callback) callback({ success: true, server: formattedTarget });
+    });
+
+    // Send Server Invite directly via DM to a friend/user
+    socket.on('send-server-invite-dm', ({ targetUserId, serverId }, callback) => {
+      const user = activeSockets.get(socket.id);
+      if (!user) return callback && callback({ success: false, error: 'Não autenticado.' });
+
+      const targetServer = servers.find((s) => s.id === serverId);
+      if (!targetServer) {
+        return callback && callback({ success: false, error: 'Servidor não encontrado.' });
+      }
+
+      if (!targetServer.inviteCode) {
+        targetServer.inviteCode = generateInviteCode();
+      }
+
+      const sortedIds = [user.id, targetUserId].sort();
+      const dmId = `dm-${sortedIds[0]}_${sortedIds[1]}`;
+
+      const inviteMsg = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        channelId: dmId,
+        userId: user.id,
+        username: user.username,
+        displayName: user.displayName || user.username,
+        avatarUrl: user.avatarUrl,
+        avatarColor: user.avatarColor,
+        content: `Você foi convidado para participar de **${targetServer.name}**!\nhttps://voxel.gg/invite/${targetServer.inviteCode}`,
+        invite: {
+          code: targetServer.inviteCode,
+          serverId: targetServer.id,
+          serverName: targetServer.name,
+          serverIcon: targetServer.icon,
+          memberCount: (targetServer.memberIds?.length || 1)
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      let history = messageHistory.get(dmId);
+      if (!history) {
+        history = [];
+        messageHistory.set(dmId, history);
+      }
+      history.push(inviteMsg);
+      storage.saveData(registeredUsers, servers, messageHistory);
+
+      io.emit('new-message', { channelId: dmId, message: inviteMsg });
+      if (callback) callback({ success: true, message: inviteMsg });
+    });
+
     socket.on('create-channel', ({ serverId, name, type, topic, userLimit }, callback) => {
+      const activeUser = activeSockets.get(socket.id);
+      if (!activeUser) return;
       const server = servers.find((s) => s.id === serverId);
       if (!server) return;
+
+      const isOwner = server.ownerId === activeUser.id;
+      const callerRoleId = server.memberRoles?.[activeUser.id] || (isOwner ? 'role-admin' : 'role-member');
+      const callerRoleObj = (server.roles || []).find(r => r.id === callerRoleId);
+      const canManageChannels = isOwner || callerRoleObj?.permissions?.administrator || callerRoleObj?.permissions?.manageChannels;
+
+      if (!canManageChannels) {
+        return callback && callback({ error: 'Sem permissão para criar canais.' });
+      }
 
       const newChannel = {
         id: `${type[0]}-${Date.now()}`,
@@ -855,14 +1120,55 @@ export async function setupSignaling(io) {
     });
 
     socket.on('update-roles', ({ serverId, roles }, callback) => {
+      const activeUser = activeSockets.get(socket.id);
+      if (!activeUser) return;
       const server = servers.find((s) => s.id === serverId);
-      if (server) {
-        server.roles = roles;
-        storage.saveData(registeredUsers, servers, messageHistory);
+      if (!server) return;
 
-        io.emit('server-roles-updated', { serverId, roles });
-        if (callback) callback({ success: true });
+      const isOwner = server.ownerId === activeUser.id;
+      const callerRoleId = server.memberRoles?.[activeUser.id] || (isOwner ? 'role-admin' : 'role-member');
+      const callerRoleObj = (server.roles || []).find(r => r.id === callerRoleId);
+      const hasPermission = isOwner || callerRoleObj?.permissions?.administrator || callerRoleObj?.permissions?.manageRoles;
+
+      if (!hasPermission) {
+        return callback && callback({ success: false, error: 'Sem permissão para alterar cargos.' });
       }
+
+      server.roles = roles;
+      storage.saveData(registeredUsers, servers, messageHistory);
+
+      const formattedServer = formatServerWithMembers(server);
+      io.emit('server-roles-updated', { serverId, roles, server: formattedServer });
+      if (callback) callback({ success: true, server: formattedServer });
+    });
+
+    socket.on('assign-member-role', ({ serverId, targetUserId, roleId }, callback) => {
+      const activeUser = activeSockets.get(socket.id);
+      if (!activeUser) return callback && callback({ success: false, error: 'Não autenticado' });
+
+      const server = servers.find((s) => s.id === serverId);
+      if (!server) return callback && callback({ success: false, error: 'Servidor não encontrado' });
+
+      // Permission check: Owner or role with administrator / manageRoles permission
+      const isOwner = server.ownerId === activeUser.id;
+      const callerRoleId = server.memberRoles?.[activeUser.id] || (isOwner ? 'role-admin' : 'role-member');
+      const callerRoleObj = (server.roles || []).find(r => r.id === callerRoleId);
+      const hasPermission = isOwner || callerRoleObj?.permissions?.administrator || callerRoleObj?.permissions?.manageRoles;
+
+      if (!hasPermission) {
+        return callback && callback({ success: false, error: 'Apenas o Dono ou Administradores com permissão podem alterar cargos.' });
+      }
+
+      if (!server.memberRoles) server.memberRoles = {};
+      server.memberRoles[targetUserId] = roleId || 'role-member';
+
+      storage.saveData(registeredUsers, servers, messageHistory);
+
+      const formattedServer = formatServerWithMembers(server);
+      io.emit('server-roles-updated', { serverId, roles: server.roles, server: formattedServer });
+      io.emit('server-member-role-updated', { serverId, targetUserId, roleId, server: formattedServer });
+
+      if (callback) callback({ success: true, server: formattedServer });
     });
 
     // ==========================================
@@ -953,6 +1259,67 @@ export async function setupSignaling(io) {
       }
 
       if (callback) callback({ success: true, dm: dmPayload });
+    });
+
+    // ==========================================
+    // DM CALLS SIGNALING
+    // ==========================================
+
+    // Initiate DM Call
+    socket.on('initiate-dm-call', ({ targetUserId, dmId }) => {
+      console.log(`[DM Call] Recebido initiate-dm-call de socket ${socket.id} para alvo ${targetUserId} na DM ${dmId}`);
+      const user = activeSockets.get(socket.id);
+      if (!user) {
+        console.log(`[DM Call] ERRO: Usuário não encontrado no activeSockets para o socket ${socket.id}`);
+        return;
+      }
+      
+      let foundTarget = false;
+      // Find target user's active sockets and notify them
+      for (const [sockId, actUser] of activeSockets.entries()) {
+        if (actUser.id === targetUserId) {
+          console.log(`[DM Call] Alvo encontrado online no socket ${sockId}! Emitindo dm-call-incoming.`);
+          io.to(sockId).emit('dm-call-incoming', {
+            dmId,
+            caller: sanitizeUser(user),
+          });
+          foundTarget = true;
+        }
+      }
+      
+      if (!foundTarget) {
+        console.log(`[DM Call] AVISO: Alvo ${targetUserId} não possui nenhum socket ativo no momento.`);
+      }
+    });
+
+    // Cancel DM Call (caller hangs up before answer)
+    socket.on('cancel-dm-call', ({ targetUserId, dmId }) => {
+      console.log(`[DM Call] Cancelando chamada na DM ${dmId} para alvo ${targetUserId}`);
+      for (const [sockId, actUser] of activeSockets.entries()) {
+        if (actUser.id === targetUserId) {
+          io.to(sockId).emit('dm-call-cancelled', { dmId });
+        }
+      }
+    });
+
+    // Decline DM Call (callee rejects)
+    socket.on('decline-dm-call', ({ callerId, dmId }) => {
+      console.log(`[DM Call] Recusando chamada na DM ${dmId} do chamador ${callerId}`);
+      for (const [sockId, actUser] of activeSockets.entries()) {
+        if (actUser.id === callerId) {
+          io.to(sockId).emit('dm-call-declined', { dmId });
+        }
+      }
+    });
+
+    // Accept DM Call (callee accepts)
+    socket.on('accept-dm-call', ({ callerId, dmId }) => {
+      console.log(`[DM Call] Aceitando chamada na DM ${dmId} do chamador ${callerId}`);
+      for (const [sockId, actUser] of activeSockets.entries()) {
+        if (actUser.id === callerId) {
+          io.to(sockId).emit('dm-call-accepted', { dmId });
+        }
+      }
     });
 
     // Pin Message (Permanent, survives 1h auto-deletion)
@@ -1070,339 +1437,350 @@ export async function setupSignaling(io) {
     });
 
     // ==========================================
-        // 4. VOICE CHANNELS & WEBRTC
-        // ==========================================
-        socket.on('join-voice', ({ channelId, serverId }, callback) => {
-          const user = activeSockets.get(socket.id);
-          if (!user) return;
+    // 4. VOICE CHANNELS & WEBRTC
+    // ==========================================
+    socket.on('join-voice', ({ channelId, serverId }, callback) => {
+      const user = activeSockets.get(socket.id);
+      if (!user) return;
 
-          // Clean this user from ANY voice room they might previously be in
-          for (const [rId, rUsers] of voiceRooms.entries()) {
-            const hasUser = rUsers.some((u) => u.id === user.id || u.socketId === socket.id);
-            if (hasUser) {
-              const filtered = rUsers.filter((u) => u.id !== user.id && u.socketId !== socket.id);
-              if (filtered.length === 0) {
-                voiceRooms.delete(rId);
-              } else {
-                voiceRooms.set(rId, filtered);
-              }
-              socket.leave(`voice-${rId}`);
-              socket.to(`voice-${rId}`).emit('user-left-voice', {
-                socketId: socket.id,
-                userId: user.id,
-                channelId: rId
-              });
-            }
+      // Clean this user from ANY voice room they might previously be in
+      for (const [rId, rUsers] of voiceRooms.entries()) {
+        const hasUser = rUsers.some((u) => u.id === user.id || u.socketId === socket.id);
+        if (hasUser) {
+          const filtered = rUsers.filter((u) => u.id !== user.id && u.socketId !== socket.id);
+          if (filtered.length === 0) {
+            voiceRooms.delete(rId);
+          } else {
+            voiceRooms.set(rId, filtered);
           }
-
-          user.activeVoiceChannel = channelId;
-          socket.join(`voice-${channelId}`);
-
-          if (!voiceRooms.has(channelId)) {
-            voiceRooms.set(channelId, []);
-          }
-
-          const roomUsers = voiceRooms.get(channelId);
-          const existingIdx = roomUsers.findIndex((u) => u.id === user.id || u.socketId === socket.id);
-          if (existingIdx !== -1) roomUsers.splice(existingIdx, 1);
-
-          roomUsers.push(user);
-
-          socket.to(`voice-${channelId}`).emit('user-joined-voice', {
-            user,
-            channelId
+          socket.leave(`voice-${rId}`);
+          socket.to(`voice-${rId}`).emit('user-left-voice', {
+            socketId: socket.id,
+            userId: user.id,
+            channelId: rId
           });
+        }
+      }
 
-          const musicPlayer = musicBot.getPlayer(channelId);
-          const defaultState = { isActive: false, url: '', isPlaying: false, currentTime: 0, queue: [], participants: [], hostId: null };
-          const watchTogether = watchTogetherRooms.get(channelId) || defaultState;
+      user.activeVoiceChannel = channelId;
+      socket.join(`voice-${channelId}`);
 
-          if (callback) {
-            callback({
-              success: true,
-              usersInRoom: roomUsers.filter((u) => u.socketId !== socket.id && u.id !== user.id),
-              musicPlayer,
-              watchTogether
-            });
+      if (!voiceRooms.has(channelId)) {
+        voiceRooms.set(channelId, []);
+      }
+
+      const roomUsers = voiceRooms.get(channelId);
+      const existingIdx = roomUsers.findIndex((u) => u.id === user.id || u.socketId === socket.id);
+      if (existingIdx !== -1) roomUsers.splice(existingIdx, 1);
+
+      roomUsers.push(user);
+
+      socket.to(`voice-${channelId}`).emit('user-joined-voice', {
+        user,
+        channelId
+      });
+
+      const musicPlayer = musicBot.getPlayer(channelId);
+      const defaultState = { isActive: false, url: '', isPlaying: false, currentTime: 0, queue: [], participants: [], hostId: null };
+      const watchTogether = watchTogetherRooms.get(channelId) || defaultState;
+
+      if (callback) {
+        callback({
+          success: true,
+          usersInRoom: roomUsers.filter((u) => u.socketId !== socket.id && u.id !== user.id),
+          musicPlayer,
+          watchTogether
+        });
+      }
+
+      io.emit('voice-rooms-updated', {
+        voiceRooms: Object.fromEntries(voiceRooms)
+      });
+    });
+
+    socket.on('leave-voice', () => {
+      const user = activeSockets.get(socket.id);
+      leaveCurrentVoice(socket, user, io, voiceRooms);
+    });
+
+    // Move a user to another voice channel (Permissions: Server Owner, Admin, or Move/Manage Members role)
+    socket.on('move-voice-user', ({ targetUserId, targetChannelId, serverId }, callback) => {
+      const caller = activeSockets.get(socket.id);
+      if (!caller) return callback && callback({ success: false, error: 'Não autenticado' });
+
+      // Permission check: Owner or role with permission (administrator, manageChannels, kickMembers) or self
+      const server = servers.find((s) => s.id === serverId);
+      const isOwner = server && server.ownerId === caller.id;
+      const callerRoleId = server?.memberRoles?.[caller.id] || (isOwner ? 'role-admin' : 'role-member');
+      const callerRoleObj = (server?.roles || []).find(r => r.id === callerRoleId);
+      const canMove = isOwner || Boolean(callerRoleObj?.permissions?.administrator || callerRoleObj?.permissions?.manageChannels || callerRoleObj?.permissions?.kickMembers) || caller.id === targetUserId;
+
+      if (!canMove) {
+        return callback && callback({ success: false, error: 'Sem permissão para mover membros de canal.' });
+      }
+
+      // Find target user
+      let targetSockId = null;
+      let targetUser = null;
+      for (const [sockId, u] of activeSockets.entries()) {
+        if (u.id === targetUserId || u.socketId === targetUserId) {
+          targetSockId = sockId;
+          targetUser = u;
+          break;
+        }
+      }
+
+      if (!targetUser || !targetSockId) {
+        return callback && callback({ success: false, error: 'Usuário não encontrado ou offline' });
+      }
+
+      // Clean old room from voiceRooms
+      for (const [rId, rUsers] of voiceRooms.entries()) {
+        const hasTarget = rUsers.some((u) => u.id === targetUser.id || u.socketId === targetSockId);
+        if (hasTarget) {
+          const filtered = rUsers.filter((u) => u.id !== targetUser.id && u.socketId !== targetSockId);
+          if (filtered.length === 0) {
+            voiceRooms.delete(rId);
+          } else {
+            voiceRooms.set(rId, filtered);
           }
-
-          io.emit('voice-rooms-updated', {
-            voiceRooms: Object.fromEntries(voiceRooms)
+          const tSock = io.sockets.sockets.get(targetSockId);
+          if (tSock) {
+            tSock.leave(`voice-${rId}`);
+          }
+          io.to(`voice-${rId}`).emit('user-left-voice', {
+            socketId: targetSockId,
+            userId: targetUser.id,
+            channelId: rId
           });
-        });
+        }
+      }
 
-        socket.on('leave-voice', () => {
-          const user = activeSockets.get(socket.id);
-          leaveCurrentVoice(socket, user, io, voiceRooms);
-        });
+      // Add to new room in voiceRooms
+      targetUser.activeVoiceChannel = targetChannelId;
+      if (!voiceRooms.has(targetChannelId)) {
+        voiceRooms.set(targetChannelId, []);
+      }
+      const newRoom = voiceRooms.get(targetChannelId).filter((u) => u.id !== targetUser.id && u.socketId !== targetSockId);
+      newRoom.push(targetUser);
+      voiceRooms.set(targetChannelId, newRoom);
 
-        // Move a user to another voice channel (Permissions: Server Owner, Admin, Mod, or Move Members role)
-        socket.on('move-voice-user', ({ targetUserId, targetChannelId, serverId }, callback) => {
-          const caller = activeSockets.get(socket.id);
-          if (!caller) return callback && callback({ success: false, error: 'Não autenticado' });
+      const targetSock = io.sockets.sockets.get(targetSockId);
+      if (targetSock) {
+        targetSock.join(`voice-${targetChannelId}`);
+      }
 
-          // Permission check: Owner, Admin, Mod, or self
-          const server = servers.find((s) => s.id === serverId);
-          const isOwner = server && server.ownerId === caller.id;
-          const isAdminOrMod = caller.roleId === 'role-admin' || caller.roleId === 'role-mod' || caller.id === 'usr-admin';
+      // Broadcast new room state immediately to everyone
+      io.emit('voice-rooms-updated', {
+        voiceRooms: Object.fromEntries(voiceRooms)
+      });
 
-          if (!isOwner && !isAdminOrMod && caller.id !== targetUserId) {
-            return callback && callback({ success: false, error: 'Sem permissão para mover membros de canal.' });
-          }
+      // Command target client to switch voice streams
+      io.to(targetSockId).emit('moved-to-voice-channel', { channelId: targetChannelId, serverId });
 
-          // Find target user
-          let targetSocket = null;
-          let targetUser = null;
-          for (const [sockId, u] of activeSockets.entries()) {
-            if (u.id === targetUserId || u.socketId === targetUserId) {
-              targetSocket = io.sockets.sockets.get(sockId);
-              targetUser = u;
-              break;
-            }
-          }
+      if (callback) callback({ success: true });
+    });
 
-          if (!targetUser) {
-            return callback && callback({ success: false, error: 'Usuário não encontrado' });
-          }
+    // Disconnect a user from voice channel (Owner / Admin / Mod)
+    socket.on('disconnect-voice-user', ({ targetUserId, serverId }, callback) => {
+      const caller = activeSockets.get(socket.id);
+      if (!caller) return;
+      const server = servers.find((s) => s.id === serverId);
+      const isOwner = server && server.ownerId === caller.id;
+      const callerRoleId = server?.memberRoles?.[caller.id] || (isOwner ? 'role-admin' : 'role-member');
+      const callerRoleObj = (server?.roles || []).find(r => r.id === callerRoleId);
+      const canDisconnect = isOwner || Boolean(callerRoleObj?.permissions?.administrator || callerRoleObj?.permissions?.kickMembers);
 
-          // Leave old voice room if in one
-          const oldChannelId = targetUser.activeVoiceChannel;
-          if (oldChannelId) {
-            const oldRoom = voiceRooms.get(oldChannelId) || [];
-            voiceRooms.set(oldChannelId, oldRoom.filter((u) => u.id !== targetUser.id && u.socketId !== targetUser.socketId));
-            if (targetSocket) {
-              targetSocket.leave(`voice-${oldChannelId}`);
-              targetSocket.to(`voice-${oldChannelId}`).emit('user-left-voice', {
-                socketId: targetSocket.id,
-                userId: targetUser.id,
-                channelId: oldChannelId
-              });
-            }
-          }
+      if (!canDisconnect) {
+        return callback && callback({ success: false, error: 'Sem permissão.' });
+      }
 
-          // Join new voice room
-          targetUser.activeVoiceChannel = targetChannelId;
-          if (!voiceRooms.has(targetChannelId)) {
-            voiceRooms.set(targetChannelId, []);
-          }
-          const newRoom = voiceRooms.get(targetChannelId).filter((u) => u.id !== targetUser.id && u.socketId !== targetUser.socketId);
-          newRoom.push(targetUser);
-          voiceRooms.set(targetChannelId, newRoom);
-
+      for (const [sockId, u] of activeSockets.entries()) {
+        if (u.id === targetUserId || u.socketId === targetUserId) {
+          const targetSocket = io.sockets.sockets.get(sockId);
           if (targetSocket) {
-            targetSocket.join(`voice-${targetChannelId}`);
-            targetSocket.emit('moved-to-voice-channel', { channelId: targetChannelId, serverId });
-            targetSocket.to(`voice-${targetChannelId}`).emit('user-joined-voice', {
-              user: targetUser,
-              channelId: targetChannelId
-            });
+            leaveCurrentVoice(targetSocket, u, io, voiceRooms);
+            targetSocket.emit('force-disconnected-from-voice');
           }
+          break;
+        }
+      }
+      if (callback) callback({ success: true });
+    });
 
-          io.emit('voice-rooms-updated', {
-            voiceRooms: Object.fromEntries(voiceRooms)
-          });
+    socket.on('webrtc-offer', ({ targetSocketId, offer, isScreenShare }) => {
+      const sender = activeSockets.get(socket.id);
+      io.to(targetSocketId).emit('webrtc-offer', {
+        senderSocketId: socket.id,
+        senderUser: sender,
+        offer,
+        isScreenShare
+      });
+    });
 
-          if (callback) callback({ success: true });
+    socket.on('webrtc-answer', ({ targetSocketId, answer, isScreenShare }) => {
+      io.to(targetSocketId).emit('webrtc-answer', {
+        senderSocketId: socket.id,
+        answer,
+        isScreenShare
+      });
+    });
+
+    socket.on('webrtc-ice-candidate', ({ targetSocketId, candidate, isScreenShare }) => {
+      io.to(targetSocketId).emit('webrtc-ice-candidate', {
+        senderSocketId: socket.id,
+        candidate,
+        isScreenShare
+      });
+    });
+
+    socket.on('speaking-state', ({ isSpeaking }) => {
+      const user = activeSockets.get(socket.id);
+      if (user && user.activeVoiceChannel) {
+        socket.to(`voice-${user.activeVoiceChannel}`).emit('user-speaking', {
+          socketId: socket.id,
+          userId: user.id,
+          isSpeaking
         });
+      }
+    });
 
-        // Disconnect a user from voice channel (Owner / Admin / Mod)
-        socket.on('disconnect-voice-user', ({ targetUserId, serverId }, callback) => {
-          const caller = activeSockets.get(socket.id);
-          if (!caller) return;
-          const server = servers.find((s) => s.id === serverId);
-          const isOwner = server && server.ownerId === caller.id;
-          const isAdminOrMod = caller.roleId === 'role-admin' || caller.roleId === 'role-mod' || caller.id === 'usr-admin';
+    socket.on('update-voice-status', ({ isMuted, isDeafened, isScreenSharing }) => {
+      const user = activeSockets.get(socket.id);
+      if (user) {
+        if (typeof isMuted === 'boolean') user.isMuted = isMuted;
+        if (typeof isDeafened === 'boolean') user.isDeafened = isDeafened;
+        if (typeof isScreenSharing === 'boolean') user.isScreenSharing = isScreenSharing;
 
-          if (!isOwner && !isAdminOrMod) {
-            return callback && callback({ success: false, error: 'Sem permissão.' });
+        if (user.activeVoiceChannel) {
+          io.to(`voice-${user.activeVoiceChannel}`).emit('user-voice-status-updated', {
+            user
+          });
+        }
+        io.emit('voice-rooms-updated', {
+          voiceRooms: Object.fromEntries(voiceRooms)
+        });
+      }
+    });
+
+    // 5. Music Bot Direct Controls
+    socket.on('music-search', async ({ query }, callback) => {
+      try {
+        const results = await musicBot.searchTracks(query);
+        callback({ success: true, results });
+      } catch (err) {
+        callback({ success: false, error: err.message });
+      }
+    });
+
+    socket.on('music-control', async ({ action, channelId, query, volume }) => {
+      const user = activeSockets.get(socket.id);
+      const targetChannel = channelId || (user ? user.activeVoiceChannel : null);
+      if (!targetChannel || !user) return;
+
+      switch (action) {
+        case 'play':
+          await musicBot.play(targetChannel, query || 'lofi', user);
+          break;
+        case 'pause':
+          musicBot.pause(targetChannel);
+          break;
+        case 'resume':
+          musicBot.resume(targetChannel);
+          break;
+        case 'skip':
+          musicBot.skip(targetChannel);
+          break;
+        case 'stop':
+          musicBot.stop(targetChannel);
+          break;
+        case 'volume':
+          musicBot.setVolume(targetChannel, volume);
+          break;
+      }
+    });
+
+    // 6. Watch Together Realtime Sync
+    socket.on('watch-together-action', ({ channelId, action, payload }) => {
+      const user = activeSockets.get(socket.id);
+      const targetChannel = channelId || (user ? user.activeVoiceChannel : null);
+      if (!targetChannel || !user) return;
+
+      const defaultState = { isActive: false, url: '', isPlaying: false, currentTime: 0, queue: [], participants: [], hostId: null };
+      let current = watchTogetherRooms.get(targetChannel) || { ...defaultState };
+
+      switch (action) {
+        case 'start':
+          current = {
+            ...defaultState,
+            isActive: true,
+            url: payload.url,
+            isPlaying: true,
+            hostId: user.id,
+            participants: [user.id]
+          };
+          break;
+        case 'sync':
+          // Only host should sync playback state to avoid conflicts
+          if (current.hostId === user.id) {
+            current = { ...current, ...payload };
           }
-
-          for (const [sockId, u] of activeSockets.entries()) {
-            if (u.id === targetUserId) {
-              const targetSocket = io.sockets.sockets.get(sockId);
-              if (targetSocket) {
-                leaveCurrentVoice(targetSocket, u, io, voiceRooms);
-                targetSocket.emit('force-disconnected-from-voice');
-              }
-              break;
+          break;
+        case 'join':
+          if (current.isActive && !current.participants.includes(user.id)) {
+            current.participants.push(user.id);
+          }
+          break;
+        case 'leave':
+          current.participants = current.participants.filter(id => id !== user.id);
+          if (current.participants.length === 0) {
+            current = { ...defaultState }; // End watchparty if empty
+          } else if (current.hostId === user.id) {
+            // Pass host to someone else
+            current.hostId = current.participants[0];
+          }
+          break;
+        case 'enqueue':
+          if (current.isActive && payload.url) {
+            if (!current.url) {
+              current.url = payload.url;
+              current.isPlaying = true;
+              current.currentTime = 0;
+            } else {
+              current.queue.push(payload.url);
             }
           }
-          if (callback) callback({ success: true });
-        });
-
-        socket.on('webrtc-offer', ({ targetSocketId, offer, isScreenShare }) => {
-          const sender = activeSockets.get(socket.id);
-          io.to(targetSocketId).emit('webrtc-offer', {
-            senderSocketId: socket.id,
-            senderUser: sender,
-            offer,
-            isScreenShare
-          });
-        });
-
-        socket.on('webrtc-answer', ({ targetSocketId, answer, isScreenShare }) => {
-          io.to(targetSocketId).emit('webrtc-answer', {
-            senderSocketId: socket.id,
-            answer,
-            isScreenShare
-          });
-        });
-
-        socket.on('webrtc-ice-candidate', ({ targetSocketId, candidate, isScreenShare }) => {
-          io.to(targetSocketId).emit('webrtc-ice-candidate', {
-            senderSocketId: socket.id,
-            candidate,
-            isScreenShare
-          });
-        });
-
-        socket.on('speaking-state', ({ isSpeaking }) => {
-          const user = activeSockets.get(socket.id);
-          if (user && user.activeVoiceChannel) {
-            socket.to(`voice-${user.activeVoiceChannel}`).emit('user-speaking', {
-              socketId: socket.id,
-              userId: user.id,
-              isSpeaking
-            });
-          }
-        });
-
-        socket.on('update-voice-status', ({ isMuted, isDeafened, isScreenSharing }) => {
-          const user = activeSockets.get(socket.id);
-          if (user) {
-            if (typeof isMuted === 'boolean') user.isMuted = isMuted;
-            if (typeof isDeafened === 'boolean') user.isDeafened = isDeafened;
-            if (typeof isScreenSharing === 'boolean') user.isScreenSharing = isScreenSharing;
-
-            if (user.activeVoiceChannel) {
-              io.to(`voice-${user.activeVoiceChannel}`).emit('user-voice-status-updated', {
-                user
-              });
+          break;
+        case 'next':
+          if (current.isActive && current.hostId === user.id) {
+            if (current.queue.length > 0) {
+              const nextUrl = current.queue.shift();
+              current.url = nextUrl;
+              current.isPlaying = true;
+              current.currentTime = 0;
+            } else {
+              current = { ...defaultState }; // Queue ended, stop watchparty
             }
-            io.emit('voice-rooms-updated', {
-              voiceRooms: Object.fromEntries(voiceRooms)
-            });
           }
-        });
-
-        // 5. Music Bot Direct Controls
-        socket.on('music-search', async ({ query }, callback) => {
-          try {
-            const results = await musicBot.searchTracks(query);
-            callback({ success: true, results });
-          } catch (err) {
-            callback({ success: false, error: err.message });
+          break;
+        case 'end':
+          if (current.hostId === user.id) {
+            current = { ...defaultState };
           }
-        });
+          break;
+      }
 
-        socket.on('music-control', async ({ action, channelId, query, volume }) => {
-          const user = activeSockets.get(socket.id);
-          const targetChannel = channelId || (user ? user.activeVoiceChannel : null);
-          if (!targetChannel || !user) return;
+      watchTogetherRooms.set(targetChannel, current);
 
-          switch (action) {
-            case 'play':
-              await musicBot.play(targetChannel, query || 'lofi', user);
-              break;
-            case 'pause':
-              musicBot.pause(targetChannel);
-              break;
-            case 'resume':
-              musicBot.resume(targetChannel);
-              break;
-            case 'skip':
-              musicBot.skip(targetChannel);
-              break;
-            case 'stop':
-              musicBot.stop(targetChannel);
-              break;
-            case 'volume':
-              musicBot.setVolume(targetChannel, volume);
-              break;
-          }
-        });
+      io.to(`voice-${targetChannel}`).emit('watch-together-state-update', {
+        channelId: targetChannel,
+        state: current
+      });
+    });
 
-        // 6. Watch Together Realtime Sync
-        socket.on('watch-together-action', ({ channelId, action, payload }) => {
-          const user = activeSockets.get(socket.id);
-          const targetChannel = channelId || (user ? user.activeVoiceChannel : null);
-          if (!targetChannel || !user) return;
-
-          const defaultState = { isActive: false, url: '', isPlaying: false, currentTime: 0, queue: [], participants: [], hostId: null };
-          let current = watchTogetherRooms.get(targetChannel) || { ...defaultState };
-
-          switch (action) {
-            case 'start':
-              current = {
-                ...defaultState,
-                isActive: true,
-                url: payload.url,
-                isPlaying: true,
-                hostId: user.id,
-                participants: [user.id]
-              };
-              break;
-            case 'sync':
-              // Only host should sync playback state to avoid conflicts
-              if (current.hostId === user.id) {
-                current = { ...current, ...payload };
-              }
-              break;
-            case 'join':
-              if (current.isActive && !current.participants.includes(user.id)) {
-                current.participants.push(user.id);
-              }
-              break;
-            case 'leave':
-              current.participants = current.participants.filter(id => id !== user.id);
-              if (current.participants.length === 0) {
-                current = { ...defaultState }; // End watchparty if empty
-              } else if (current.hostId === user.id) {
-                // Pass host to someone else
-                current.hostId = current.participants[0];
-              }
-              break;
-            case 'enqueue':
-              if (current.isActive && payload.url) {
-                if (!current.url) {
-                  current.url = payload.url;
-                  current.isPlaying = true;
-                  current.currentTime = 0;
-                } else {
-                  current.queue.push(payload.url);
-                }
-              }
-              break;
-            case 'next':
-              if (current.isActive && current.hostId === user.id) {
-                if (current.queue.length > 0) {
-                  const nextUrl = current.queue.shift();
-                  current.url = nextUrl;
-                  current.isPlaying = true;
-                  current.currentTime = 0;
-                } else {
-                  current = { ...defaultState }; // Queue ended, stop watchparty
-                }
-              }
-              break;
-            case 'end':
-              if (current.hostId === user.id) {
-                current = { ...defaultState };
-              }
-              break;
-          }
-
-          watchTogetherRooms.set(targetChannel, current);
-
-          io.to(`voice-${targetChannel}`).emit('watch-together-state-update', {
-            channelId: targetChannel,
-            state: current
-          });
-        });
-
-        // Disconnect
-        socket.on('disconnect', () => {
-          console.log(`[Socket Disconnected] ID: ${socket.id}`);
+    // Disconnect
+    socket.on('disconnect', () => {
+      console.log(`[Socket Disconnected] ID: ${socket.id}`);
       const user = activeSockets.get(socket.id);
       if (user) {
         if (user.activeVoiceChannel) {
@@ -1416,138 +1794,138 @@ export async function setupSignaling(io) {
 }
 
 function leaveCurrentVoice(socket, user, io, voiceRooms) {
-      const socketId = socket?.id;
-      const userId = user?.id;
+  const socketId = socket?.id;
+  const userId = user?.id;
 
-      for (const [channelId, room] of voiceRooms.entries()) {
-        const hasMatch = room.some((u) => (socketId && u.socketId === socketId) || (userId && u.id === userId));
-        if (hasMatch) {
-          const updated = room.filter((u) => (!socketId || u.socketId !== socketId) && (!userId || u.id !== userId));
-          if (updated.length === 0) {
-            voiceRooms.delete(channelId);
-          } else {
-            voiceRooms.set(channelId, updated);
-          }
-
-          if (socket) {
-            socket.leave(`voice-${channelId}`);
-            socket.to(`voice-${channelId}`).emit('user-left-voice', {
-              socketId: socketId,
-              userId: userId || 'unknown',
-              channelId
-            });
-          }
-        }
+  for (const [channelId, room] of voiceRooms.entries()) {
+    const hasMatch = room.some((u) => (socketId && u.socketId === socketId) || (userId && u.id === userId));
+    if (hasMatch) {
+      const updated = room.filter((u) => (!socketId || u.socketId !== socketId) && (!userId || u.id !== userId));
+      if (updated.length === 0) {
+        voiceRooms.delete(channelId);
+      } else {
+        voiceRooms.set(channelId, updated);
       }
 
-      if (user) {
-        user.activeVoiceChannel = null;
-        user.isScreenSharing = false;
+      if (socket) {
+        socket.leave(`voice-${channelId}`);
+        socket.to(`voice-${channelId}`).emit('user-left-voice', {
+          socketId: socketId,
+          userId: userId || 'unknown',
+          channelId
+        });
       }
-
-      io.emit('voice-rooms-updated', {
-        voiceRooms: Object.fromEntries(voiceRooms)
-      });
     }
+  }
+
+  if (user) {
+    user.activeVoiceChannel = null;
+    user.isScreenSharing = false;
+  }
+
+  io.emit('voice-rooms-updated', {
+    voiceRooms: Object.fromEntries(voiceRooms)
+  });
+}
 
 async function handleBotCommand(channelId, content, user, io, musicBot, messageHistory, storage, servers, registeredUsers) {
-      const parts = content.trim().split(' ');
-      const command = parts[0].toLowerCase();
-      const args = parts.slice(1).join(' ');
+  const parts = content.trim().split(' ');
+  const command = parts[0].toLowerCase();
+  const args = parts.slice(1).join(' ');
 
-      let botReply = null;
-      const targetVoiceChannel = user.activeVoiceChannel || 'v-music';
+  let botReply = null;
+  const targetVoiceChannel = user.activeVoiceChannel || 'v-music';
 
-      switch (command) {
-        case '/play':
-        case '/p':
-          if (!args) {
-            botReply = 'Uso correto: `/play <link do YouTube / Spotify / SoundCloud ou nome>`';
-          } else {
-            const res = await musicBot.play(targetVoiceChannel, args, user);
-            botReply =
-              res.status === 'playing'
-                ? `Reproduzindo agora: **${res.track.title}** (${res.track.artist || 'Música'})`
-                : `Adicionado à fila: **${res.track.title}** (Posição #${res.queuePosition})`;
-          }
-          break;
+  switch (command) {
+    case '/play':
+    case '/p':
+      if (!args) {
+        botReply = 'Uso correto: `/play <link do YouTube / Spotify / SoundCloud ou nome>`';
+      } else {
+        const res = await musicBot.play(targetVoiceChannel, args, user);
+        botReply =
+          res.status === 'playing'
+            ? `Reproduzindo agora: **${res.track.title}** (${res.track.artist || 'Música'})`
+            : `Adicionado à fila: **${res.track.title}** (Posição #${res.queuePosition})`;
+      }
+      break;
 
-        case '/skip':
-        case '/s':
-          const skipped = musicBot.skip(targetVoiceChannel);
-          botReply = skipped.currentTrack
-            ? `Faixa pulada. Reproduzindo: **${skipped.currentTrack.title}**`
-            : 'Fila finalizada. O reprodutor foi parado.';
-          break;
+    case '/skip':
+    case '/s':
+      const skipped = musicBot.skip(targetVoiceChannel);
+      botReply = skipped.currentTrack
+        ? `Faixa pulada. Reproduzindo: **${skipped.currentTrack.title}**`
+        : 'Fila finalizada. O reprodutor foi parado.';
+      break;
 
-        case '/pause':
-          musicBot.pause(targetVoiceChannel);
-          botReply = 'Reprodução pausada. Digite `/resume` para continuar.';
-          break;
+    case '/pause':
+      musicBot.pause(targetVoiceChannel);
+      botReply = 'Reprodução pausada. Digite `/resume` para continuar.';
+      break;
 
-        case '/resume':
-          musicBot.resume(targetVoiceChannel);
-          botReply = 'Reprodução continuada.';
-          break;
+    case '/resume':
+      musicBot.resume(targetVoiceChannel);
+      botReply = 'Reprodução continuada.';
+      break;
 
-        case '/stop':
-          musicBot.stop(targetVoiceChannel);
-          botReply = 'Reprodução finalizada e fila limpa.';
-          break;
+    case '/stop':
+      musicBot.stop(targetVoiceChannel);
+      botReply = 'Reprodução finalizada e fila limpa.';
+      break;
 
-        case '/queue':
-        case '/q':
-          const player = musicBot.getPlayer(targetVoiceChannel);
-          if (!player.currentTrack) {
-            botReply = 'Nenhuma faixa sendo reproduzida no momento.';
-          } else {
-            let text = `Tocando agora: **${player.currentTrack.title}**\n\nFila:\n`;
-            if (player.queue.length === 0) {
-              text += '_Nenhuma outra música na fila._';
-            } else {
-              player.queue.forEach((t, i) => {
-                text += `${i + 1}. **${t.title}** (Pedido por: ${t.requestedBy})\n`;
-              });
-            }
-            botReply = text;
-          }
-          break;
+    case '/queue':
+    case '/q':
+      const player = musicBot.getPlayer(targetVoiceChannel);
+      if (!player.currentTrack) {
+        botReply = 'Nenhuma faixa sendo reproduzida no momento.';
+      } else {
+        let text = `Tocando agora: **${player.currentTrack.title}**\n\nFila:\n`;
+        if (player.queue.length === 0) {
+          text += '_Nenhuma outra música na fila._';
+        } else {
+          player.queue.forEach((t, i) => {
+            text += `${i + 1}. **${t.title}** (Pedido por: ${t.requestedBy})\n`;
+          });
+        }
+        botReply = text;
+      }
+      break;
 
-        case '/help':
-          botReply = `**Comandos do PulseCord:**
+    case '/help':
+      botReply = `**Comandos do PulseCord:**
 - \`/play <busca ou link>\` - Toca música do YouTube, Spotify, SoundCloud ou estações
 - \`/pause\` / \`/resume\` - Pausa ou despausa a reprodução
 - \`/skip\` - Pula para a próxima faixa
 - \`/queue\` - Exibe as faixas na fila
 - \`/stop\` - Para e limpa a fila`;
-          break;
-      }
+      break;
+  }
 
-      if (botReply) {
-        const replyMsg = {
-          id: `msg-bot-${Date.now()}`,
-          channelId,
-          author: {
-            id: 'bot-music',
-            username: 'MusicBot',
-            avatar: 'MB',
-            avatarColor: 'from-amber-500 to-orange-600',
-            roleColor: '#f59e0b',
-            roleName: 'MUSIC BOT',
-            isBot: true
-          },
-          content: botReply,
-          attachments: [],
-          timestamp: new Date().toISOString(),
-          reactions: []
-        };
+  if (botReply) {
+    const replyMsg = {
+      id: `msg-bot-${Date.now()}`,
+      channelId,
+      author: {
+        id: 'bot-music',
+        username: 'MusicBot',
+        avatar: 'MB',
+        avatarColor: 'from-amber-500 to-orange-600',
+        roleColor: '#f59e0b',
+        roleName: 'MUSIC BOT',
+        isBot: true
+      },
+      content: botReply,
+      attachments: [],
+      timestamp: new Date().toISOString(),
+      reactions: []
+    };
 
-        if (!messageHistory.has(channelId)) {
-          messageHistory.set(channelId, []);
-        }
-        messageHistory.get(channelId).push(replyMsg);
-        storage.saveData(registeredUsers, servers, messageHistory);
-
-        io.emit('new-message', replyMsg);
-      }
+    if (!messageHistory.has(channelId)) {
+      messageHistory.set(channelId, []);
     }
+    messageHistory.get(channelId).push(replyMsg);
+    storage.saveData(registeredUsers, servers, messageHistory);
+
+    io.emit('new-message', replyMsg);
+  }
+}

@@ -47,10 +47,7 @@ export class WebRTCManager {
 
   getOrCreatePeerState(targetSocketId) {
     if (!this.peerStates.has(targetSocketId)) {
-      // Deterministic politeness: the socket with lexicographically smaller ID is polite
-      const isPolite = this.socket?.id ? this.socket.id > targetSocketId : false;
       this.peerStates.set(targetSocketId, {
-        isPolite,
         makingOffer: false,
         ignoreOffer: false,
         isSettingRemoteAnswerPending: false,
@@ -58,6 +55,103 @@ export class WebRTCManager {
       });
     }
     return this.peerStates.get(targetSocketId);
+  }
+
+  isPeerPolite(targetSocketId) {
+    const myId = this.socket?.id || '';
+    return myId > targetSocketId;
+  }
+
+  async handleOffer(senderSocketId, offer) {
+    const pc = this.createPeerConnection(senderSocketId);
+    const state = this.getOrCreatePeerState(senderSocketId);
+    const isPolite = this.isPeerPolite(senderSocketId);
+
+    try {
+      const readyForOffer = !state.makingOffer && (pc.signalingState === 'stable' || state.isSettingRemoteAnswerPending);
+      const offerCollision = !readyForOffer;
+
+      state.ignoreOffer = !isPolite && offerCollision;
+      if (state.ignoreOffer) {
+        console.warn(`[WebRTC] Glare with ${senderSocketId}: Impolite peer ignoring colliding offer.`);
+        return;
+      }
+
+      if (offerCollision && pc.signalingState !== 'stable') {
+        try {
+          await pc.setLocalDescription({ type: 'rollback' });
+        } catch (e) {
+          console.warn('[WebRTC] Rollback error:', e);
+        }
+      }
+
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+      // Process any queued ICE candidates
+      const queue = this.iceCandidateQueues.get(senderSocketId) || [];
+      while (queue.length > 0) {
+        const candidate = queue.shift();
+        await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+      }
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      this.socket.emit('webrtc-answer', {
+        targetSocketId: senderSocketId,
+        answer: pc.localDescription
+      });
+    } catch (err) {
+      console.error(`[WebRTC] Error handling offer from ${senderSocketId}:`, err);
+    }
+  }
+
+  async handleAnswer(senderSocketId, answer) {
+    const pc = this.peers.get(senderSocketId);
+    const state = this.getOrCreatePeerState(senderSocketId);
+
+    if (pc && pc.signalingState !== 'closed') {
+      try {
+        if (state.ignoreOffer) {
+          return;
+        }
+        state.isSettingRemoteAnswerPending = true;
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        state.isSettingRemoteAnswerPending = false;
+
+        // Process any queued ICE candidates
+        const queue = this.iceCandidateQueues.get(senderSocketId) || [];
+        while (queue.length > 0) {
+          const candidate = queue.shift();
+          await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+        }
+      } catch (err) {
+        state.isSettingRemoteAnswerPending = false;
+        console.error(`[WebRTC] Error handling answer from ${senderSocketId}:`, err);
+      }
+    }
+  }
+
+  async handleIceCandidate(senderSocketId, candidate) {
+    const pc = this.peers.get(senderSocketId);
+    const state = this.getOrCreatePeerState(senderSocketId);
+
+    try {
+      if (!pc || !pc.remoteDescription || !pc.remoteDescription.type) {
+        if (!this.iceCandidateQueues.has(senderSocketId)) {
+          this.iceCandidateQueues.set(senderSocketId, []);
+        }
+        this.iceCandidateQueues.get(senderSocketId).push(candidate);
+        return;
+      }
+
+      if (state.ignoreOffer) return;
+      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (err) {
+      if (!state.ignoreOffer) {
+        console.warn(`[WebRTC] Error adding ICE candidate from ${senderSocketId}:`, err);
+      }
+    }
   }
 
   setLocalAudioStream(stream) {
@@ -293,81 +387,7 @@ export class WebRTCManager {
     }
   }
 
-  async handleOffer(senderSocketId, offer) {
-    const pc = this.createPeerConnection(senderSocketId);
-    const state = this.getOrCreatePeerState(senderSocketId);
 
-    try {
-      const offerCollision = state.makingOffer || pc.signalingState !== 'stable';
-      state.ignoreOffer = !state.isPolite && offerCollision;
-
-      if (state.ignoreOffer) {
-        console.warn(`[WebRTC] Glare detected with ${senderSocketId}: Ignoring colliding offer (impolite peer).`);
-        return;
-      }
-
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-      // Process any queued ICE candidates
-      const queue = this.iceCandidateQueues.get(senderSocketId) || [];
-      while (queue.length > 0) {
-        const candidate = queue.shift();
-        await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.warn);
-      }
-
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-
-      this.socket.emit('webrtc-answer', {
-        targetSocketId: senderSocketId,
-        answer: pc.localDescription
-      });
-    } catch (err) {
-      console.error(`[WebRTC] Error handling offer from ${senderSocketId}:`, err);
-    }
-  }
-
-  async handleAnswer(senderSocketId, answer) {
-    const pc = this.peers.get(senderSocketId);
-    const state = this.getOrCreatePeerState(senderSocketId);
-
-    if (pc && pc.signalingState !== 'closed') {
-      try {
-        if (state.ignoreOffer) {
-          return;
-        }
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-
-        // Process any queued ICE candidates
-        const queue = this.iceCandidateQueues.get(senderSocketId) || [];
-        while (queue.length > 0) {
-          const candidate = queue.shift();
-          await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.warn);
-        }
-      } catch (err) {
-        console.error(`[WebRTC] Error handling answer from ${senderSocketId}:`, err);
-      }
-    }
-  }
-
-  async handleIceCandidate(senderSocketId, candidate) {
-    const pc = this.peers.get(senderSocketId);
-    const state = this.getOrCreatePeerState(senderSocketId);
-
-    if (pc && pc.remoteDescription && pc.remoteDescription.type) {
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (err) {
-        if (!state.ignoreOffer) {
-          console.warn(`[WebRTC] Error adding ICE candidate from ${senderSocketId}:`, err);
-        }
-      }
-    } else {
-      const queue = this.iceCandidateQueues.get(senderSocketId) || [];
-      queue.push(candidate);
-      this.iceCandidateQueues.set(senderSocketId, queue);
-    }
-  }
 
   removePeer(targetSocketId) {
     const pc = this.peers.get(targetSocketId);
